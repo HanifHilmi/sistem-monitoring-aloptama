@@ -1,8 +1,9 @@
 # SIMOLA - production and staging (one Coolify application each, PRD §12.2/12.3).
 # Every value comes from the environment (see .env.example); nothing secret or host-specific is stored here.
-# Deploy ONLY through Coolify. Do not declare `networks:` here: Coolify attaches its own resource network
-# (10.0.x.0/24 on this host). Self-declared networks fall back to Docker's 172.x/16 pool and can hijack
-# intranet routes on the host.
+# Deploy ONLY through Coolify. Do not declare `networks:` here: Coolify attaches its own resource network.
+# Coolify creates that network without a subnet, so its range comes from the Docker daemon's address pools:
+# the host must set `default-address-pools` to a range that cannot overlap the intranet (runbook, H-0),
+# otherwise Docker's built-in 172.x/16 pool is used and can hijack intranet routes.
 # Host folders use the long volume syntax with `${VAR:-default}`: that is the form Coolify resolves from the
 # application's variables (a short "${VAR}:/path" is taken as a named volume, and "${VAR:?msg}" breaks its
 # parser). Defaults are relative, i.e. inside Coolify's folder for this application, so a missing variable

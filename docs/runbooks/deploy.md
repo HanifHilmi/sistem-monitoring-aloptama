@@ -3,11 +3,18 @@
 Every step below changes shared infrastructure. Do each one only with the Product Owner's go-ahead.
 
 **Rules:** SIMOLA is deployed only by Coolify (UI or Coolify API/MCP); never `docker compose up` or `docker run` by hand on the
-server. The compose file declares no networks of its own, so Coolify's resource network (10.0.x.0/24 here) is used;
-self-declared networks can be given 172.x/16 subnets that hijack intranet routes.
+server. The compose file declares no networks of its own; Coolify creates one network per application **without a
+subnet**, so its range comes from the Docker daemon. Docker's built-in pools are 172.17–31.x/16 and 192.168.x/20, which
+can hijack intranet routes: do H-0 before the first deploy.
 
 ## One-time host preparation (PRD §12.9)
 
+0. **Docker address pools (H-0):** in `/etc/docker/daemon.json` add
+   `"default-address-pools": [{"base": "10.0.0.0/16", "size": 24}]` (keep the existing keys), then restart Docker at a
+   quiet time (`sudo systemctl restart docker`; every container on the host restarts). Only networks created afterwards
+   use the new range. Before every deploy, start or restart run `deploy/check-network-safety.sh` on the host (with
+   the site's intranet ranges in `SIMOLA_FORBIDDEN_NETS`, never written in this repository) and do not continue unless
+   it passes; after the deploy, check `ip route` shows no new 172.16.0.0/12 or 192.168.0.0/16 route.
 1. **Read-only CDP shares (H-1):** add `ro` to the two CIFS lines in `/etc/fstab`, then remount (`sudo umount /mnt/<cdp1-share-mount> && sudo mount /mnt/<cdp1-share-mount>`, and the same for CDP2). Check with `mount | grep cdp`: it must show `ro`.
 2. **Data directories (H-2):**
    ```bash
