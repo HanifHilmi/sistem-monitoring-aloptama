@@ -3,6 +3,10 @@
 # Deploy ONLY through Coolify. Do not declare `networks:` here: Coolify attaches its own resource network
 # (10.0.x.0/24 on this host). Self-declared networks fall back to Docker's 172.x/16 pool and can hijack
 # intranet routes on the host.
+# Host folders use the long volume syntax with `${VAR:-default}`: that is the form Coolify resolves from the
+# application's variables (a short "${VAR}:/path" is taken as a named volume, and "${VAR:?msg}" breaks its
+# parser). Defaults are relative, i.e. inside Coolify's folder for this application, so a missing variable
+# can never point two environments at the same data.
 
 x-backend-env: &backend-env
   SIMOLA_ENVIRONMENT: ${SIMOLA_ENVIRONMENT:?set production or staging}
@@ -21,7 +25,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-simola}
       TZ: UTC
     volumes:
-      - ${SIMOLA_PG_DATA_DIR:?host directory for database files}:/var/lib/postgresql/data
+      - type: bind
+        source: ${SIMOLA_PG_DATA_DIR:-./data/pg}
+        target: /var/lib/postgresql/data
     shm_size: 256m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -70,9 +76,20 @@ services:
       SIMOLA_CDP_PATHS: '{"CDP1": "/mnt/cdp1", "CDP2": "/mnt/cdp2"}'
       SIMOLA_CDP_ADDRESSES: ${SIMOLA_CDP_ADDRESSES:?JSON map of CDP code to probe address}
     volumes:
-      # Read-only: SIMOLA never writes to AWOS shares (NFR-SEC-006/009).
-      - ${SIMOLA_CDP1_SHARE:?host mount of the CDP1 log share}:/mnt/cdp1:ro
-      - ${SIMOLA_CDP2_SHARE:?host mount of the CDP2 log share}:/mnt/cdp2:ro
+      # Read-only: SIMOLA never writes to AWOS shares (NFR-SEC-006/009). The shares are mounted by the
+      # host; nothing may create or change those paths, so a missing share fails the deploy instead.
+      - type: bind
+        source: ${SIMOLA_CDP1_SHARE:-./cdp-share-not-set/cdp1}
+        target: /mnt/cdp1
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${SIMOLA_CDP2_SHARE:-./cdp-share-not-set/cdp2}
+        target: /mnt/cdp2
+        read_only: true
+        bind:
+          create_host_path: false
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -113,7 +130,9 @@ services:
       BACKUP_UPLOAD_CMD: ${SIMOLA_BACKUP_UPLOAD_CMD:-}
       BACKUP_RUN_ON_START: ${SIMOLA_BACKUP_RUN_ON_START:-false}
     volumes:
-      - ${SIMOLA_BACKUP_DIR:-./backups}:/backups
+      - type: bind
+        source: ${SIMOLA_BACKUP_DIR:-./data/backups}
+        target: /backups
     depends_on:
       migrate:
         condition: service_completed_successfully
