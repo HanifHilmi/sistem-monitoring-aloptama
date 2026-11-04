@@ -89,6 +89,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -t simola-backend:ci backend
       - run: docker build -t simola-web:ci frontend
+      - run: docker build -t simola-backup:ci deploy/backup
 
   # Deploys are triggered from CI (not by Coolify's push webhook) so untested code cannot reach an
   # environment. Enable once the Coolify apps exist and their deploy webhooks are stored as secrets.

@@ -30,7 +30,7 @@ For each of **simola-staging** (branch `staging`) and **simola-production** (bra
 4. Environment variables: copy `.env.example` and set real values.
    - Production: `SIMOLA_ENVIRONMENT=production`, `SIMOLA_PG_DATA_DIR=/var/lib/simola/production/pg`, `SIMOLA_BACKUP_DIR=/var/lib/simola/production/backups`, `SIMOLA_BACKUP_ENABLED=true`, `SIMOLA_BACKUP_EXPECTED=true`.
    - Staging: smaller memory limits, `SIMOLA_BACKUP_ENABLED=false`.
-   - Use different passwords per environment, generated with `openssl rand -base64 32`.
+   - Use different passwords per environment, generated with `openssl rand -hex 24` (hex only: `/`, `+` or `@` would break the database URL).
 5. Deploy. Startup order is `db` → `migrate` (exits 0) → `api`, `worker`, `backup` → `web`.
 
 ## Verify after every deploy

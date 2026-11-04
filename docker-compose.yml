@@ -98,9 +98,8 @@ services:
     mem_limit: 64m
 
   backup:
-    image: timescale/timescaledb:2.30.2-pg17
+    build: ./deploy/backup
     restart: unless-stopped
-    entrypoint: ["/bin/sh", "/opt/simola/backup.sh"]
     environment:
       PGHOST: db
       PGUSER: ${POSTGRES_USER:-simola_owner}
@@ -114,7 +113,6 @@ services:
       BACKUP_UPLOAD_CMD: ${SIMOLA_BACKUP_UPLOAD_CMD:-}
       BACKUP_RUN_ON_START: ${SIMOLA_BACKUP_RUN_ON_START:-false}
     volumes:
-      - ./deploy/backup/backup.sh:/opt/simola/backup.sh:ro
       - ${SIMOLA_BACKUP_DIR:-./backups}:/backups
     depends_on:
       migrate:
