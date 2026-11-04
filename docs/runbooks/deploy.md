@@ -2,6 +2,10 @@
 
 Every step below changes shared infrastructure. Do each one only with the Product Owner's go-ahead.
 
+**Rules:** SIMOLA is deployed only by Coolify (UI or Coolify API/MCP); never `docker compose up` or `docker run` by hand on the
+server. The compose file declares no networks of its own, so Coolify's resource network (10.0.x.0/24 here) is used;
+self-declared networks can be given 172.x/16 subnets that hijack intranet routes.
+
 ## One-time host preparation (PRD §12.9)
 
 1. **Read-only CDP shares (H-1):** add `ro` to the two CIFS lines in `/etc/fstab`, then remount (`sudo umount /mnt/<cdp1-share-mount> && sudo mount /mnt/<cdp1-share-mount>`, and the same for CDP2). Check with `mount | grep cdp`: it must show `ro`.

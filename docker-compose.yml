@@ -1,5 +1,8 @@
 # SIMOLA - production and staging (one Coolify application each, PRD §12.2/12.3).
 # Every value comes from the environment (see .env.example); nothing secret or host-specific is stored here.
+# Deploy ONLY through Coolify. Do not declare `networks:` here: Coolify attaches its own resource network
+# (10.0.x.0/24 on this host). Self-declared networks fall back to Docker's 172.x/16 pool and can hijack
+# intranet routes on the host.
 
 x-backend-env: &backend-env
   SIMOLA_ENVIRONMENT: ${SIMOLA_ENVIRONMENT:?set production or staging}
@@ -27,7 +30,6 @@ services:
       retries: 10
       start_period: 30s
     mem_limit: ${SIMOLA_DB_MEM:-1536m}
-    networks: [internal]
     # No "ports:" - the database is never published on the host (NFR-SEC-001).
 
   migrate:
@@ -42,7 +44,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks: [internal]
 
   api:
     build: ./backend
@@ -59,7 +60,6 @@ services:
       retries: 3
       start_period: 15s
     mem_limit: ${SIMOLA_API_MEM:-384m}
-    networks: [internal]
 
   worker:
     build: ./backend
@@ -83,7 +83,6 @@ services:
       retries: 3
       start_period: 60s
     mem_limit: ${SIMOLA_WORKER_MEM:-512m}
-    networks: [internal]
 
   web:
     build: ./frontend
@@ -97,8 +96,6 @@ services:
       timeout: 5s
       retries: 3
     mem_limit: 64m
-    networks: [internal]
-    # Coolify attaches its proxy network to this service via the domain set in the Coolify UI.
 
   backup:
     image: timescale/timescaledb:2.30.2-pg17
@@ -123,7 +120,4 @@ services:
       migrate:
         condition: service_completed_successfully
     mem_limit: 256m
-    networks: [internal]
 
-networks:
-  internal: {}

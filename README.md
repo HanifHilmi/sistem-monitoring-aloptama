@@ -30,21 +30,29 @@ Requirements: [`PRD.md`](PRD.md) (approved v1.0). Decisions: [`QUESTIONS.md`](QU
 
 ## Development
 
+Unit tests and checks run locally. Integration tests (they need TimescaleDB) run in GitHub Actions CI.
+**Never start the stack with `docker compose up` or `docker run` on the server; deploy only through Coolify**
+([docs/runbooks/deploy.md](docs/runbooks/deploy.md)).
+
 ```bash
-# Backend (needs a TimescaleDB for integration tests)
+# Backend
 cd backend
 uv sync
-uv run ruff check simola tests && uv run mypy
-SIMOLA_TEST_DATABASE_URL=postgresql+asyncpg://user:pass@127.0.0.1:55432/simola_test uv run pytest
+uv run ruff check simola tests && uv run mypy && uv run pytest tests/unit
 
 # Frontend
 cd frontend
 npm ci
 npm run lint && npm run typecheck && npm run check:i18n && npm test
-npm run dev        # proxies /api to http://127.0.0.1:8000
+
+# Look at the UI with generated sample data (no backend, no Docker) on http://127.0.0.1:5173
+npm run dev:sample
 ```
 
-Operator commands (inside the `worker` container, or with `uv run` locally):
+Sample-data mode (`VITE_MOCK=1`) answers every `/api/v1` call in the browser with deterministic,
+made-up figures. It is only for design work and is never part of a production build.
+
+Operator commands (in the Coolify terminal of the `worker` container):
 
 ```text
 simola migrate                                  # applies migrations; creates/updates the app DB role
