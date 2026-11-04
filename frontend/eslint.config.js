@@ -19,6 +19,7 @@ export default tseslint.config(
       // Formatting is owned by Prettier.
       'vue/html-indent': 'off',
       'vue/html-closing-bracket-newline': 'off',
+      'vue/multiline-html-element-content-newline': 'off',
     },
   },
 )

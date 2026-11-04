@@ -175,6 +175,15 @@ export interface SeriesField {
   mandatory: boolean
   series?: NumericSeries
   text?: TextSeries
+  stats: FieldStats
+}
+
+export interface FieldStats {
+  last: { time: string; value: number | string } | null
+  count: number
+  min?: number | null
+  max?: number | null
+  mean?: number | null
 }
 
 export interface WindSummary {
@@ -196,4 +205,48 @@ export interface SeriesResponse {
 export interface DisplaySettings {
   color_thresholds: { good: number; warning: number }
   grace_minutes: number
+}
+
+export type MatrixBucket = 'day' | 'week' | 'month'
+
+export interface MatrixCell {
+  valid?: number
+  expected?: number
+  missing?: number
+  pct: number | null
+}
+
+export interface MatrixRow {
+  key: string
+  kind: 'sla' | 'cdp' | 'ola' | 'site' | 'component'
+  cdp?: string
+  site?: string
+  type?: string
+  is_dcp?: boolean
+  cells: MatrixCell[]
+  total: MatrixCell
+}
+
+export interface MatrixResponse {
+  system: string
+  period: { from: string; to: string; evaluated_to: string; as_of: string; open: boolean }
+  bucket: MatrixBucket
+  buckets: { start: string; end: string }[]
+  rows: MatrixRow[]
+}
+
+export interface MinuteInterval {
+  start: string
+  end: string
+  minutes: number
+  cause: 'field_missing' | 'no_data'
+}
+
+export interface MinutesResponse {
+  scope: string
+  day: string
+  codes: string
+  valid: number
+  expected: number
+  intervals: MinuteInterval[]
 }

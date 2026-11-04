@@ -1,5 +1,8 @@
 import type {
   CalendarResponse,
+  MatrixBucket,
+  MatrixResponse,
+  MinutesResponse,
   DisplaySettings,
   HistoryResponse,
   KpiResponse,
@@ -60,5 +63,9 @@ export const api = {
       `/systems/${encodeURIComponent(code)}/sites/${encodeURIComponent(site)}/components/${encodeURIComponent(component)}/series`,
       period(from, to),
     ),
+  matrix: (code: string, from: Date, to: Date, bucket: MatrixBucket) =>
+    get<MatrixResponse>(`/systems/${encodeURIComponent(code)}/matrix`, { ...period(from, to), bucket }),
+  minutes: (code: string, day: string, scope: string) =>
+    get<MinutesResponse>(`/systems/${encodeURIComponent(code)}/minutes`, { day, scope }),
   internalHealth: () => get<Record<string, unknown>>('/internal/health'),
 }

@@ -1,60 +1,141 @@
 @import 'tailwindcss';
 
-/* Design tokens (UX-001). Components and chart options read colours from here, never hard-coded. */
-/* "static" emits every token, including ones only read by charts at runtime. */
-@theme static {
-  --color-bg: #0b1220;
-  --color-panel: #111a2e;
-  --color-panel-2: #16213a;
-  --color-border: #263556;
-  --color-text: #e2e8f0;
-  --color-muted: #a3b1c6;
-  --color-faint: #6b7a93;
-  --color-good: #34d399;
-  --color-warn: #fbbf24;
-  --color-bad: #f87171;
-  --color-info: #60a5fa;
-  --color-neutral: #a3b1c6;
-  --color-accent: #38bdf8;
-  --color-series-1: #38bdf8;
-  --color-series-2: #a78bfa;
-  --color-series-3: #34d399;
-  --color-series-4: #fbbf24;
-  --color-series-5: #f472b6;
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+/*
+ * SIMOLA design tokens (UX-001). Two themes, chosen by the device (prefers-color-scheme) unless the user
+ * picks one (html[data-theme]). Components use the Tailwind names below; charts read the same variables.
+ */
+:root {
+  --s-bg: #f4f5f7;
+  --s-surface: #ffffff;
+  --s-sunken: #eef0f3;
+  --s-line: #dde1e7;
+  --s-line-strong: #c3cad4;
+  --s-ink: #111722;
+  --s-ink-2: #4c5667;
+  --s-ink-3: #7b8597;
+  --s-accent: #1f63d6;
+  --s-accent-soft: #e5eefc;
+  /* availability levels: full = no minute lost; good / warn / bad follow the display thresholds */
+  --s-full: #138a46;
+  --s-good: #8fd1a8;
+  --s-warn: #f2b02c;
+  --s-bad: #df4a40;
+  --s-empty: #e7eaee;
+  --s-ok: #138a46;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --s-bg: #0c1016;
+    --s-surface: #131922;
+    --s-sunken: #0f141b;
+    --s-line: #232c38;
+    --s-line-strong: #344052;
+    --s-ink: #e6eaf0;
+    --s-ink-2: #a3aebf;
+    --s-ink-3: #6f7b8e;
+    --s-accent: #5d9bff;
+    --s-accent-soft: #15233a;
+    --s-full: #3cc777;
+    --s-good: #26704a;
+    --s-warn: #d49a1d;
+    --s-bad: #ec5a4f;
+    --s-empty: #1a212b;
+    --s-ok: #34b46a;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --s-bg: #0c1016;
+  --s-surface: #131922;
+  --s-sunken: #0f141b;
+  --s-line: #232c38;
+  --s-line-strong: #344052;
+  --s-ink: #e6eaf0;
+  --s-ink-2: #a3aebf;
+  --s-ink-3: #6f7b8e;
+  --s-accent: #5d9bff;
+  --s-accent-soft: #15233a;
+  --s-full: #3cc777;
+  --s-good: #26704a;
+  --s-warn: #d49a1d;
+  --s-bad: #ec5a4f;
+  --s-empty: #1a212b;
+  --s-ok: #34b46a;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--s-bg);
+  --color-surface: var(--s-surface);
+  --color-sunken: var(--s-sunken);
+  --color-line: var(--s-line);
+  --color-line-strong: var(--s-line-strong);
+  --color-ink: var(--s-ink);
+  --color-ink-2: var(--s-ink-2);
+  --color-ink-3: var(--s-ink-3);
+  --color-accent: var(--s-accent);
+  --color-accent-soft: var(--s-accent-soft);
+  --color-full: var(--s-full);
+  --color-good: var(--s-good);
+  --color-warn: var(--s-warn);
+  --color-bad: var(--s-bad);
+  --color-empty: var(--s-empty);
+  --color-ok: var(--s-ok);
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
 }
 
 @layer base {
   html {
-    background: var(--color-bg);
-    color: var(--color-text);
+    font-size: 14px;
+    background: var(--s-bg);
+    color: var(--s-ink);
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
     -webkit-text-size-adjust: 100%;
+  }
+  /* Wall screens: everything scales with the screen (text sizes are in rem) and the board fits one
+     screen without scrolling, limited by whichever of width or height runs out first. */
+  html.wall {
+    font-size: clamp(12px, min(1.1vw, 1.7vh), 28px);
   }
   body {
     min-height: 100vh;
   }
   :focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+    outline: 2px solid var(--s-accent);
+    outline-offset: 1px;
+  }
+  button {
+    cursor: pointer;
   }
 }
 
 @layer components {
-  .panel {
-    @apply rounded-lg border border-border bg-panel p-4;
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
-  .btn {
-    @apply inline-flex items-center gap-1 rounded-md border border-border bg-panel-2 px-2.5 py-1.5 text-sm text-text hover:border-accent disabled:opacity-50;
+  .eyebrow {
+    @apply text-[0.6875rem] font-medium tracking-wide text-ink-3 uppercase;
   }
-  .btn-ghost {
-    @apply inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-muted hover:bg-panel-2 hover:text-text;
+  .seg {
+    @apply inline-flex rounded-md border border-line bg-surface p-0.5;
   }
-  .label {
-    @apply text-xs font-semibold tracking-wide text-muted uppercase;
+  .seg > button {
+    @apply rounded px-2.5 py-1 text-xs text-ink-2 hover:text-ink;
   }
-  .input {
-    @apply rounded-md border border-border bg-panel-2 px-2 py-1.5 text-sm text-text;
+  .seg > button[aria-pressed='true'] {
+    @apply bg-sunken font-medium text-ink;
+  }
+  .icon-btn {
+    @apply inline-flex h-7 min-w-7 items-center justify-center rounded-md border border-line bg-surface px-1.5 text-xs text-ink-2 hover:border-line-strong hover:text-ink;
+  }
+  .field {
+    @apply rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink;
   }
 }

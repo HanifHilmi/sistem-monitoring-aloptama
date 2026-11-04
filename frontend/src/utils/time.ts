@@ -166,3 +166,35 @@ export function fromUtcInput(v: string): Date | null {
   const d = new Date(`${v}:00Z`)
   return Number.isNaN(d.getTime()) ? null : d
 }
+
+// ---- board buckets -------------------------------------------------------------------------------
+export type Bucket = 'day' | 'week' | 'month'
+
+/** Column granularity of the performance board for a period. */
+export function bucketFor(p: Period): Bucket {
+  if (p.kind === 'year') return 'month'
+  if (p.kind === 'quarter') return 'week'
+  const days = (p.to.getTime() - p.from.getTime()) / DAY
+  if (days <= 31) return 'day'
+  if (days <= 120) return 'week'
+  return 'month'
+}
+
+/** ISO date (YYYY-MM-DD) of a Date in UTC. */
+export function isoDay(d: Date): string {
+  return formatUtcDate(d)
+}
+
+/** ISO week number (UTC). */
+export function isoWeek(d: Date): number {
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+  const day = (t.getUTCDay() + 6) % 7
+  t.setUTCDate(t.getUTCDate() - day + 3)
+  const firstThursday = new Date(Date.UTC(t.getUTCFullYear(), 0, 4))
+  return (
+    1 +
+    Math.round(
+      ((t.getTime() - firstThursday.getTime()) / DAY - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7,
+    )
+  )
+}
