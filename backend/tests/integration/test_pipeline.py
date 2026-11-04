@@ -250,3 +250,40 @@ async def test_api_figures_and_public_shaping(engine: AsyncEngine, loaded) -> No
         assert {f["code"] for f in series["fields"]} == {"WS", "WD", "WGS", "WGD"} and "wind" in series
         ready = await client.get("/ready")
         assert ready.status_code == 200
+
+
+async def test_matrix_and_minutes_match_kpis(engine: AsyncEngine, loaded) -> None:  # type: ignore[no-untyped-def]
+    """Board matrix and minute view agree with the KPI engine for the same day (FR-KPI-001, FR-DSH-009)."""
+    clear_registry_cache()
+    transport = httpx.ASGITransport(app=create_app())
+    q = "from=2026-11-03T00:00:00Z&to=2026-11-04T00:00:00Z"
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        k = (await client.get(f"/api/v1/systems/WIDN-CAT3/kpis?{q}")).json()
+        m = (await client.get(f"/api/v1/systems/WIDN-CAT3/matrix?{q}&bucket=day")).json()
+        rows = {r["key"]: r for r in m["rows"]}
+        assert rows["sla"]["total"] == k["sla"]
+        assert rows["sla"]["cells"][0]["valid"] == 1436
+        atrh = next(
+            c for s in k["sites"] if s["slug"] == "04" for c in s["components"] if c["type"] == "ATRH"
+        )
+        assert rows["component:04:ATRH"]["total"] == atrh["availability"]
+
+        mins = (
+            await client.get("/api/v1/systems/WIDN-CAT3/minutes?day=2026-11-03&scope=component:04:ATRH")
+        ).json()
+        assert len(mins["codes"]) == 1440
+        assert mins["valid"] == atrh["availability"]["valid"]
+        assert sum(r["minutes"] for r in mins["intervals"]) == mins["expected"] - mins["valid"]
+
+        cdp1 = (await client.get("/api/v1/systems/WIDN-CAT3/minutes?day=2026-11-03&scope=cdp:CDP1")).json()
+        assert cdp1["codes"].count("n") == 10  # CDP1's file lacks exactly 10 minutes that day
+
+        bad = await client.get("/api/v1/systems/WIDN-CAT3/minutes?day=2026-11-03&scope=component:04:NOPE")
+        assert bad.status_code == 404
+
+        series = (await client.get(f"/api/v1/systems/WIDN-CAT3/sites/04/components/ATRH/series?{q}")).json()
+        temp = next(f for f in series["fields"] if f["code"] == "TEMP")
+        assert (
+            temp["stats"]["count"] > 1400
+            and temp["stats"]["min"] <= temp["stats"]["mean"] <= temp["stats"]["max"]
+        )

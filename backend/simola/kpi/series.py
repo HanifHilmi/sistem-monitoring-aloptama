@@ -128,6 +128,25 @@ def wind_summary(
     }
 
 
+def field_stats(times: list[datetime], values: list[Any], *, numeric: bool) -> dict[str, Any]:
+    """Latest value plus min/max/mean over the raw 1-minute data of the window (not the downsampled points)."""
+    last = next(
+        ((t, v) for t, v in zip(reversed(times), reversed(values), strict=True) if v is not None), None
+    )
+    out: dict[str, Any] = {
+        "last": {"time": last[0], "value": last[1]} if last else None,
+        "count": sum(1 for v in values if v is not None),
+    }
+    if numeric:
+        nums = [float(v) for v in values if v is not None]
+        out.update(
+            min=min(nums) if nums else None,
+            max=max(nums) if nums else None,
+            mean=round(sum(nums) / len(nums), 3) if nums else None,
+        )
+    return out
+
+
 async def component_window_availability(
     conn: AsyncConnection, system: System, comp: Component, start: datetime, end: datetime, now: datetime
 ) -> dict[str, Any]:
@@ -199,6 +218,7 @@ async def component_series(
             entry["text"] = text_series(times, vals)
         else:
             entry["series"] = numeric_series(times, vals, window_minutes)
+        entry["stats"] = field_stats(times, vals, numeric=not f.is_text)
         out_fields.append(entry)
     result: dict[str, Any] = {
         "fields": out_fields,

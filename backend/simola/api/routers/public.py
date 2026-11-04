@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from simola.api.deps import ApiError, parse_period, system_or_404, systems
 from simola.core.db import connection
 from simola.core.timeutil import day_start
-from simola.kpi import engine, series, status
+from simola.kpi import engine, matrix, minutes, series, status
 from simola.registry import System, get_setting
 
 router = APIRouter(prefix="/api/v1", tags=["public"])
@@ -239,3 +239,39 @@ async def get_series(
         "to": end,
         **data,
     }
+
+
+@router.get("/systems/{code}/matrix")
+async def get_matrix(
+    code: str,
+    from_: str = Query(alias="from"),
+    to: str = Query(),
+    bucket: Literal["day", "week", "month"] = "day",
+    conn: AsyncConnection = Depends(connection),
+) -> dict[str, Any]:
+    """Availability per row (SLA, CDPs, OLA, sites, components) and period bucket (performance board)."""
+    system = await system_or_404(conn, code)
+    start, end = parse_period(from_, to, max_span=MAX_KPI_SPAN)
+    now = _now()
+    days, a, b = await engine.daily_counts(conn, system, start, end, now)
+    first, last = start.date(), (end - timedelta(minutes=1)).date()
+    return {
+        "system": system.code,
+        "period": {"from": start, "to": end, "evaluated_to": max(a, b), "as_of": now, "open": end > b},
+        **matrix.build_matrix(system, days, first, last, bucket),
+    }
+
+
+@router.get("/systems/{code}/minutes")
+async def get_minutes(
+    code: str,
+    day: date,
+    scope: str = Query(pattern=r"^(sla|cdp:[A-Za-z0-9_-]+|component:[a-z0-9-]+:[A-Z0-9]+)$"),
+    conn: AsyncConnection = Depends(connection),
+) -> dict[str, Any]:
+    """Minute-by-minute status of one scope for one UTC day, with its unavailable intervals (FR-DSH-009)."""
+    system = await system_or_404(conn, code)
+    try:
+        return await minutes.minute_status(conn, system, scope, day, _now())
+    except ValueError as exc:
+        raise ApiError(404, "scope_not_found", str(exc)) from exc
