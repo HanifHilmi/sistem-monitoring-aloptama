@@ -1,0 +1,17 @@
+# Local run on a developer host: named volumes instead of host data dirs, web on 127.0.0.1 only.
+# docker compose -p simola-local --env-file .env.local -f docker-compose.yml -f deploy/local/docker-compose.local.yml up -d --build
+services:
+  db:
+    volumes: !override
+      - simola_local_pg:/var/lib/postgresql/data
+  backup:
+    volumes: !override
+      - ./deploy/backup/backup.sh:/opt/simola/backup.sh:ro
+      - simola_local_backups:/backups
+  web:
+    ports:
+      - "127.0.0.1:18080:8080"
+
+volumes:
+  simola_local_pg: {}
+  simola_local_backups: {}

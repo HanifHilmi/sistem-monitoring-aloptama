@@ -1,0 +1,206 @@
+{
+  "app": {
+    "name": "SIMOLA",
+    "subtitle": "Sistem Monitoring ALOPTAMA",
+    "allTimesUtc": "Semua waktu dalam UTC"
+  },
+  "nav": {
+    "overview": "Ringkasan",
+    "systemDashboard": "Dasbor sistem",
+    "sites": "Lokasi",
+    "health": "Kesehatan sistem",
+    "menu": "Menu",
+    "language": "Bahasa",
+    "switchTo": "English",
+    "skip": "Langsung ke konten"
+  },
+  "common": {
+    "loading": "Memuat…",
+    "retry": "Coba lagi",
+    "error": "Data tidak dapat dimuat",
+    "noData": "Tidak ada data",
+    "noCoverage": "Tidak ada cakupan data untuk periode ini",
+    "asOf": "per {time}",
+    "soFar": "sejauh ini",
+    "validOfExpected": "{valid} dari {expected} menit valid",
+    "missingMinutes": "{n} menit hilang",
+    "stale": "Data mungkin tidak terbaru — pembaruan terakhir {time}",
+    "notMeasured": "tidak diukur",
+    "legacy": "termasuk sampel lama (v2)",
+    "close": "Tutup",
+    "apply": "Terapkan",
+    "cancel": "Batal",
+    "from": "Dari",
+    "to": "Sampai",
+    "back": "Kembali",
+    "none": "—",
+    "lastData": "Data terakhir",
+    "recalculating": "Menghitung ulang"
+  },
+  "period": {
+    "label": "Periode",
+    "day": "Hari",
+    "week": "Minggu",
+    "month": "Bulan",
+    "quarter": "Triwulan",
+    "year": "Tahun",
+    "custom": "Kustom",
+    "current": "Saat ini",
+    "previous": "Periode sebelumnya",
+    "next": "Periode berikutnya",
+    "weekOf": "Minggu {date}",
+    "invalid": "Awal harus sebelum akhir"
+  },
+  "window": {
+    "label": "Rentang grafik",
+    "custom": "Kustom",
+    "max31": "Rentang kustom maksimal 31 hari"
+  },
+  "kpi": {
+    "sla": "SLA",
+    "slaHint": "Ketersediaan sistem: menit saat minimal satu CDP menghasilkan data AWOS",
+    "ola": "OLA",
+    "olaHint": "Rata-rata ketersediaan data dari semua lokasi",
+    "pooled": "Ketersediaan gabungan",
+    "pooledHint": "Menit komponen yang valid di semua lokasi",
+    "uptime": "Uptime",
+    "uptimeHint": "Menit saat CDP ini menghasilkan data AWOS",
+    "reachability": "Keterjangkauan",
+    "reachabilityHint": "Uji jaringan — hanya informasi, tidak dipakai untuk SLA",
+    "probeCoverage": "cakupan uji {pct}",
+    "details": "Tampilkan menit"
+  },
+  "cdp": {
+    "title": "Node CDP",
+    "flow": {
+      "producing": "Menghasilkan data",
+      "not_producing": "Tidak menghasilkan data",
+      "unknown": "Tidak diketahui"
+    },
+    "reach": {
+      "reachable": "Terjangkau",
+      "unreachable": "Tidak terjangkau",
+      "degraded": "Terganggu",
+      "unknown": "Belum diuji"
+    }
+  },
+  "site": {
+    "title": "Lokasi",
+    "availability": "Ketersediaan data",
+    "componentsValid": "{n} dari {total} komponen valid",
+    "open": "Buka {site}",
+    "components": "Ketersediaan komponen",
+    "sensors": "Sensor",
+    "dcp": "Data Collection Platform (DCP)",
+    "notFound": "Lokasi tidak ditemukan"
+  },
+  "status": {
+    "valid": "Valid",
+    "field_missing": "Field hilang",
+    "no_data": "Tidak ada data",
+    "stale": "Tidak terbaru",
+    "not_in_service": "Tidak beroperasi",
+    "no_coverage": "Tidak ada cakupan",
+    "unknown": "Tidak diketahui"
+  },
+  "problems": {
+    "title": "Masalah",
+    "none": "Tidak ada masalah saat ini",
+    "count": "{n} masalah | {n} masalah",
+    "open": "Tampilkan masalah",
+    "since": "sejak {time}",
+    "severity": {
+      "critical": "Kritis",
+      "major": "Mayor",
+      "minor": "Minor",
+      "info": "Info"
+    },
+    "code": {
+      "cdp_all_no_data": "Kedua CDP tidak menghasilkan data",
+      "cdp_no_data": "{cdp} tidak menghasilkan data",
+      "cdp_unreachable": "{cdp} tidak terjangkau di jaringan",
+      "site_no_data": "{site}: tidak ada data",
+      "component_field_missing": "{site} · {component}: field wajib hilang",
+      "source_unavailable": "{cdp}: share log tidak tersedia",
+      "ingest_stale": "{cdp}: pengambilan data tertinggal ({lag} menit)",
+      "backup_overdue": "Cadangan terlambat"
+    }
+  },
+  "calendar": {
+    "title": "Kalender ketersediaan",
+    "metric": "Metrik",
+    "sla": "SLA",
+    "ola": "OLA",
+    "cdp": "Uptime {cdp}",
+    "year": "Tahun",
+    "month": "Bulan",
+    "noCoverage": "Tidak ada cakupan"
+  },
+  "history": {
+    "title": "Riwayat ketersediaan",
+    "bucket": "Kelompokkan per",
+    "day": "Hari",
+    "week": "Minggu",
+    "month": "Bulan",
+    "quarter": "Triwulan",
+    "year": "Tahun"
+  },
+  "overview": {
+    "title": "Sistem yang dipantau",
+    "slaToday": "SLA hari ini",
+    "slaMonth": "SLA bulan ini",
+    "olaMonth": "OLA bulan ini",
+    "problems": "Masalah",
+    "open": "Buka dasbor"
+  },
+  "sensor": {
+    "availability": "Ketersediaan dalam rentang",
+    "downsampled": "disederhanakan untuk tampilan",
+    "noValues": "Tidak ada nilai dalam rentang ini",
+    "windRose": "Mawar angin",
+    "maxSpeed": "Kecepatan maks.",
+    "minSpeed": "Kecepatan min.",
+    "gusts": "Kejadian hembusan",
+    "maxGust": "Hembusan maks.",
+    "gustDir": "Arah hembusan",
+    "states": "Menit per kondisi",
+    "emptyState": "(kosong)",
+    "mandatory": "wajib",
+    "speed": {
+      "calm": "Tenang < 1 kt",
+      "light": "1–10 kt",
+      "moderate": "10–20 kt",
+      "strong": "20–30 kt",
+      "gale": "≥ 30 kt"
+    }
+  },
+  "health": {
+    "title": "Kesehatan sistem",
+    "restricted": "Halaman ini menampilkan detail infrastruktur. Akses dibatasi.",
+    "version": "Versi",
+    "environment": "Lingkungan",
+    "workers": "Worker",
+    "leader": "Pemimpin",
+    "lastBeat": "Detak terakhir",
+    "database": "Ukuran database",
+    "ingestion": "Sumber data",
+    "source": "Sumber",
+    "available": "Tersedia",
+    "lag": "Tertinggal",
+    "lastRecord": "Rekaman terakhir",
+    "parseWarnings": "Peringatan parsing",
+    "oldestFile": "Berkas tertua",
+    "path": "Lokasi",
+    "error": "Galat terakhir",
+    "cdps": "Uji CDP",
+    "address": "Alamat",
+    "probeMethod": "Metode uji",
+    "backups": "Cadangan",
+    "noBackups": "Belum ada cadangan",
+    "jobs": "Pekerjaan terbaru",
+    "noJobs": "Tidak ada pekerjaan",
+    "yes": "Ya",
+    "no": "Tidak"
+  },
+  "notFound": "Halaman tidak ditemukan"
+}

@@ -1,0 +1,206 @@
+{
+  "app": {
+    "name": "SIMOLA",
+    "subtitle": "Sistem Monitoring ALOPTAMA",
+    "allTimesUtc": "All times are UTC"
+  },
+  "nav": {
+    "overview": "Overview",
+    "systemDashboard": "System dashboard",
+    "sites": "Sites",
+    "health": "System health",
+    "menu": "Menu",
+    "language": "Language",
+    "switchTo": "Bahasa Indonesia",
+    "skip": "Skip to content"
+  },
+  "common": {
+    "loading": "Loading…",
+    "retry": "Retry",
+    "error": "Could not load data",
+    "noData": "No data",
+    "noCoverage": "No data coverage for this period",
+    "asOf": "as of {time}",
+    "soFar": "so far",
+    "validOfExpected": "{valid} of {expected} minutes valid",
+    "missingMinutes": "{n} minutes missing",
+    "stale": "Data may be stale — last update {time}",
+    "notMeasured": "not measured",
+    "legacy": "includes legacy (v2) samples",
+    "close": "Close",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "from": "From",
+    "to": "To",
+    "back": "Back",
+    "none": "—",
+    "lastData": "Last data",
+    "recalculating": "Recalculating"
+  },
+  "period": {
+    "label": "Period",
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+    "quarter": "Quarter",
+    "year": "Year",
+    "custom": "Custom",
+    "current": "Current",
+    "previous": "Previous period",
+    "next": "Next period",
+    "weekOf": "Week of {date}",
+    "invalid": "Start must be before end"
+  },
+  "window": {
+    "label": "Chart window",
+    "custom": "Custom",
+    "max31": "Custom windows up to 31 days"
+  },
+  "kpi": {
+    "sla": "SLA",
+    "slaHint": "System availability: minutes in which at least one CDP produced AWOS data",
+    "ola": "OLA",
+    "olaHint": "Mean data availability of the sites",
+    "pooled": "Pooled availability",
+    "pooledHint": "Valid component-minutes over all sites",
+    "uptime": "Uptime",
+    "uptimeHint": "Minutes in which this CDP produced AWOS data",
+    "reachability": "Reachability",
+    "reachabilityHint": "Network probe — informational, never used for SLA",
+    "probeCoverage": "probe coverage {pct}",
+    "details": "Show minutes"
+  },
+  "cdp": {
+    "title": "CDP nodes",
+    "flow": {
+      "producing": "Producing data",
+      "not_producing": "Not producing data",
+      "unknown": "Unknown"
+    },
+    "reach": {
+      "reachable": "Reachable",
+      "unreachable": "Unreachable",
+      "degraded": "Degraded",
+      "unknown": "Not probed"
+    }
+  },
+  "site": {
+    "title": "Sites",
+    "availability": "Data availability",
+    "componentsValid": "{n} of {total} components valid",
+    "open": "Open {site}",
+    "components": "Component availability",
+    "sensors": "Sensors",
+    "dcp": "Data Collection Platform (DCP)",
+    "notFound": "Site not found"
+  },
+  "status": {
+    "valid": "Valid",
+    "field_missing": "Field missing",
+    "no_data": "No data",
+    "stale": "Stale",
+    "not_in_service": "Not in service",
+    "no_coverage": "No coverage",
+    "unknown": "Unknown"
+  },
+  "problems": {
+    "title": "Problems",
+    "none": "No current problems",
+    "count": "{n} problem | {n} problems",
+    "open": "Show problems",
+    "since": "since {time}",
+    "severity": {
+      "critical": "Critical",
+      "major": "Major",
+      "minor": "Minor",
+      "info": "Info"
+    },
+    "code": {
+      "cdp_all_no_data": "Both CDPs are not producing data",
+      "cdp_no_data": "{cdp} is not producing data",
+      "cdp_unreachable": "{cdp} is unreachable on the network",
+      "site_no_data": "{site}: no data",
+      "component_field_missing": "{site} · {component}: mandatory field missing",
+      "source_unavailable": "{cdp}: log share unavailable",
+      "ingest_stale": "{cdp}: ingestion is behind ({lag} min)",
+      "backup_overdue": "Backup overdue"
+    }
+  },
+  "calendar": {
+    "title": "Availability calendar",
+    "metric": "Metric",
+    "sla": "SLA",
+    "ola": "OLA",
+    "cdp": "{cdp} uptime",
+    "year": "Year",
+    "month": "Month",
+    "noCoverage": "No coverage"
+  },
+  "history": {
+    "title": "Availability history",
+    "bucket": "Group by",
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+    "quarter": "Quarter",
+    "year": "Year"
+  },
+  "overview": {
+    "title": "Monitored systems",
+    "slaToday": "SLA today",
+    "slaMonth": "SLA this month",
+    "olaMonth": "OLA this month",
+    "problems": "Problems",
+    "open": "Open dashboard"
+  },
+  "sensor": {
+    "availability": "Availability in window",
+    "downsampled": "downsampled for display",
+    "noValues": "No values in this window",
+    "windRose": "Wind rose",
+    "maxSpeed": "Max speed",
+    "minSpeed": "Min speed",
+    "gusts": "Gust events",
+    "maxGust": "Max gust",
+    "gustDir": "Gust direction",
+    "states": "State minutes",
+    "emptyState": "(none)",
+    "mandatory": "mandatory",
+    "speed": {
+      "calm": "Calm < 1 kt",
+      "light": "1–10 kt",
+      "moderate": "10–20 kt",
+      "strong": "20–30 kt",
+      "gale": "≥ 30 kt"
+    }
+  },
+  "health": {
+    "title": "System health",
+    "restricted": "This page shows infrastructure details. Access is restricted.",
+    "version": "Version",
+    "environment": "Environment",
+    "workers": "Workers",
+    "leader": "Leader",
+    "lastBeat": "Last heartbeat",
+    "database": "Database size",
+    "ingestion": "Ingestion sources",
+    "source": "Source",
+    "available": "Available",
+    "lag": "Lag",
+    "lastRecord": "Last record",
+    "parseWarnings": "Parse warnings",
+    "oldestFile": "Oldest file",
+    "path": "Path",
+    "error": "Last error",
+    "cdps": "CDP probes",
+    "address": "Address",
+    "probeMethod": "Probe method",
+    "backups": "Backups",
+    "noBackups": "No backups recorded",
+    "jobs": "Recent jobs",
+    "noJobs": "No jobs",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "notFound": "Page not found"
+}

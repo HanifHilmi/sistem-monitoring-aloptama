@@ -1,0 +1,106 @@
+# CI gate (PRD §12.6): nothing is deployed unless every job passes.
+# Actions are referenced by major tag; pin them to commit SHAs before enabling deploys.
+name: ci
+
+on:
+  push:
+    branches: [main, staging]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: timescale/timescaledb:2.30.2-pg17
+        env:
+          POSTGRES_USER: simola
+          POSTGRES_PASSWORD: ci-only
+          POSTGRES_DB: simola_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U simola -d simola_test" --health-interval 5s --health-timeout 5s --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      SIMOLA_TEST_DATABASE_URL: postgresql+asyncpg://simola:ci-only@localhost:5432/simola_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.2'
+      - run: uv python install 3.13
+      - run: uv sync --frozen --python 3.13
+      - run: uv run ruff check simola tests
+      - run: uv run ruff format --check simola tests
+      - run: uv run mypy
+      - run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.2'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run check:i18n
+      - run: npm test
+      - run: npx vite build
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.2'
+      - name: Python dependency audit
+        working-directory: backend
+        run: uv export --frozen --no-dev --format requirements-txt > /tmp/req.txt && uvx pip-audit -r /tmp/req.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.2'
+      - name: npm audit (production dependencies)
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund && npm audit --omit=dev --audit-level=high
+
+  images:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, security]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t simola-backend:ci backend
+      - run: docker build -t simola-web:ci frontend
+
+  # Deploys are triggered from CI (not by Coolify's push webhook) so untested code cannot reach an
+  # environment. Enable once the Coolify apps exist and their deploy webhooks are stored as secrets.
+  # deploy-staging:
+  #   if: github.ref == 'refs/heads/staging'
+  #   needs: [images]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - run: curl -fsS -X GET "${{ secrets.COOLIFY_STAGING_DEPLOY_URL }}" -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+  # deploy-production:
+  #   if: startsWith(github.ref, 'refs/tags/v')
+  #   needs: [images]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - run: curl -fsS -X GET "${{ secrets.COOLIFY_PRODUCTION_DEPLOY_URL }}" -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"

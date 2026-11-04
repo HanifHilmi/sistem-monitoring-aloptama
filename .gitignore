@@ -1,0 +1,38 @@
+# --- Security-sensitive documents (NFR-SEC-010: public repository) ---
+# The assessment describes open weaknesses of the legacy system and host details.
+ASSESSMENT.md
+private/
+
+# --- Secrets / local configuration ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# --- Node ---
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# --- Local data ---
+backups/
+data/
+*.log
+
+# --- Editors / OS ---
+.DS_Store
+.idea/
+.vscode/
