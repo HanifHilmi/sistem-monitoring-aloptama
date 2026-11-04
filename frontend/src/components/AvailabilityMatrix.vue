@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { MatrixCell, MatrixResponse, MatrixRow, SystemInfo } from '@/api/types'
+import type { MatrixResponse, MatrixRow, SystemInfo } from '@/api/types'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { int, LEVEL_BG, LEVEL_ON, LEVEL_TEXT, level, pct } from '@/utils/format'
+import { figureLevel, int, LEVEL_BG, LEVEL_ON, LEVEL_TEXT, matrixLost, pct } from '@/utils/format'
 import { isoWeek } from '@/utils/time'
 
 const props = defineProps<{
@@ -97,7 +97,11 @@ function rowTitle(r: MatrixRow): string {
   return rowLabel(r)
 }
 
-const lv = (c: MatrixCell) => level(c.expected === 0 ? null : c.pct, display.thresholds)
+// A cell that lost any minute is never 'full', even when it rounds to 100.00.
+const lv = (r: MatrixRow, i: number) =>
+  figureLevel(r.cells[i], display.thresholds, matrixLost(props.matrix.rows, r, i))
+const totalLv = (r: MatrixRow) =>
+  figureLevel(r.total, display.thresholds, matrixLost(props.matrix.rows, r, 'total'))
 
 // ---- tooltip ---------------------------------------------------------------------------------
 const wrap = ref<HTMLElement | null>(null)
@@ -189,7 +193,7 @@ function showTip(e: Event, r: MatrixRow, i: number) {
             role="gridcell"
             class="flex h-4 w-full items-center justify-center rounded-[2px] transition-transform hover:z-10"
             :class="[
-              LEVEL_BG[lv(c)],
+              LEVEL_BG[lv(r, i)],
               withValues ? 'hover:ring-2 hover:ring-ink-2' : 'hover:scale-125',
               selected && selected.row === r.key && selected.col === i
                 ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg'
@@ -202,19 +206,16 @@ function showTip(e: Event, r: MatrixRow, i: number) {
             @click="emit('cell', r, i)"
           >
             <span
-              v-if="withValues && lv(c) !== 'none'"
+              v-if="withValues && lv(r, i) !== 'none'"
               class="num text-[0.625rem] leading-none max-md:hidden"
-              :class="LEVEL_ON[lv(c)]"
+              :class="LEVEL_ON[lv(r, i)]"
               aria-hidden="true"
               >{{ pct(c.pct, lc) }}</span
             >
           </button>
           <span
             class="num pl-2 text-right text-xs"
-            :class="[
-              LEVEL_TEXT[level(r.total.pct, display.thresholds)],
-              r.kind === 'site' || r.kind === 'sla' ? 'font-semibold' : '',
-            ]"
+            :class="[LEVEL_TEXT[totalLv(r)], r.kind === 'site' || r.kind === 'sla' ? 'font-semibold' : '']"
           >
             {{ pct(r.total.pct, lc) }}
           </span>

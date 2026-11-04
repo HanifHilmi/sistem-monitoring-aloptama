@@ -126,6 +126,7 @@ const items = computed<KpiItem[]>(() => {
       value: k?.ola.pct ?? null,
       previous: pk?.ola.pct ?? null,
       spark: sparkOf('ola'),
+      missing: k?.sites.reduce((n, s) => n + Math.max(0, s.availability.missing), 0),
     },
     ...cdpItems,
     {
@@ -234,7 +235,7 @@ const siteLink = computed(() => {
 const levelsLegend = computed(() => {
   const { good, warning } = display.thresholds
   return [
-    { cls: 'bg-full', label: '100 %' },
+    { cls: 'bg-full', label: t('board.levelFull') },
     { cls: 'bg-good', label: `≥ ${good} %` },
     { cls: 'bg-warn', label: `${warning}–${good} %` },
     { cls: 'bg-bad', label: `< ${warning} %` },

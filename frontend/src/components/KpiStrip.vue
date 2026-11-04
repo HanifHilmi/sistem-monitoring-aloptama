@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { delta, int, LEVEL_TEXT, level, pct } from '@/utils/format'
+import { delta, figureLevel, int, LEVEL_TEXT, pct } from '@/utils/format'
 import Sparkline from './Sparkline.vue'
 
 export interface KpiItem {
@@ -15,6 +15,8 @@ export interface KpiItem {
   spark: (number | null)[]
   valid?: number
   expected?: number
+  /** Minutes lost, for a figure without counts (OLA). */
+  missing?: number
 }
 
 const props = defineProps<{ items: KpiItem[]; previousLabel: string; loading?: boolean }>()
@@ -54,7 +56,14 @@ function diff(it: KpiItem): number | null {
       <div class="flex items-end justify-between gap-2">
         <p
           class="num text-[1.7rem] leading-none font-semibold"
-          :class="LEVEL_TEXT[level(it.value, display.thresholds)]"
+          :class="
+            LEVEL_TEXT[
+              figureLevel(
+                { pct: it.value, valid: it.valid, expected: it.expected, missing: it.missing },
+                display.thresholds,
+              )
+            ]
+          "
           :title="
             it.expected
               ? t('common.validOfExpected', { valid: int(it.valid, lc), expected: int(it.expected, lc) })

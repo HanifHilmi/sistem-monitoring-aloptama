@@ -47,6 +47,7 @@
     "noLosses": "No minutes lost in this period.",
     "soFar": "Period in progress · figures as of {time}",
     "closed": "Closed period",
+    "levelFull": "No minute lost",
     "legendNote": "Select a cell for its minute-by-minute view",
     "thresholdNote": "Colours are display thresholds, not official targets."
   },

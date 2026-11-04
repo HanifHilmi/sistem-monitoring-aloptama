@@ -1,4 +1,5 @@
 import type { Locale } from '@/i18n'
+import type { MatrixRow } from '@/api/types'
 
 const cache = new Map<string, Intl.NumberFormat>()
 function nf(locale: Locale, opts: Intl.NumberFormatOptions): Intl.NumberFormat {
@@ -48,6 +49,44 @@ export function level(p: number | null | undefined, t: Thresholds): Level {
   if (p >= t.good) return 'good'
   if (p >= t.warning) return 'warn'
   return 'bad'
+}
+
+/** An availability figure as the API sends it. OLA (a mean of the sites) comes without counts. */
+export interface Figure {
+  pct: number | null
+  valid?: number
+  expected?: number
+  missing?: number
+}
+
+/** Minutes a figure lost: `missing`, else expected − valid; 0 when the API sent no counts. */
+export function lostMinutes(f: Figure): number {
+  const n = f.missing ?? (f.expected !== undefined && f.valid !== undefined ? f.expected - f.valid : 0)
+  return Math.max(0, n)
+}
+
+/**
+ * Display level of a figure. 'full' means no minute lost, so a figure that lost minutes is at most 'good' even
+ * when it rounds to 100.00 (half-up to 2 decimals, FR-KPI-007). Pass `lost` for a figure without counts (OLA).
+ */
+export function figureLevel(
+  f: Figure | null | undefined,
+  t: Thresholds,
+  lost = f ? lostMinutes(f) : 0,
+): Level {
+  if (!f || f.expected === 0) return 'none'
+  const l = level(f.pct, t)
+  return l === 'full' && lost > 0 ? 'good' : l
+}
+
+/** Minutes lost by a matrix row in column `col` ('total' for the whole period). OLA counts its sites' losses. */
+export function matrixLost(rows: MatrixRow[], r: MatrixRow, col: number | 'total'): number {
+  const lostIn = (x: MatrixRow) => {
+    const c = col === 'total' ? x.total : x.cells[col]
+    return c ? lostMinutes(c) : 0
+  }
+  if (r.kind !== 'ola') return lostIn(r)
+  return rows.filter((x) => x.kind === 'site').reduce((n, x) => n + lostIn(x), 0)
 }
 
 export const LEVEL_BG: Record<Level, string> = {

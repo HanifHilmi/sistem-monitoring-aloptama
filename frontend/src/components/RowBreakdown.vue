@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { MatrixResponse, MatrixRow } from '@/api/types'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { int, LEVEL_BG, level, pct } from '@/utils/format'
+import { figureLevel, int, LEVEL_BG, matrixLost, pct } from '@/utils/format'
 
 // A list view of matrix cells: either one row across all periods ("days of RWY 04 ATRH"), or every row of
 // a group for one period ("RWY 04 components on 3 Nov"). Large rows suit phones and keyboard users.
@@ -41,7 +41,9 @@ const items = computed(() => {
       >
         <span
           class="h-3.5 w-3.5 shrink-0 rounded-[2px]"
-          :class="LEVEL_BG[level(it.cell.expected === 0 ? null : it.cell.pct, display.thresholds)]"
+          :class="
+            LEVEL_BG[figureLevel(it.cell, display.thresholds, matrixLost(props.matrix.rows, it.row, it.col))]
+          "
         />
         <span class="min-w-0 flex-1 truncate">{{ it.label }}</span>
         <span class="num w-16 text-right">{{

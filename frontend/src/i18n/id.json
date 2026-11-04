@@ -47,6 +47,7 @@
     "noLosses": "Tidak ada menit yang hilang pada periode ini.",
     "soFar": "Periode berjalan · angka per {time}",
     "closed": "Periode selesai",
+    "levelFull": "Tanpa menit hilang",
     "legendNote": "Pilih sel untuk melihat rincian per menit",
     "thresholdNote": "Warna adalah ambang tampilan, bukan target resmi."
   },

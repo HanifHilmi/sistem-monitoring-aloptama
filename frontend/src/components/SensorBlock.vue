@@ -6,7 +6,7 @@ import type { ComponentInfo, FieldInfo, SeriesField, SeriesResponse } from '@/ap
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { int, LEVEL_TEXT, level, num, pct } from '@/utils/format'
+import { figureLevel, int, LEVEL_TEXT, num, pct } from '@/utils/format'
 import type { ChartWindow } from '@/utils/time'
 import FieldChart from './FieldChart.vue'
 import Sparkline from './Sparkline.vue'
@@ -70,7 +70,7 @@ const avail = computed(() => loader.data.value?.availability)
       <span
         v-if="avail"
         class="num ml-auto text-xs"
-        :class="LEVEL_TEXT[level(avail.pct, display.thresholds)]"
+        :class="LEVEL_TEXT[figureLevel(avail, display.thresholds)]"
         :title="
           t('common.validOfExpected', { valid: int(avail.valid, lc), expected: int(avail.expected, lc) })
         "
