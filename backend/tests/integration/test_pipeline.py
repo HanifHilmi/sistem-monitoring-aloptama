@@ -307,8 +307,9 @@ async def test_api_figures_and_public_shaping(engine: AsyncEngine, loaded) -> No
         assert k["sla"] == {"valid": 1436, "expected": 1440, "missing": 4, "pct": 99.72}
         assert [c["uptime"]["valid"] for c in k["cdps"]] == [1430, 1433]
         assert k["cdps"][0]["reachability"]["pct"] is None  # no probes in this test -> "not measured"
+        # Infrastructure details only for signed-in users (R2.1); test_accounts.py checks the signed-in view.
         internal = await client.get("/api/v1/internal/health")
-        assert internal.status_code == 200 and LEAK_PROBE_ADDRESS in internal.text
+        assert internal.status_code == 401 and LEAK_PROBE_ADDRESS not in internal.text
         bad = await client.get(
             "/api/v1/systems/WIDN-CAT3/kpis?from=2026-11-04T00:00:00Z&to=2026-11-03T00:00:00Z"
         )

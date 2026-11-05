@@ -15,6 +15,7 @@ from simola.api.app import create_app
 from simola.auth import passwords
 from simola.core.config import get_settings
 from simola.migrations.runner import ensure_app_role
+from tests.integration.conftest import LEAK_PROBE_ADDRESS
 from tests.permissions import MATRIX, PATH_VALUES
 
 pytestmark = pytest.mark.integration
@@ -170,7 +171,8 @@ async def test_new_account_temporary_password_change_and_reset(people: dict[str,
                 {"current_password": temporary, "new_password": "hujan-deras-di-runway"},
             )
             assert ok.status_code == 200 and ok.json()["must_change_password"] is False
-            assert (await joko.get("/api/v1/internal/health")).status_code == 200
+            health = await joko.get("/api/v1/internal/health")
+            assert health.status_code == 200 and LEAK_PROBE_ADDRESS in health.text  # Viewer-level details
             assert (await joko_phone.get("/api/v1/auth/me")).status_code == 401  # other sessions signed out
 
             reset = await admin.send("POST", f"/api/v1/admin/users/{user_id}/reset-password")
