@@ -9,9 +9,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from simola.core.config import Settings
 from simola.core.timeutil import DAY, MINUTE, day_start, floor_minute
 from simola.ingestion import widn
+from simola.ingestion.share import ShareIO
 from simola.registry import Cdp, System
 
 logger = logging.getLogger(__name__)
@@ -165,6 +167,8 @@ class Cat3Ingestor:
         self._row_sig: dict[tuple[int, int, datetime], int] = {}
         self._write_lock = asyncio.Lock()
         self._oldest_checked: dict[str, datetime] = {}
+        # Every call on a share runs on that CDP's own threads, so a dead share cannot stall the rest.
+        self._share = {code: ShareIO(code, settings.file_io_timeout_s) for code in self.paths}
 
     # ------------------------------------------------------------------ files
     def resolve_file(self, cdp_code: str, day: date) -> Path | None:
@@ -180,24 +184,28 @@ class Cat3Ingestor:
         matches = sorted(directory.glob(f"*OneMinute.{day.strftime('%Y%m%d')}.dat"))
         return matches[0] if matches else None
 
-    async def _read(self, path: Path) -> tuple[str, tuple[int, int]]:
+    async def _on_share[T](self, cdp_code: str, fn: Callable[[], T]) -> T:
+        return await self._share[cdp_code].run(fn)
+
+    async def _resolve(self, cdp_code: str, day: date) -> Path | None:
+        return await self._on_share(cdp_code, partial(self.resolve_file, cdp_code, day))
+
+    async def _read(self, cdp_code: str, path: Path) -> tuple[str, tuple[int, int]]:
         def _do() -> tuple[str, tuple[int, int]]:
             st = path.stat()
             return path.read_text(encoding="utf-8", errors="replace"), (st.st_size, st.st_mtime_ns)
 
-        return await asyncio.wait_for(asyncio.to_thread(_do), self.settings.file_io_timeout_s)
+        return await self._on_share(cdp_code, _do)
 
-    async def _stat(self, path: Path) -> tuple[int, int]:
-        st = await asyncio.wait_for(asyncio.to_thread(path.stat), self.settings.file_io_timeout_s)
+    async def _stat(self, cdp_code: str, path: Path) -> tuple[int, int]:
+        st = await self._on_share(cdp_code, path.stat)
         return (st.st_size, st.st_mtime_ns)
 
     async def parse_day(self, cdp: Cdp, day: date, *, not_after: datetime | None) -> ParsedDay | None:
-        path = await asyncio.wait_for(
-            asyncio.to_thread(self.resolve_file, cdp.code, day), self.settings.file_io_timeout_s
-        )
+        path = await self._resolve(cdp.code, day)
         if path is None:
             return None
-        content, sig = await self._read(path)
+        content, sig = await self._read(cdp.code, path)
         result = await asyncio.to_thread(widn.parse_text, content)
         rows, minutes = rows_from_parse(self.system, cdp, result, day=day, not_after=not_after)
         return ParsedDay(cdp, day, rows, minutes, result.warnings, result.duplicate_minutes, sig)
@@ -274,12 +282,10 @@ class Cat3Ingestor:
             if cdp.code not in self.paths:
                 raise SourceUnavailable(f"{cdp.code}: no share path configured")
             for day in self.days_to_scan(now):
-                path = await asyncio.wait_for(
-                    asyncio.to_thread(self.resolve_file, cdp.code, day), self.settings.file_io_timeout_s
-                )
+                path = await self._resolve(cdp.code, day)
                 if path is None:
                     continue  # e.g. just after midnight before the CDP creates the new file (PRD §8.6 E4)
-                sig = await self._stat(path)
+                sig = await self._stat(cdp.code, path)
                 if self._file_sig.get((cdp.code, day)) == sig:
                     continue
                 parsed = await self.parse_day(cdp, day, not_after=not_after)
@@ -345,7 +351,7 @@ class Cat3Ingestor:
                     continue
             return None
 
-        return await asyncio.wait_for(asyncio.to_thread(_scan), self.settings.file_io_timeout_s)
+        return await self._on_share(cdp.code, _scan)
 
     def _prune(self, now: datetime) -> None:
         cutoff = floor_minute(now) - timedelta(days=3)

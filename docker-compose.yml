@@ -78,23 +78,21 @@ services:
     command: ["python", "-m", "simola.worker.main"]
     environment:
       <<: *backend-env
-      SIMOLA_CDP_PATHS: '{"CDP1": "/mnt/cdp1", "CDP2": "/mnt/cdp2"}'
+      SIMOLA_CDP_PATHS: '{"CDP1": "/mnt/cdp/${SIMOLA_CDP1_DIR:-cdp1}", "CDP2": "/mnt/cdp/${SIMOLA_CDP2_DIR:-cdp2}"}'
       SIMOLA_CDP_ADDRESSES: ${SIMOLA_CDP_ADDRESSES:?JSON map of CDP code to probe address}
     volumes:
-      # Read-only: SIMOLA never writes to AWOS shares (NFR-SEC-006/009). The shares are mounted by the
-      # host; nothing may create or change those paths, so a missing share fails the deploy instead.
+      # The host folder that holds the two CDP share mounts (SIMOLA_CDP1_DIR, SIMOLA_CDP2_DIR). The shares
+      # must be read-only on the host (SIMOLA never writes to AWOS shares, NFR-SEC-006/009). Binding the folder
+      # rather than each share means Docker checks only this local folder when it creates the worker, so a
+      # CDP that is off the network cannot block a deploy; rslave lets a share the host mounts again later
+      # reach the running worker. Nothing may create this path: a missing folder fails the deploy instead.
       - type: bind
-        source: ${SIMOLA_CDP1_SHARE:-./cdp-share-not-set/cdp1}
-        target: /mnt/cdp1
+        source: ${SIMOLA_CDP_ROOT:-./cdp-root-not-set}
+        target: /mnt/cdp
         read_only: true
         bind:
           create_host_path: false
-      - type: bind
-        source: ${SIMOLA_CDP2_SHARE:-./cdp-share-not-set/cdp2}
-        target: /mnt/cdp2
-        read_only: true
-        bind:
-          create_host_path: false
+          propagation: rslave
     depends_on:
       migrate:
         condition: service_completed_successfully

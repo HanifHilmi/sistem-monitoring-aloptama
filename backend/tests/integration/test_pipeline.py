@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
+import threading
+import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -190,6 +193,50 @@ async def test_live_cycle_after_midnight_rescans_yesterday(engine: AsyncEngine, 
         status = (await conn.execute(text("SELECT count(*) FROM ingest_status WHERE available"))).scalar_one()
     assert live.get(("sla", system.id)) == (1436, 1440)
     assert status == 2
+
+
+async def test_a_dead_share_does_not_stop_the_other_cdp(engine: AsyncEngine, loaded) -> None:  # type: ignore[no-untyped-def]
+    """CDP1 off the network: its share hangs, CDP2 keeps ingesting, CDP1 recovers when the share answers."""
+    system, *_ = loaded
+    settings = get_settings().model_copy(update={"file_io_timeout_s": 0.5})
+    ing = Cat3Ingestor(engine, system, settings)
+    answer = threading.Event()
+    resolve = ing.resolve_file
+
+    def hanging_cdp1(cdp_code: str, day: date) -> Path | None:
+        if cdp_code == "CDP1":
+            answer.wait(30)
+        return resolve(cdp_code, day)
+
+    ing.resolve_file = hanging_cdp1  # type: ignore[method-assign]
+    try:
+        first = await ing.cycle(NOW)
+        started = time.monotonic()
+        second = await ing.cycle(NOW)  # the first call is still blocked: CDP1 fails at once
+        assert time.monotonic() - started < 0.45  # less than the 0.5 s time limit
+        assert first["CDP1"] == -1 and second["CDP1"] == -1
+        assert first["CDP2"] >= 0 and second["CDP2"] >= 0
+        async with engine.connect() as conn:
+            rows = (
+                await conn.execute(
+                    text("SELECT source, available, last_error FROM ingest_status ORDER BY source")
+                )
+            ).all()
+        status = {r.source.split(":")[1]: r for r in rows}  # WIDN-CAT3:CDP1:oneminute
+        assert status["CDP1"].available is False and "not answer" in status["CDP1"].last_error
+        assert status["CDP2"].available is True
+    finally:
+        answer.set()
+    for _ in range(100):
+        if ing._share["CDP1"].stuck == 0:
+            break
+        await asyncio.sleep(0.05)
+    assert (await ing.cycle(NOW))["CDP1"] >= 0
+    async with engine.connect() as conn:
+        available = (
+            await conn.execute(text("SELECT count(*) FROM ingest_status WHERE available"))
+        ).scalar_one()
+    assert available == 2
 
 
 async def test_reprocess_job_runs_end_to_end(engine: AsyncEngine, loaded) -> None:  # type: ignore[no-untyped-def]

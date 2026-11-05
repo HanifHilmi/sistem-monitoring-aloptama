@@ -15,7 +15,18 @@ can hijack intranet routes: do H-0 before the first deploy.
    use the new range. Before every deploy, start or restart run `deploy/check-network-safety.sh` on the host (with
    the site's intranet ranges in `SIMOLA_FORBIDDEN_NETS`, never written in this repository) and do not continue unless
    it passes; after the deploy, check `ip route` shows no new 172.16.0.0/12 or 192.168.0.0/16 route.
-1. **Read-only CDP shares (H-1):** add `ro` to the two CIFS lines in `/etc/fstab`, then remount (`sudo umount /mnt/<cdp1-share-mount> && sudo mount /mnt/<cdp1-share-mount>`, and the same for CDP2). Check with `mount | grep cdp`: it must show `ro`.
+1. **Read-only CDP shares (H-1):** the shares must refuse writes from this host: either the CDP's share permissions
+   give the mount's account read access only, or the host mounts them `ro` (add `ro` to the two CIFS lines in
+   `/etc/fstab`, `sudo systemctl daemon-reload`, then `sudo mount -o remount,ro /mnt/<cdp1-share-mount>` and the same
+   for CDP2; `findmnt -t cifs` then shows `ro`). Keep `x-systemd.automount`, so a share that is down at boot is
+   mounted when it comes back.
+
+   SIMOLA binds the folder that holds both mounts (`SIMOLA_CDP_ROOT`, here `/mnt`) with the shares' folder names in
+   `SIMOLA_CDP1_DIR` and `SIMOLA_CDP2_DIR`. Docker then checks only that local folder when it creates the worker, so a
+   CDP that is off the network cannot block a deploy. The worker sees the whole folder read-only, so keep nothing
+   else of value in it. Because the binding passes on mounts the host makes later, Docker cannot force the shares
+   read-only inside the container; the read-only shares (and the worker's own user, which has no write permission
+   on them) are what keep SIMOLA from writing.
 2. **Data directories (H-2):**
    ```bash
    sudo mkdir -p /var/lib/simola/{production,staging}/{pg,backups}
@@ -47,7 +58,11 @@ For each of **simola-staging** (branch `staging`) and **simola-production** (bra
 curl -fsS https://simola-staging.hilmihanif.my.id/health          # {"status":"ok"}
 docker ps --format '{{.Names}} {{.Status}}' | grep simola          # all healthy, migrate exited
 ss -ltn | grep 5432                                                # SIMOLA's db must NOT appear
+docker exec <worker-container> ls /mnt/cdp/<cdp1-share-folder>/oneminute | tail -1  # today's file; same for CDP2
 ```
+
+A CDP that is off the network does not stop a deploy: the worker starts, marks that CDP unavailable and reads its
+missed minutes from the files once the share answers again.
 
 On first deploy, load history: see [history.md](history.md).
 
