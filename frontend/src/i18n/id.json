@@ -67,7 +67,8 @@
     "closed": "Periode selesai",
     "levelFull": "Tanpa menit hilang",
     "legendNote": "Pilih sel untuk melihat rincian per menit",
-    "thresholdNote": "Warna adalah ambang tampilan, bukan target resmi."
+    "thresholdNote": "Warna adalah ambang tampilan, bukan target resmi.",
+    "recalculating": "Menghitung ulang {days} setelah ada perubahan. Angka di sini diperbarui setelah selesai."
   },
   "kpi": {
     "sla": "SLA",
@@ -90,7 +91,8 @@
       "v": "Valid",
       "f": "Field wajib hilang",
       "n": "Tidak ada data",
-      "u": "Tidak dihitung"
+      "u": "Tidak dihitung",
+      "g": "Ditandai"
     },
     "intervals": "Rentang yang hilang, terpanjang dulu",
     "noIntervals": "Tidak ada menit yang hilang pada hari ini.",
@@ -100,10 +102,15 @@
     "cause": "Penyebab",
     "causeName": {
       "field_missing": "Field wajib hilang",
-      "no_data": "Tidak ada data"
+      "no_data": "Tidak ada data",
+      "flagged": "Ditandai"
     },
     "more": "{n} rentang lainnya",
-    "openCharts": "Buka grafik sensor hari ini"
+    "openCharts": "Buka grafik sensor hari ini",
+    "flagsTitle": "Penanda pada hari ini",
+    "selectMinutes": "Tandai menit",
+    "selectHint": "Klik menit buruk pertama dan terakhir, atau seret di atasnya.",
+    "backToMinutes": "Kembali ke peta menit"
   },
   "outages": {
     "title": "Gangguan, terlama dulu",
@@ -505,7 +512,10 @@
       "job_cancelled": "Membatalkan pekerjaan",
       "setting_changed": "Mengubah pengaturan",
       "mandatory_changed": "Mengubah field wajib",
-      "in_service_changed": "Mengubah periode operasi"
+      "in_service_changed": "Mengubah periode operasi",
+      "flag_created": "Menandai data",
+      "flag_updated": "Mengubah penanda",
+      "flag_removed": "Menghapus penanda"
     },
     "entity": {
       "user": "pengguna",
@@ -514,7 +524,8 @@
       "audit": "log audit",
       "job": "pekerjaan",
       "mandatory": "field wajib",
-      "component": "komponen"
+      "component": "komponen",
+      "flag": "penanda"
     },
     "yes": "ya",
     "no": "tidak",
@@ -543,7 +554,11 @@
       "field_missing_min": "Field wajib hilang (menit)",
       "ingest_lag_min": "Data terlambat (menit)",
       "in_service_from": "Beroperasi mulai",
-      "in_service_to": "Beroperasi sampai"
+      "in_service_to": "Beroperasi sampai",
+      "start": "Mulai",
+      "end": "Selesai",
+      "note": "Catatan",
+      "components": "Komponen"
     },
     "reason": {
       "password": "kata sandi salah",
@@ -677,5 +692,95 @@
     "order": "'Mulai' harus sebelum 'sampai'.",
     "effect": "Menyimpan akan menghitung ulang angka untuk semua hari dan dicatat di log audit. Menit di luar periode tidak lagi diharapkan, sehingga angka komponen ini, situsnya, dan OLA berubah untuk hari-hari tersebut.",
     "save": "Simpan periode"
+  },
+  "flags": {
+    "title": "Penandaan data",
+    "subtitle": "Rentang waktu yang ditandai Admin sebagai data buruk. Menit yang ditandai dihitung hilang hanya untuk komponen yang ditandai: SLA dan DCP tidak pernah terpengaruh. Biasanya ditandai dari grafik sensor atau peta menit.",
+    "new": "Penanda baru",
+    "filterSite": "Lokasi",
+    "allSites": "Semua lokasi",
+    "filterReason": "Alasan",
+    "allReasons": "Semua alasan",
+    "showRemoved": "Tampilkan penanda yang dihapus",
+    "count": "{n} penanda",
+    "empty": "Belum ada penanda. Tandai rentang dari grafik sensor atau peta menit, atau dengan Penanda baru.",
+    "emptyFiltered": "Tidak ada penanda yang cocok dengan filter ini.",
+    "by": "oleh {name} · {time}",
+    "edited": "diubah oleh {name} · {time}",
+    "removedBy": "Dihapus oleh {name} · {time}",
+    "edit": "Ubah",
+    "openChart": "Buka grafik",
+    "inWindow": "Penanda dalam jendela ini",
+    "chip": "{n} penanda",
+    "reason": {
+      "sensor_fault": "Kerusakan sensor",
+      "maintenance": "Pemeliharaan",
+      "calibration": "Kalibrasi",
+      "environmental": "Faktor lingkungan",
+      "other": "Lainnya"
+    },
+    "reasonHint": {
+      "sensor_fault": "Sensor melaporkan nilai yang salah, misalnya macet, melompat, atau di luar rentang.",
+      "maintenance": "Pekerjaan pada sensor atau tiangnya selagi sensor tetap mengirim data.",
+      "calibration": "Pembacaan selama kalibrasi atau pengecekan terhadap acuan.",
+      "environmental": "Sesuatu di sekitar sensor mengganggunya: pemotongan rumput, serangga, burung, air.",
+      "other": "Hal lain: jelaskan di catatan."
+    },
+    "onChart": {
+      "select": "Tandai rentang",
+      "selectWindow": "Tandai rentang…",
+      "hint": "Seret pada grafik di atas data yang buruk.",
+      "continue": "Tandai…",
+      "cancel": "Batal"
+    },
+    "form": {
+      "titleNew": "Tandai data",
+      "titleEdit": "Ubah penanda #{id}",
+      "components": "Komponen",
+      "selected": "Dipilih: {list}",
+      "noneSelected": "Pilih minimal satu komponen.",
+      "dcp": "DCP tidak dicantumkan: DCP hanya menghitung apakah rekaman masuk, jadi tidak dapat ditandai.",
+      "from": "Dari (UTC)",
+      "to": "Sampai (UTC)",
+      "duration": "Durasi {d}",
+      "toHint": "menit \"sampai\" itu sendiri tidak termasuk",
+      "order": "\"Sampai\" harus setelah \"Dari\".",
+      "future": "Penanda hanya untuk waktu yang sudah lewat. Tandai pekerjaan yang masih berjalan setelah selesai.",
+      "long": "Lebih dari 31 hari. Untuk sensor yang tidak beroperasi, atur periode operasinya di Registri.",
+      "reason": "Alasan",
+      "note": "Catatan",
+      "noteHint": "Apa yang salah dan apa yang dilakukan. Hanya ditampilkan untuk pengguna yang masuk.",
+      "effect": "Pengaruh pada angka",
+      "colComponent": "Komponen",
+      "colRange": "Dalam rentang",
+      "colLost": "Menjadi hilang",
+      "colAlready": "Sudah hilang",
+      "effectSummary": "Tidak ada menit valid yang berubah. Angka untuk {days} tetap dihitung ulang. | {lost} menit valid akan dihitung hilang. Angka untuk {days} akan dihitung ulang, biasanya dalam satu menit. | {lost} menit valid akan dihitung hilang. Angka untuk {days} akan dihitung ulang, biasanya dalam satu menit.",
+      "effectAlready": "Menit yang sudah hilang (tanpa data, field hilang, atau penanda lain) tidak dihitung dua kali.",
+      "save": "Tandai data",
+      "saveEdit": "Simpan perubahan",
+      "cancel": "Batal",
+      "remove": "Hapus penanda",
+      "removeConfirm": "Hapus penanda ini? Menitnya dihitung seperti sebelumnya, dan penghapusan tetap tercatat di log audit.",
+      "removeYes": "Hapus",
+      "keep": "Biarkan",
+      "saved": "Penanda #{id} disimpan.",
+      "removed": "Penanda #{id} dihapus.",
+      "recalc": "Angka untuk {days} sedang dihitung ulang:",
+      "done": "Selesai"
+    },
+    "error": {
+      "no_components": "Pilih minimal satu komponen.",
+      "component_not_found": "Sebuah komponen sudah tidak ada. Muat ulang halaman.",
+      "dcp_cannot_be_flagged": "DCP tidak dapat ditandai.",
+      "invalid_period": "\"Sampai\" harus setelah \"Dari\".",
+      "flag_in_future": "Penanda hanya untuk waktu yang sudah lewat.",
+      "before_coverage": "Rentang dimulai sebelum SIMOLA memiliki data.",
+      "invalid_reason": "Pilih alasan.",
+      "note_required": "Tulis catatan singkat (minimal 3 karakter).",
+      "note_too_long": "Catatan lebih dari 500 karakter.",
+      "flag_removed": "Penanda ini sudah dihapus.",
+      "flag_not_found": "Penanda ini sudah tidak ada."
+    }
   }
 }

@@ -1,8 +1,9 @@
 // Fetch interceptor for sample-data mode (VITE_MOCK=1). Only bundled when that flag is set at build time.
 import type { MatrixBucket } from '@/api/types'
 import { accountsRoute, currentUser, signedIn } from './accounts'
-import { adminRoute } from './admin'
+import { adminRoute, recalculating } from './admin'
 import * as data from './data'
+import { flagsRoute, publicFlags } from './flags'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -17,6 +18,8 @@ function route(url: URL, method: string, body: unknown): Response {
     const me = currentUser()
     if (!me) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
     if (me.role !== 'admin') return json({ code: 'forbidden', title: 'Admins only', status: 403 }, 403)
+    const flags = flagsRoute(p, url, method, body, me.username)
+    if (flags) return flags
     const admin = adminRoute(p, url, method, body, me.username)
     if (admin) return admin
   }
@@ -28,8 +31,14 @@ function route(url: URL, method: string, body: unknown): Response {
   if (p === '/systems') return json(data.systems(now))
   if (p === `/systems/${data.SYSTEM.code}`) return json(data.SYSTEM)
   if (p.endsWith('/kpis')) return json(data.kpis(from, to, now))
-  if (p.endsWith('/matrix'))
-    return json(data.matrix(from, to, (q.get('bucket') ?? 'day') as MatrixBucket, now))
+  if (p.endsWith('/matrix')) {
+    const m = data.matrix(from, to, (q.get('bucket') ?? 'day') as MatrixBucket, now)
+    const busy = recalculating(now).filter(
+      (r) => Date.parse(r.from) < to && Date.parse(r.to) + 86_400_000 > from,
+    )
+    return json(busy.length ? { ...m, period: { ...m.period, recalculating: busy } } : m)
+  }
+  if (p.endsWith('/flags')) return publicFlags(url)
   if (p.endsWith('/minutes')) return json(data.minutes(q.get('day') ?? '', q.get('scope') ?? 'sla', now))
   if (p.endsWith('/outages')) {
     if (to - from > data.MAX_OUTAGE_SPAN)

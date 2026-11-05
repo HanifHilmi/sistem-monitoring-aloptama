@@ -17,6 +17,7 @@ import { usePeriodQuery } from '@/composables/useUrlState'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
 import { DEFAULT_SYSTEM } from '@/stores/live'
+import { formatDays } from '@/utils/flags'
 import { sitePath } from '@/utils/paths'
 import {
   bucketFor,
@@ -62,6 +63,13 @@ watch(
 usePolling(() => {
   if (isOpen(period.value) && matrix.data.value) loadAll(true)
 }, 60_000)
+// After a flag or rule change the affected days are recalculated (FR-KPI-008): say so, and look again soon.
+const recalculating = computed(() =>
+  (matrix.data.value?.period.recalculating ?? []).map((r) => formatDays(r, lc.value)).join(', '),
+)
+usePolling(() => {
+  if (recalculating.value) loadAll(true)
+}, 10_000)
 
 // ---- headline figures ----------------------------------------------------------------------------
 const rowByKey = computed(() => new Map((matrix.data.value?.rows ?? []).map((r) => [r.key, r])))
@@ -315,6 +323,15 @@ const levelsLegend = computed(() => {
           }}</template>
           <template v-else-if="kpis.data.value">{{ t('board.closed') }}</template>
         </p>
+        <p
+          v-if="recalculating && !wall"
+          class="mt-1.5 inline-flex items-center gap-2 rounded-md border border-accent/40 bg-accent-soft px-2.5 py-1 text-xs text-ink"
+          role="status"
+          data-testid="recalculating"
+        >
+          <span class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+          {{ t('board.recalculating', { days: recalculating }) }}
+        </p>
       </div>
       <PeriodBar v-if="!wall" v-model="period" />
     </header>
@@ -399,6 +416,7 @@ const levelsLegend = computed(() => {
           :scope="scopeOf(panel.row)"
           :day="panel.day"
           :site-link="siteLink"
+          @changed="loadAll(true)"
         />
         <div v-else class="flex flex-col gap-5">
           <OutageList

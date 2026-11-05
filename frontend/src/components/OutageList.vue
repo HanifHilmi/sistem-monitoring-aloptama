@@ -40,7 +40,7 @@ const CAUSE_BG: Record<OutageCause, string> = {
   cdp_no_data: 'bg-bad',
   no_record: 'bg-bad/55',
   field_missing: 'bg-warn',
-  flagged: 'bg-accent',
+  flagged: 'bg-flag',
   detection: 'bg-accent/60',
 }
 const data = computed(() => loader.data.value)
@@ -85,6 +85,8 @@ function where(iv: Outage): string {
 
 function what(iv: Outage): string {
   const name = t(`outages.cause.${iv.cause}`)
+  if (iv.cause === 'flagged' && iv.flags?.length)
+    return `${name} · ${[...new Set(iv.flags.map((f) => t(`flags.reason.${f.reason}`)))].join(', ')}`
   if (iv.cause !== 'field_missing') return name
   const members = iv.components ?? []
   const fields = [...new Set(members.flatMap((m) => m.fields ?? []))]

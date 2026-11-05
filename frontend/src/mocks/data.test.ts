@@ -59,3 +59,20 @@ describe('sample outages', () => {
     expect(gap?.components).toHaveLength(SYSTEM.sites.reduce((n, s) => n + s.components.length, 0))
   })
 })
+
+// R2.3: a flag turns exactly its otherwise-valid minutes into lost ones, and only on the flagged components.
+describe('sample flags', () => {
+  const now = Date.UTC(2026, 10, 5, 12)
+  it('marks the flagged range and leaves SLA and the CDPs alone', () => {
+    const m = minutes('2026-10-15', 'component:22:RVR', now)
+    const range = m.codes.slice(60, 180) // 01:00–03:00, flag 3
+    expect(range.length).toBe(120)
+    expect([...range].every((c) => c !== 'v')).toBe(true)
+    const flagged = [...range].filter((c) => c === 'g').length
+    const o = outages(Date.UTC(2026, 9, 15), Date.UTC(2026, 9, 16), 'component:22:RVR', now, 100)
+    expect(o.by_cause.flagged).toBe(flagged)
+    expect(o.intervals.find((i) => i.cause === 'flagged')?.flags?.[0]?.id).toBe(3)
+    expect(minutes('2026-10-15', 'sla', now).codes.includes('g')).toBe(false)
+    expect(minutes('2026-10-15', 'component:middle:RVR', now).codes.includes('g')).toBe(false)
+  })
+})

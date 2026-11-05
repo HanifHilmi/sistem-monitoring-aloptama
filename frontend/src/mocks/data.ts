@@ -15,6 +15,7 @@ import type {
   SystemInfo,
   SystemSummary,
 } from '@/api/types'
+import { activeSpans, reasonOf } from './flagStore'
 import * as sensors from './sensors'
 
 const DAY = 86_400_000
@@ -172,7 +173,8 @@ function expectedFor(dayStart: number, now: number): number {
 type Scope =
   { kind: 'sla' } | { kind: 'cdp'; cdp: string } | { kind: 'component'; site: string; type: string }
 
-function dayCounts(scope: Scope, dayStart: number, now: number): [number, number] {
+/** A day's valid and expected minutes before manual flags. */
+function baseCounts(scope: Scope, dayStart: number, now: number): [number, number] {
   const e = expectedFor(dayStart, now)
   if (!e) return [0, 0]
   const k = dayKey(dayStart)
@@ -182,6 +184,13 @@ function dayCounts(scope: Scope, dayStart: number, now: number): [number, number
   if (scope.kind === 'component') lost += compExtra(scope.site, scope.type, k)
   lost = Math.min(e, Math.round(lost * frac))
   return [e - lost, e]
+}
+
+/** Flagged minutes that were otherwise valid count as lost, so a flag lowers a component by exactly those. */
+function dayCounts(scope: Scope, dayStart: number, now: number): [number, number] {
+  const [v, e] = baseCounts(scope, dayStart, now)
+  const flagged = flagPieces(scope, dayStart, now).reduce((n, p) => n + p.len, 0)
+  return [v - flagged, e]
 }
 
 const avail = (v: number, e: number): Availability => ({
@@ -369,16 +378,17 @@ function parseScope(scope: string): Scope {
 interface Piece {
   at: number // minute of the day
   len: number
-  cause: 'cdp_no_data' | 'field_missing'
+  cause: 'cdp_no_data' | 'field_missing' | 'flagged'
+  flag?: number
 }
 
 /**
  * Where a scope lost its minutes on a day: the loss shared by everything (no CDP data), then the scope's own.
  * Pieces never overlap and stay inside the evaluated minutes, so they add up to exactly what the matrix lost.
  */
-function dayPieces(s: Scope, dayStart: number, now: number): Piece[] {
+function basePieces(s: Scope, dayStart: number, now: number): Piece[] {
   const e = expectedFor(dayStart, now)
-  const [v] = dayCounts(s, dayStart, now)
+  const [v] = baseCounts(s, dayStart, now)
   const day = dayKey(dayStart)
   const lost = e - v
   const common = Math.min(lost, Math.round(commonLoss(day) * (e / 1440)))
@@ -405,24 +415,61 @@ function dayPieces(s: Scope, dayStart: number, now: number): Piece[] {
   return pieces.filter((p) => p.len > 0).sort((a, b) => a.at - b.at)
 }
 
+/**
+ * Minutes of a component's day under an active flag that would otherwise be valid. Minutes already lost for
+ * another reason keep that cause; a minute under two flags belongs to the older one.
+ */
+function flagPieces(s: Scope, dayStart: number, now: number): Piece[] {
+  if (s.kind !== 'component' || s.type === 'DCP') return []
+  const spans = activeSpans(s.site, s.type, dayStart, dayStart + DAY)
+  if (!spans.length) return []
+  const e = expectedFor(dayStart, now)
+  const taken = new Int32Array(e) // 0 valid, -1 lost for another reason, otherwise the flag's id
+  for (const p of basePieces(s, dayStart, now)) taken.fill(-1, p.at, Math.min(e, p.at + p.len))
+  for (const sp of spans) {
+    const a = Math.max(0, Math.floor((sp.start - dayStart) / 60_000))
+    const b = Math.min(e, Math.ceil((sp.end - dayStart) / 60_000))
+    for (let i = a; i < b; i++) if (taken[i] === 0) taken[i] = sp.id
+  }
+  const pieces: Piece[] = []
+  for (let i = 0; i < e;) {
+    const id = taken[i]!
+    let j = i + 1
+    while (j < e && taken[j] === id) j++
+    if (id > 0) pieces.push({ at: i, len: j - i, cause: 'flagged', flag: id })
+    i = j
+  }
+  return pieces
+}
+
+function dayPieces(s: Scope, dayStart: number, now: number): Piece[] {
+  return [...basePieces(s, dayStart, now), ...flagPieces(s, dayStart, now)].sort((a, b) => a.at - b.at)
+}
+
 export function minutes(day: string, scope: string, now: number): MinutesResponse {
   const start = Date.parse(`${day}T00:00:00Z`)
   const e = expectedFor(start, now)
   const codes: string[] = Array.from({ length: 1440 }, (_, i) => (i < e ? 'v' : 'u'))
+  const ids = new Int32Array(1440)
+  const CODE = { field_missing: 'f', flagged: 'g', cdp_no_data: 'n' } as const
   for (const p of dayPieces(parseScope(scope), start, now))
-    for (let i = p.at; i < p.at + p.len; i++) codes[i] = p.cause === 'field_missing' ? 'f' : 'n'
+    for (let i = p.at; i < p.at + p.len; i++) {
+      codes[i] = CODE[p.cause]
+      ids[i] = p.flag ?? 0
+    }
   const str = codes.join('')
   const intervals: MinutesResponse['intervals'] = []
   for (let i = 0; i < str.length;) {
     const c = str[i]!
-    if (c === 'f' || c === 'n') {
+    if (c === 'f' || c === 'n' || c === 'g') {
       let j = i
-      while (str[j] === c) j++
+      while (str[j] === c && ids[j] === ids[i]) j++
       intervals.push({
         start: new Date(start + i * 60_000).toISOString(),
         end: new Date(start + j * 60_000).toISOString(),
         minutes: j - i,
-        cause: c === 'f' ? 'field_missing' : 'no_data',
+        cause: c === 'f' ? 'field_missing' : c === 'g' ? 'flagged' : 'no_data',
+        ...(c === 'g' ? { flags: [{ id: ids[i]!, reason: reasonOf(ids[i]!) }] } : {}),
       })
       i = j
     } else i++
@@ -458,7 +505,10 @@ export function outages(
     })
   }
   const sitesInfo = SYSTEM.sites
-  const groups = new Map<string, { start: number; end: number; cause: OutageCause; members: Member[] }>()
+  const groups = new Map<
+    string,
+    { start: number; end: number; cause: OutageCause; flag?: number; members: Member[] }
+  >()
   const byCause: Record<OutageCause, number> = {
     cdp_no_data: 0,
     no_record: 0,
@@ -477,8 +527,8 @@ export function outages(
       for (const p of dayPieces(s, d, now)) {
         const start = d + p.at * 60_000
         const end = start + p.len * 60_000
-        const key = `${start}|${end}|${p.cause}`
-        const g = groups.get(key) ?? { start, end, cause: p.cause, members: [] }
+        const key = `${start}|${end}|${p.cause}|${p.flag ?? ''}`
+        const g = groups.get(key) ?? { start, end, cause: p.cause, flag: p.flag, members: [] }
         if (member && s.kind === 'component') {
           const fields =
             sitesInfo.find((x) => x.slug === s.site)?.components.find((c) => c.type === s.type)?.mandatory ??
@@ -525,6 +575,7 @@ export function outages(
         lost_minutes: minutes * Math.max(1, g.members.length),
         ongoing: to > evalEnd && g.end >= evalEnd,
         ...(g.members.length ? { components: g.members } : {}),
+        ...(g.flag ? { flags: [{ id: g.flag, reason: reasonOf(g.flag) }] } : {}),
       }
     }),
   }
@@ -758,13 +809,26 @@ export function series(slug: string, type: string, from: number, to: number, now
           },
         }
       : undefined
-  const [v, e] = sum({ kind: 'component', site: slug, type }, periodDays(from, to), now)
+  // The window's availability from the same minutes as the minute view, so flags and losses match it.
+  let v = 0
+  let e = 0
+  for (const d of periodDays(from, end)) {
+    const m = minutes(dayKey(d), `component:${slug}:${type}`, now)
+    const a = Math.max(0, Math.floor((from - d) / 60_000))
+    const b = Math.min(1440, Math.floor((end - d) / 60_000))
+    for (let i = a; i < b; i++) {
+      const c = m.codes[i]
+      if (c === 'u') continue
+      e++
+      if (c === 'v') v++
+    }
+  }
   return {
     component: type,
     from: new Date(from).toISOString(),
     to: new Date(to).toISOString(),
     fields,
-    availability: avail(Math.round((v / Math.max(1, e)) * total), total),
+    availability: avail(v, e),
     wind,
   }
 }

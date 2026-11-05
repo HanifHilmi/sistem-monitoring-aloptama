@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Segment } from '@/api/types'
+import { useI18n } from 'vue-i18n'
+import type { Flag, Segment } from '@/api/types'
 import type { ChartWindow } from '@/utils/time'
 
 // Rows of time segments over the chart window (present weather, lightning). Darker = heavier or closer.
@@ -16,7 +17,10 @@ const props = defineProps<{
   window: ChartWindow
   describe: (code: string) => string
   label: string
+  /** flagged ranges (R2.3), drawn as their own row under the others */
+  flags?: Flag[]
 }>()
+const { t } = useI18n()
 const from = computed(() => props.window.from.getTime())
 const span = computed(() => Math.max(1, props.window.to.getTime() - from.value))
 const OPACITY = [0, 0.45, 0.75, 1]
@@ -52,6 +56,19 @@ const place = (s: Segment) => {
         />
       </div>
       <span class="num text-right text-ink-3">{{ r.minutes }}</span>
+    </div>
+    <div v-if="flags?.length" class="grid grid-cols-[7.5rem_minmax(0,1fr)_4.5rem] items-center gap-2 text-xs">
+      <span class="truncate text-flag">{{ t('day.code.g') }}</span>
+      <div class="relative h-4 overflow-hidden rounded bg-sunken">
+        <span
+          v-for="f in flags"
+          :key="f.id"
+          class="flag-hatch absolute inset-y-0 border-x border-flag"
+          :style="place([Date.parse(f.start), Date.parse(f.end), 0, ''])"
+          :title="t(`flags.reason.${f.reason}`)"
+        />
+      </div>
+      <span />
     </div>
     <div class="num grid grid-cols-[7.5rem_minmax(0,1fr)_4.5rem] gap-2 text-[0.625rem] text-ink-3">
       <span /><span class="flex justify-between"

@@ -22,6 +22,8 @@
   --s-bad: #df4a40;
   --s-empty: #e7eaee;
   --s-ok: #138a46;
+  /* manual flags (R2.3): data marked as bad by an Admin */
+  --s-flag: #7048c8;
   color-scheme: light;
 }
 
@@ -43,6 +45,7 @@
     --s-bad: #ec5a4f;
     --s-empty: #1a212b;
     --s-ok: #34b46a;
+    --s-flag: #a389f4;
     color-scheme: dark;
   }
 }
@@ -64,6 +67,7 @@
   --s-bad: #ec5a4f;
   --s-empty: #1a212b;
   --s-ok: #34b46a;
+  --s-flag: #a389f4;
   color-scheme: dark;
 }
 
@@ -84,6 +88,7 @@
   --color-bad: var(--s-bad);
   --color-empty: var(--s-empty);
   --color-ok: var(--s-ok);
+  --color-flag: var(--s-flag);
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
 }
@@ -150,6 +155,14 @@
   }
   .btn-primary {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  /* A flagged time range drawn over a chart or ribbon: hatched, so it reads as "excluded" in both themes. */
+  .flag-hatch {
+    background: repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--s-flag) 38%, transparent) 0 2px,
+      color-mix(in srgb, var(--s-flag) 12%, transparent) 2px 6px
+    );
   }
   .btn-danger {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-bad/50 bg-surface px-3 py-1.5 text-sm text-bad hover:bg-bad/10 disabled:cursor-not-allowed disabled:opacity-50;

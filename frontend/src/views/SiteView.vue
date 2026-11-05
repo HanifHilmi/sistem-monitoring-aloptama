@@ -2,8 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
-import type { SystemInfo } from '@/api/types'
+import { api } from '@/api/client'
+import type { ComponentInfo, FlagRow, SystemInfo } from '@/api/types'
+import FlagForm from '@/components/flags/FlagForm.vue'
 import SensorBlock from '@/components/SensorBlock.vue'
+import SidePanel from '@/components/SidePanel.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import WindowBar from '@/components/WindowBar.vue'
 import { usePolling } from '@/composables/usePolling'
@@ -33,6 +36,26 @@ usePolling(() => {
   if (chartWindow.value.preset !== 'custom') chartWindow.value = windowFromPreset(chartWindow.value.preset)
   refreshKey.value++
 }, 60_000)
+
+// ---- flagging from a chart (R2.3, Admins) ----------------------------------------------------------
+const flagPanel = ref<
+  | { kind: 'new'; component: ComponentInfo; start: string; end: string }
+  | { kind: 'edit'; flag: FlagRow }
+  | null
+>(null)
+const flagTitle = computed(() => {
+  const p = flagPanel.value
+  if (!p) return ''
+  return p.kind === 'new' ? t('flags.form.titleNew') : t('flags.form.titleEdit', { id: p.flag.id })
+})
+async function editFlag(id: number) {
+  const flag = (await api.adminFlags(props.code, true)).find((f) => f.id === id)
+  if (flag) flagPanel.value = { kind: 'edit', flag }
+}
+function flagDone() {
+  flagPanel.value = null
+  refreshKey.value++
+}
 </script>
 
 <template>
@@ -69,9 +92,39 @@ usePolling(() => {
           :window="chartWindow"
           :status="live.componentStatus(slug, c.type)"
           :refresh-key="refreshKey"
+          @flag="(r) => (flagPanel = { kind: 'new', component: c, ...r })"
+          @edit-flag="editFlag"
         />
       </div>
       <p class="text-[0.6875rem] text-ink-3">{{ t('sensor.footnote') }}</p>
     </template>
+
+    <SidePanel
+      :open="flagPanel !== null"
+      :title="flagTitle"
+      :subtitle="site?.name[lc]"
+      @close="flagPanel = null"
+    >
+      <FlagForm
+        v-if="flagPanel?.kind === 'new'"
+        :key="`${flagPanel.component.type}${flagPanel.start}`"
+        :system="code"
+        :initial="{
+          components: [{ site: slug, type: flagPanel.component.type }],
+          start: flagPanel.start,
+          end: flagPanel.end,
+        }"
+        @done="flagDone"
+        @cancel="flagPanel = null"
+      />
+      <FlagForm
+        v-else-if="flagPanel?.kind === 'edit'"
+        :key="flagPanel.flag.id"
+        :system="code"
+        :flag="flagPanel.flag"
+        @done="flagDone"
+        @cancel="flagPanel = null"
+      />
+    </SidePanel>
   </div>
 </template>

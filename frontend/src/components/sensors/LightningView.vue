@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { LightningRow, SeriesField } from '@/api/types'
+import type { Flag, LightningRow, SeriesField } from '@/api/types'
 import type { Locale } from '@/i18n'
 import { int } from '@/utils/format'
 import { formatUtc, type ChartWindow } from '@/utils/time'
@@ -9,7 +9,7 @@ import { duration } from '@/utils/weather'
 import RowsRibbon from './RowsRibbon.vue'
 
 // Lightning: how close the storm was over time, and where distant lightning was seen.
-const props = defineProps<{ field: SeriesField; window: ChartWindow }>()
+const props = defineProps<{ field: SeriesField; window: ChartWindow; flags?: Flag[] }>()
 const { t, locale } = useI18n()
 const lc = computed(() => locale.value as Locale)
 const L = computed(() => props.field.lightning)
@@ -52,7 +52,7 @@ const spoke = (i: number) => {
       <template v-else>{{ t('ltg.none') }}</template>
     </p>
     <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_10.5rem] md:items-center">
-      <RowsRibbon :rows="rows" :window="window" :describe="describe" :label="t('ltg.title')" />
+      <RowsRibbon :rows="rows" :window="window" :describe="describe" :label="t('ltg.title')" :flags="flags" />
       <figure class="mx-auto text-center">
         <svg viewBox="0 0 160 160" class="h-40 w-40" role="img" :aria-label="t('ltg.directions')">
           <circle cx="80" cy="80" r="52" fill="none" stroke="var(--s-line-strong)" />

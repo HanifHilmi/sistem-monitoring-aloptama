@@ -295,7 +295,15 @@ export interface MatrixRow {
 
 export interface MatrixResponse {
   system: string
-  period: { from: string; to: string; evaluated_to: string; as_of: string; open: boolean }
+  period: {
+    from: string
+    to: string
+    evaluated_to: string
+    as_of: string
+    open: boolean
+    /** days in this period still being recalculated after a flag or rule change (R2.3) */
+    recalculating?: { from: string; to: string }[]
+  }
   bucket: MatrixBucket
   buckets: { start: string; end: string }[]
   rows: MatrixRow[]
@@ -305,12 +313,15 @@ export interface MinuteInterval {
   start: string
   end: string
   minutes: number
-  cause: 'field_missing' | 'no_data'
+  cause: 'field_missing' | 'no_data' | 'flagged'
+  /** flagged only: the flags that cover the interval */
+  flags?: FlagRef[]
 }
 
 export interface MinutesResponse {
   scope: string
   day: string
+  /** one letter per minute: v valid, f mandatory field missing, n no data, g flagged, u not counted */
   codes: string
   valid: number
   expected: number
@@ -338,6 +349,8 @@ export interface Outage {
   ongoing: boolean
   /** component scopes (component, site, ola) only; identical intervals of several components are listed once */
   components?: OutageComponent[]
+  /** flagged only: the flags that cover the interval */
+  flags?: FlagRef[]
 }
 
 export interface OutagesResponse {
@@ -505,4 +518,71 @@ export interface ComponentRow {
   is_dcp: boolean
   in_service_from: string | null
   in_service_to: string | null
+}
+
+// ---------------------------------------------------------------- manual flags (R2.3, FR-DQ-006/007)
+
+export const FLAG_REASONS = ['sensor_fault', 'maintenance', 'calibration', 'environmental', 'other'] as const
+export type FlagReason = (typeof FLAG_REASONS)[number]
+
+/** What everyone may see about a flag: its time range and reason. */
+export interface FlagRef {
+  id: number
+  reason: FlagReason
+}
+
+/** A flag as charts and the minute view show it. Note and author are for signed-in users only. */
+export interface Flag extends FlagRef {
+  start: string
+  /** exclusive */
+  end: string
+  components: { site: string; type: string }[]
+  note?: string
+  created_by?: string
+  created_at?: string
+}
+
+/** A flag in the Admin list, with its components' ids and its history. */
+export interface FlagRow extends Flag {
+  component_ids: number[]
+  note: string
+  created_by: string
+  created_at: string
+  updated_by: string | null
+  updated_at: string | null
+  removed_by: string | null
+  removed_at: string | null
+}
+
+export interface FlagDraft {
+  system: string
+  component_ids: number[]
+  start: string
+  end: string
+  reason: FlagReason
+  note: string
+}
+
+/** What a flag would change, per component: minutes in the range that are valid now and would count as lost. */
+export interface FlagPreview {
+  start: string
+  end: string
+  components: {
+    id: number
+    site: string
+    type: string
+    /** expected minutes inside the range */
+    minutes: number
+    /** valid now and lost once flagged: the drop in the component's valid minutes */
+    lost: number
+    /** already lost for another reason (no data, field missing, another flag) */
+    already: number
+  }[]
+  /** UTC days whose figures will be recalculated */
+  days: { from: string; to: string } | null
+}
+
+export interface FlagChange {
+  flag: FlagRow
+  job: JobRow | null
 }

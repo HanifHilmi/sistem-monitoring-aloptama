@@ -27,7 +27,7 @@ const KEY = 'simola.mock.admin'
 const H = 3_600_000
 const iso = (ms: number) => new Date(ms).toISOString()
 
-function components(): ComponentRow[] {
+export function components(): ComponentRow[] {
   let id = 0
   return SYSTEM.sites.flatMap((s) =>
     s.components.map((c) => ({
@@ -199,6 +199,25 @@ function availability(pct: number): Availability {
   const expected = 44_640
   const valid = Math.round((expected * pct) / 100)
   return { valid, expected, missing: expected - valid, pct: Math.round((valid / expected) * 10_000) / 100 }
+}
+
+/** Queues a recompute of the given UTC days, as a flag change does (R2.3). */
+export function enqueueRecompute(from: string, to: string, user: string, now: number): JobRow {
+  const s = load(now)
+  s.jobs.forEach((j) => advance(j, now))
+  const j = enqueue(s, 'recompute', from, to, user, now)
+  save(s)
+  return row(j)
+}
+
+/** Days whose figures are still being recalculated: queued and running recompute jobs. */
+export function recalculating(now: number): { from: string; to: string }[] {
+  const s = load(now)
+  s.jobs.forEach((j) => advance(j, now))
+  save(s)
+  return s.jobs
+    .filter((j) => j.type === 'recompute' && (j.status === 'queued' || j.status === 'running'))
+    .map((j) => ({ from: j.params.from!, to: j.params.to! }))
 }
 
 /** Handles /admin/{jobs,settings,mandatory-fields,components}; null for other paths. */

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { CloudBand, Cover, SeriesField } from '@/api/types'
+import type { CloudBand, Cover, Flag, SeriesField } from '@/api/types'
 import type { Locale } from '@/i18n'
 import { int, num } from '@/utils/format'
 import { formatUtc, type ChartWindow } from '@/utils/time'
@@ -9,7 +9,7 @@ import { formatUtc, type ChartWindow } from '@/utils/time'
 // Sky condition: each cloud layer drawn at its height over time, darker = more of the sky covered.
 // Low, middle and high bands each get a third of the height (most clouds here are low, so a plain
 // height scale would squash them), then the share of time per band and the lowest ceiling.
-const props = defineProps<{ field: SeriesField; window: ChartWindow }>()
+const props = defineProps<{ field: SeriesField; window: ChartWindow; flags?: Flag[] }>()
 const { t, locale } = useI18n()
 const lc = computed(() => locale.value as Locale)
 const sky = computed(() => props.field.sky!)
@@ -134,6 +134,35 @@ const pct0 = (n: number) => num(share(n), lc.value, share(n) < 10 && share(n) > 
           :stroke="l[2] ? 'var(--s-bad)' : 'none'"
         />
         <rect :x="x(b.t)" :y="Y0" :width="bw" :height="Y1 - Y0" fill="transparent" />
+      </g>
+      <defs>
+        <pattern
+          id="sky-flag"
+          width="6"
+          height="6"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(45)"
+        >
+          <rect width="6" height="6" fill="var(--s-flag)" opacity="0.1" />
+          <rect width="2" height="6" fill="var(--s-flag)" opacity="0.35" />
+        </pattern>
+      </defs>
+      <g v-for="f in flags ?? []" :key="`flag${f.id}`">
+        <title>{{ t(`flags.reason.${f.reason}`) }}</title>
+        <rect
+          :x="x(Math.max(from, Date.parse(f.start)))"
+          :y="Y0"
+          :width="
+            Math.max(
+              1.5,
+              x(Math.min(from + span, Date.parse(f.end))) - x(Math.max(from, Date.parse(f.start))),
+            )
+          "
+          :height="Y1 - Y0"
+          fill="url(#sky-flag)"
+          stroke="var(--s-flag)"
+          stroke-width="1"
+        />
       </g>
       <line :x1="X0" :x2="X1" :y1="Y1" :y2="Y1" stroke="var(--s-line-strong)" />
       <text :x="X0" :y="Y1 + 18" class="num fill-ink-3 text-[11px]">{{ hhmm(from) }}</text>

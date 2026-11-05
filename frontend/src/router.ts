@@ -59,6 +59,7 @@ export const router = createRouter({
         { path: 'users', name: 'admin-users', component: () => import('@/views/admin/UsersView.vue') },
         { path: 'audit', name: 'admin-audit', component: () => import('@/views/admin/AuditView.vue') },
         { path: 'jobs', name: 'admin-jobs', component: () => import('@/views/admin/JobsView.vue') },
+        { path: 'flags', name: 'admin-flags', component: () => import('@/views/admin/FlagsView.vue') },
         {
           path: 'settings',
           name: 'admin-settings',

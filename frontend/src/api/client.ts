@@ -3,6 +3,11 @@ import type {
   AuditFilter,
   AuditPage,
   ComponentRow,
+  Flag,
+  FlagChange,
+  FlagDraft,
+  FlagPreview,
+  FlagRow,
   JobDetail,
   JobRow,
   MandatoryPreview,
@@ -128,6 +133,9 @@ export const api = {
       scope,
       limit,
     }),
+  /** Flags touching a scope (`component:<site>:<type>`, `site:<site>` or all) in a period (FR-DQ-007). */
+  flags: (code: string, from: Date, to: Date, scope?: string) =>
+    get<Flag[]>(`/systems/${encodeURIComponent(code)}/flags`, { ...period(from, to), scope }),
   internalHealth: () => get<Record<string, unknown>>('/internal/health'),
 
   // Accounts (R2.1)
@@ -168,4 +176,19 @@ export const api = {
       in_service_from: from,
       in_service_to: to,
     }),
+
+  // Manual flags (R2.3)
+  adminFlags: (system: string, removed: boolean) =>
+    get<FlagRow[]>('/admin/flags', { system, removed: removed ? 1 : undefined }),
+  previewFlag: (draft: Pick<FlagDraft, 'system' | 'component_ids' | 'start' | 'end'>, exclude?: number) =>
+    get<FlagPreview>('/admin/flags/preview', {
+      system: draft.system,
+      components: draft.component_ids.join(','),
+      from: draft.start,
+      to: draft.end,
+      exclude,
+    }),
+  createFlag: (draft: FlagDraft) => send<FlagChange>('POST', '/admin/flags', draft),
+  updateFlag: (id: number, draft: FlagDraft) => send<FlagChange>('PATCH', `/admin/flags/${id}`, draft),
+  removeFlag: (id: number) => send<FlagChange>('DELETE', `/admin/flags/${id}`),
 }

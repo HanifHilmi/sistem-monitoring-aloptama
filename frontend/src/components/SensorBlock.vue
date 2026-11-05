@@ -2,13 +2,16 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api/client'
-import type { ComponentInfo, FieldInfo, SeriesField, SeriesResponse } from '@/api/types'
+import type { ComponentInfo, FieldInfo, Flag, SeriesField, SeriesResponse } from '@/api/types'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
+import { useAuthStore } from '@/stores/auth'
 import { useDisplayStore } from '@/stores/display'
+import { formatDuration, formatRange } from '@/utils/flags'
 import { figureLevel, int, LEVEL_TEXT, num, pct } from '@/utils/format'
 import type { ChartWindow } from '@/utils/time'
 import FieldChart from './FieldChart.vue'
+import FlagList from './flags/FlagList.vue'
 import GustPanel from './sensors/GustPanel.vue'
 import LightningView from './sensors/LightningView.vue'
 import SkyChart from './sensors/SkyChart.vue'
@@ -27,9 +30,15 @@ const props = defineProps<{
   status: string
   refreshKey: number
 }>()
+const emit = defineEmits<{
+  /** an Admin picked a range to flag on this component */
+  flag: [range: { start: string; end: string }]
+  editFlag: [id: number]
+}>()
 const { t, locale } = useI18n()
 const lc = computed(() => locale.value as Locale)
 const display = useDisplayStore()
+const auth = useAuthStore()
 const open = ref<string | null>(null)
 
 const loader = useLoader<SeriesResponse>(() =>
@@ -44,6 +53,53 @@ watch(
   () => props.refreshKey,
   () => loader.load({ silent: true }),
 )
+
+// ---- flags in the window (R2.3) -------------------------------------------------------------------
+const flagLoader = useLoader<Flag[]>(() =>
+  api.flags(
+    props.systemCode,
+    props.window.from,
+    props.window.to,
+    `component:${props.siteSlug}:${props.component.type}`,
+  ),
+)
+watch(
+  () => [props.window.from.getTime(), props.window.to.getTime(), props.refreshKey],
+  () => flagLoader.load({ silent: true }),
+  { immediate: true },
+)
+const flags = computed(() => flagLoader.data.value ?? [])
+const selecting = ref(false)
+const selection = ref<[number, number] | null>(null)
+watch(open, () => {
+  selecting.value = false
+  selection.value = null
+})
+const iso = (ms: number) => new Date(ms).toISOString()
+const selectionText = computed(() =>
+  selection.value
+    ? `${formatRange(iso(selection.value[0]), iso(selection.value[1]), lc.value)} UTC · ${formatDuration(
+        (selection.value[1] - selection.value[0]) / 60_000,
+        t,
+      )}`
+    : '',
+)
+/** Charts without drag-select (sky, weather, lightning) start from the whole window; the form adjusts it. */
+const draggable = (f: SeriesField) => !f.sky && !f.weather && !f.lightning
+function startFlag(f: SeriesField) {
+  if (draggable(f)) {
+    selecting.value = true
+    return
+  }
+  const end = Math.min(props.window.to.getTime(), Math.floor(Date.now() / 60_000) * 60_000)
+  emit('flag', { start: iso(Math.floor(props.window.from.getTime() / 60_000) * 60_000), end: iso(end) })
+}
+function confirmFlag() {
+  if (!selection.value) return
+  emit('flag', { start: iso(selection.value[0]), end: iso(selection.value[1]) })
+  selecting.value = false
+  selection.value = null
+}
 
 const DIGITS: Record<string, number> = { '°C': 1, hPa: 1, mm: 1 }
 const fmt = (v: number | string | null | undefined, unit: string | null) =>
@@ -75,6 +131,15 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
       <h3 class="text-sm font-semibold">{{ component.name[lc] }}</h3>
       <span class="num text-[0.6875rem] text-ink-3">{{ component.type }}</span>
       <StatusPill :status="status" />
+      <span
+        v-if="flags.length"
+        class="inline-flex items-center gap-1 rounded-full border border-flag/50 bg-flag/10 px-2 py-px text-[0.6875rem] text-flag"
+        :title="flags.map((f) => t(`flags.reason.${f.reason}`)).join(', ')"
+        data-testid="flag-chip"
+      >
+        <span class="flag-hatch h-2 w-2 rounded-[1px]" aria-hidden="true" />
+        {{ t('flags.chip', { n: flags.length }, flags.length) }}
+      </span>
       <span
         v-if="avail"
         class="num ml-auto text-xs"
@@ -166,6 +231,33 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
           <tr v-if="open === f.code">
             <td colspan="7" class="border-t border-line bg-sunken/50 px-3 py-2">
               <div
+                v-if="auth.isAdmin"
+                class="mb-1.5 flex min-h-7 flex-wrap items-center justify-end gap-2 text-xs"
+                data-testid="flag-toolbar"
+              >
+                <template v-if="selecting">
+                  <span v-if="!selection" class="mr-auto text-ink-2">{{ t('flags.onChart.hint') }}</span>
+                  <span v-else class="num mr-auto font-medium text-flag" role="status">{{
+                    selectionText
+                  }}</span>
+                  <button
+                    v-if="selection"
+                    type="button"
+                    class="btn-primary px-2.5 py-1 text-xs"
+                    @click="confirmFlag"
+                  >
+                    {{ t('flags.onChart.continue') }}
+                  </button>
+                  <button type="button" class="btn px-2.5 py-1 text-xs" @click="selecting = false">
+                    {{ t('flags.onChart.cancel') }}
+                  </button>
+                </template>
+                <button v-else type="button" class="btn px-2.5 py-1 text-xs" @click="startFlag(f)">
+                  <span class="flag-hatch h-2.5 w-2.5 rounded-[1px] border border-flag" aria-hidden="true" />
+                  {{ draggable(f) ? t('flags.onChart.select') : t('flags.onChart.selectWindow') }}
+                </button>
+              </div>
+              <div
                 class="grid gap-3"
                 :class="
                   loader.data.value.wind && (f.code === 'WS' || f.code === 'WD')
@@ -173,14 +265,30 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
                     : ''
                 "
               >
-                <SkyChart v-if="f.sky" :field="f" :window="window" />
-                <WeatherView v-else-if="f.weather" :field="f" :window="window" />
-                <LightningView v-else-if="f.lightning" :field="f" :window="window" />
-                <FieldChart v-else :field="f" :name="name(f.code)" :window="window" />
+                <SkyChart v-if="f.sky" :field="f" :window="window" :flags="flags" />
+                <WeatherView v-else-if="f.weather" :field="f" :window="window" :flags="flags" />
+                <LightningView v-else-if="f.lightning" :field="f" :window="window" :flags="flags" />
+                <FieldChart
+                  v-else
+                  v-model:selection="selection"
+                  :field="f"
+                  :name="name(f.code)"
+                  :window="window"
+                  :flags="flags"
+                  :selecting="selecting"
+                />
                 <div v-if="loader.data.value.wind && (f.code === 'WS' || f.code === 'WD')">
                   <WindRose :wind="loader.data.value.wind" />
                 </div>
               </div>
+              <section
+                v-if="flags.length"
+                class="mt-2 border-t border-line pt-2"
+                :aria-label="t('flags.inWindow')"
+              >
+                <h4 class="eyebrow mb-1.5">{{ t('flags.inWindow') }}</h4>
+                <FlagList :flags="flags" :can-edit="auth.isAdmin" @edit="(id) => emit('editFlag', id)" />
+              </section>
             </td>
           </tr>
         </template>

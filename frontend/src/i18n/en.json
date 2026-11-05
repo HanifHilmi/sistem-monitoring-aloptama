@@ -67,7 +67,8 @@
     "closed": "Closed period",
     "levelFull": "No minute lost",
     "legendNote": "Select a cell for its minute-by-minute view",
-    "thresholdNote": "Colours are display thresholds, not official targets."
+    "thresholdNote": "Colours are display thresholds, not official targets.",
+    "recalculating": "Recalculating {days} after a change. The figures here update when it is done."
   },
   "kpi": {
     "sla": "SLA",
@@ -90,7 +91,8 @@
       "v": "Valid",
       "f": "Mandatory field missing",
       "n": "No data",
-      "u": "Not counted"
+      "u": "Not counted",
+      "g": "Flagged"
     },
     "intervals": "Lost intervals, longest first",
     "noIntervals": "No minute lost on this day.",
@@ -100,10 +102,15 @@
     "cause": "Cause",
     "causeName": {
       "field_missing": "Mandatory field missing",
-      "no_data": "No data"
+      "no_data": "No data",
+      "flagged": "Flagged"
     },
     "more": "{n} more intervals",
-    "openCharts": "Open this day's sensor charts"
+    "openCharts": "Open this day's sensor charts",
+    "flagsTitle": "Flags on this day",
+    "selectMinutes": "Flag minutes",
+    "selectHint": "Click the first and the last bad minute, or drag across them.",
+    "backToMinutes": "Back to the minutes"
   },
   "outages": {
     "title": "Outages, longest first",
@@ -505,7 +512,10 @@
       "job_cancelled": "Cancelled job",
       "setting_changed": "Changed setting",
       "mandatory_changed": "Changed mandatory fields",
-      "in_service_changed": "Changed in-service period"
+      "in_service_changed": "Changed in-service period",
+      "flag_created": "Flagged data",
+      "flag_updated": "Changed flag",
+      "flag_removed": "Removed flag"
     },
     "entity": {
       "user": "user",
@@ -514,7 +524,8 @@
       "audit": "audit log",
       "job": "job",
       "mandatory": "mandatory fields",
-      "component": "component"
+      "component": "component",
+      "flag": "flag"
     },
     "yes": "yes",
     "no": "no",
@@ -543,7 +554,11 @@
       "field_missing_min": "Mandatory field missing (min)",
       "ingest_lag_min": "Data late (min)",
       "in_service_from": "In service from",
-      "in_service_to": "In service until"
+      "in_service_to": "In service until",
+      "start": "Start",
+      "end": "End",
+      "note": "Note",
+      "components": "Components"
     },
     "reason": {
       "password": "wrong password",
@@ -677,5 +692,95 @@
     "order": "'From' must be before 'until'.",
     "effect": "Saving recomputes the figures for all days and is recorded in the audit log. Minutes outside the period stop being expected, so this component's, its site's and the OLA figures change for those days.",
     "save": "Save period"
+  },
+  "flags": {
+    "title": "Flags",
+    "subtitle": "Time ranges an Admin marked as bad data. Flagged minutes count as lost for the flagged components only: SLA and the DCPs are never affected. Usually flagged from a sensor chart or the minute map.",
+    "new": "New flag",
+    "filterSite": "Site",
+    "allSites": "All sites",
+    "filterReason": "Reason",
+    "allReasons": "All reasons",
+    "showRemoved": "Show removed flags",
+    "count": "{n} flag | {n} flags",
+    "empty": "No flags yet. Flag a range from a sensor chart or the minute map, or with New flag.",
+    "emptyFiltered": "No flags match these filters.",
+    "by": "by {name} · {time}",
+    "edited": "edited by {name} · {time}",
+    "removedBy": "Removed by {name} · {time}",
+    "edit": "Edit",
+    "openChart": "Open chart",
+    "inWindow": "Flags in this window",
+    "chip": "{n} flag | {n} flags",
+    "reason": {
+      "sensor_fault": "Sensor fault",
+      "maintenance": "Maintenance",
+      "calibration": "Calibration",
+      "environmental": "Environmental",
+      "other": "Other"
+    },
+    "reasonHint": {
+      "sensor_fault": "The sensor reported wrong values, for example stuck, jumping or out of range.",
+      "maintenance": "Work on the sensor or its mast while it kept reporting.",
+      "calibration": "Readings during a calibration or a check against a reference.",
+      "environmental": "Something around the sensor disturbed it: grass cutting, insects, birds, water.",
+      "other": "Anything else: explain it in the note."
+    },
+    "onChart": {
+      "select": "Flag a range",
+      "selectWindow": "Flag a range…",
+      "hint": "Drag across the chart over the bad data.",
+      "continue": "Flag…",
+      "cancel": "Cancel"
+    },
+    "form": {
+      "titleNew": "Flag data",
+      "titleEdit": "Edit flag #{id}",
+      "components": "Components",
+      "selected": "Selected: {list}",
+      "noneSelected": "Pick at least one component.",
+      "dcp": "DCPs are not listed: a DCP only counts whether records arrive, so it cannot be flagged.",
+      "from": "From (UTC)",
+      "to": "Until (UTC)",
+      "duration": "Duration {d}",
+      "toHint": "the \"until\" minute itself is not included",
+      "order": "\"Until\" must be later than \"From\".",
+      "future": "Flags cover the past only. Flag work that is still going on once it is finished.",
+      "long": "Longer than 31 days. For a sensor that is out of service, set its in-service period in Registry instead.",
+      "reason": "Reason",
+      "note": "Note",
+      "noteHint": "What was wrong and what was done. Shown to signed-in users only.",
+      "effect": "Effect on the figures",
+      "colComponent": "Component",
+      "colRange": "In range",
+      "colLost": "Becomes lost",
+      "colAlready": "Already lost",
+      "effectSummary": "No valid minute changes. Figures for {days} are recalculated anyway. | {lost} valid minute will count as lost. Figures for {days} will be recalculated, usually within a minute. | {lost} valid minutes will count as lost. Figures for {days} will be recalculated, usually within a minute.",
+      "effectAlready": "Minutes already lost (no data, a missing field or another flag) are not counted twice.",
+      "save": "Flag data",
+      "saveEdit": "Save changes",
+      "cancel": "Cancel",
+      "remove": "Remove flag",
+      "removeConfirm": "Remove this flag? Its minutes count as they did before, and the removal stays in the audit log.",
+      "removeYes": "Remove",
+      "keep": "Keep it",
+      "saved": "Flag #{id} saved.",
+      "removed": "Flag #{id} removed.",
+      "recalc": "Figures for {days} are being recalculated:",
+      "done": "Done"
+    },
+    "error": {
+      "no_components": "Pick at least one component.",
+      "component_not_found": "A component no longer exists. Reload the page.",
+      "dcp_cannot_be_flagged": "A DCP cannot be flagged.",
+      "invalid_period": "\"Until\" must be later than \"From\".",
+      "flag_in_future": "Flags cover the past only.",
+      "before_coverage": "The range starts before SIMOLA has data.",
+      "invalid_reason": "Pick a reason.",
+      "note_required": "Write a short note (at least 3 characters).",
+      "note_too_long": "The note is longer than 500 characters.",
+      "flag_removed": "This flag was removed in the meantime.",
+      "flag_not_found": "This flag no longer exists."
+    }
   }
 }
