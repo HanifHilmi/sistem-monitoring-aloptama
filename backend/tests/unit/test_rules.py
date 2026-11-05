@@ -60,6 +60,8 @@ def test_parameters_keep_only_what_the_rule_uses() -> None:
 
 # ---------------------------------------------------------------------------- boundaries (FR-DQ-001.2)
 def test_range_fires_outside_its_limits_only() -> None:
+    m, v = ms((0, 41), (1, 41))
+    assert R.apply("range", {"max": 40}, m, v)[0].evidence == {"value": 41.0}  # one value: no low and high
     m, v = ms((0, 10), (1, 40), (2, 40.1), (3, 42), (4, None), (5, 50), (6, 9.9))
     hits = R.apply("range", {"min": 10, "max": 40}, m, v)
     assert spans(hits) == [
@@ -182,6 +184,9 @@ def test_two_chunks_give_what_one_pass_gives(s: dict[str, Any]) -> None:
             stored[next_id] = R.Existing(next_id, h.start, h.end, "suspect", h.evidence)
             next_id += 1
     assert sorted((e.start, e.end) for e in stored.values()) == whole
+    # Checking the whole range again changes nothing at all, evidence included (FR-DQ-003.1).
+    again = R.merge(rtype, list(stored.values()), R.apply(rtype, params, m, v), (0, n))
+    assert (again.inserts, again.updates, again.deletes) == ([], {}, set())
 
 
 # ---------------------------------------------------------------------------- proposed starting values (OPEN-08)

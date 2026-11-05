@@ -98,11 +98,8 @@ def _range(lo: float | None, hi: float | None, minutes: Sequence[int], values: S
             continue
         last = out[-1] if out else None
         if last is not None and last.end == m:
-            low = min(last.evidence.get("low", last.evidence["value"]), v)
-            high = max(last.evidence.get("high", last.evidence["value"]), v)
-            out[-1] = Hit(
-                last.start, m + 1, {"value": last.evidence["value"], "low": _r(low), "high": _r(high)}
-            )
+            # Same shape as _merge_evidence: low and high only once the stretch has more than one value.
+            out[-1] = Hit(last.start, m + 1, _merge_evidence(last.evidence, {"value": _r(v)}))
         else:
             out.append(Hit(m, m + 1, {"value": _r(v)}))
     return out
