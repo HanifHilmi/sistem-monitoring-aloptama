@@ -158,6 +158,26 @@ async def test_rollup_equals_live(engine: AsyncEngine, loaded) -> None:  # type:
     assert dict(live.data) == dict(via_rollup.data)
 
 
+async def test_grouped_counts_equal_summed_days(engine: AsyncEngine, loaded) -> None:  # type: ignore[no-untyped-def]
+    """The database's per-group sums give exactly the per-day counts added up (matrix and KPIs, FR-KPI-001)."""
+    system, *_ = loaded
+    async with engine.begin() as conn:
+        assert await kpi.recompute_days(conn, system, [DAY], NOW) == 1
+    start = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)  # partial first day, stored full day, partial last day
+    nonzero = lambda c: {k: tuple(v) for k, v in c.data.items() if v != [0, 0]}  # noqa: E731
+    async with engine.connect() as conn:
+        days, a, b = await kpi.daily_counts(conn, system, start, NOW, NOW)
+        for group in ("day", "week", "month", "all"):
+            expected: dict[date, kpi.Counts] = {}
+            for d, c in days.items():
+                expected.setdefault(kpi.group_key(d, group, start.date()), kpi.Counts()).merge(c)
+            got, ga, gb = await kpi.grouped_counts(conn, system, start, NOW, NOW, group)
+            assert (ga, gb) == (a, b)
+            assert {k: nonzero(c) for k, c in got.items()} == {k: nonzero(c) for k, c in expected.items()}, (
+                group
+            )
+
+
 async def test_live_cycle_after_midnight_rescans_yesterday(engine: AsyncEngine, loaded) -> None:  # type: ignore[no-untyped-def]
     system, *_ = loaded
     fresh = Cat3Ingestor(engine, system, get_settings())

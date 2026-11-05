@@ -111,3 +111,15 @@ def test_minute_statuses_and_intervals() -> None:
     runs = intervals(start, codes)
     assert [(r["cause"], r["minutes"]) for r in runs] == [("field_missing", 2), ("no_data", 2)]
     assert runs[0]["start"] == m[2] and runs[0]["end"] == m[4]
+
+
+def test_group_key_matches_matrix_buckets() -> None:
+    from simola.kpi.engine import group_key
+    from simola.kpi.matrix import bucket_start
+
+    first = date(2026, 10, 7)  # a Wednesday
+    for offset in range(60):
+        d = first + timedelta(days=offset)
+        for bucket in ("day", "week", "month"):
+            assert group_key(d, bucket, first) == max(bucket_start(d, bucket), first)
+    assert group_key(date(2026, 12, 31), "all", first) == first

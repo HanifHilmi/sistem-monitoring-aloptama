@@ -253,7 +253,7 @@ async def get_matrix(
     system = await system_or_404(conn, code)
     start, end = parse_period(from_, to, max_span=MAX_KPI_SPAN)
     now = _now()
-    days, a, b = await engine.daily_counts(conn, system, start, end, now)
+    days, a, b = await engine.grouped_counts(conn, system, start, end, now, bucket)
     first, last = start.date(), (end - timedelta(minutes=1)).date()
     return {
         "system": system.code,

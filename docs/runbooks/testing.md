@@ -67,3 +67,8 @@ It prints PASS/FAIL for NFR-PERF-001 (KPI and status p95 ≤ 1.0 s) and NFR-PERF
 | 2026-11-04 | Browser, staging | 30 passed (2 skipped by design); LCP 0.88–0.95 s; initial JS 86.5 KB gzip |
 | 2026-11-04 | Security, staging | All passed (36 checks) |
 | 2026-11-04 | Load, staging | **Failed**: p95 1.9–3.5 s for KPI and status, 2.5 s for the 31-day chart; no errors in 4,777 requests. Cause: one API process; the 31-day chart reads ~44,600 rows per component and processes them in Python, which blocks every other request |
+| 2026-11-05 | Load, staging (05bf3bc: faster charts, 2 API processes) | **Failed**: p95 0.56–1.3 s; 134 HTTP 500 of 9,922 requests: the database refused connections (pools asked for up to 30 of 22) |
+| 2026-11-05 | Load, staging (66065ef: pools 17 of 22) | **Nearly passed**: 0 errors in 11,403 requests; every target met except the yearly matrix, p95 1.2 s (limit 1.0; 60 ms when idle). The host's 4 CPUs were saturated (load ≈ 4), the load generator included |
+| 2026-11-05 | Browser, staging | 30 passed, twice in a row |
+| 2026-11-05 | Security, staging | All passed |
+| 2026-11-05 | CI (66065ef) | All 6 jobs green, including e2e and the ZAP baseline (no High-risk alert) |

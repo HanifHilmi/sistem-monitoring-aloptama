@@ -17,7 +17,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
@@ -206,25 +206,27 @@ async def recompute_days(conn: AsyncConnection, system: System, days: list[date]
     return stored
 
 
-async def _rollup_rows(conn: AsyncConnection, system: System, first: date, last: date) -> dict[date, Counts]:
-    scopes = scope_ids(system)
-    rows = (
-        (
-            await conn.execute(
-                text("""
-        SELECT scope_type, scope_id, day, valid, expected FROM availability_daily
-        WHERE day >= :first AND day <= :last
+ROLLUP_SCOPES = """
           AND ((scope_type = 'sla' AND scope_id = :sys)
                OR (scope_type IN ('cdp_flow', 'cdp_reach', 'cdp_legacy') AND scope_id = ANY(:cdps))
                OR (scope_type = 'component' AND scope_id = ANY(:comps)))
-    """),
-                {
-                    "first": first,
-                    "last": last,
-                    "sys": system.id,
-                    "cdps": scopes["cdp"],
-                    "comps": scopes["component"],
-                },
+"""
+
+
+def _scope_params(system: System) -> dict[str, Any]:
+    scopes = scope_ids(system)
+    return {"sys": system.id, "cdps": scopes["cdp"], "comps": scopes["component"]}
+
+
+async def _rollup_rows(conn: AsyncConnection, system: System, first: date, last: date) -> dict[date, Counts]:
+    rows = (
+        (
+            await conn.execute(
+                text(
+                    "SELECT scope_type, scope_id, day, valid, expected FROM availability_daily "
+                    "WHERE day >= :first AND day <= :last" + ROLLUP_SCOPES
+                ),
+                {"first": first, "last": last, **_scope_params(system)},
             )
         )
         .mappings()
@@ -234,6 +236,54 @@ async def _rollup_rows(conn: AsyncConnection, system: System, first: date, last:
     for r in rows:
         out.setdefault(r["day"], Counts()).add((r["scope_type"], r["scope_id"]), r["valid"], r["expected"])
     return out
+
+
+Group = Literal["day", "week", "month", "all"]
+_GROUP_SQL = {
+    "day": "day",
+    "week": "date_trunc('week', day::timestamp)::date",  # ISO week, Monday, like matrix.bucket_start
+    "month": "date_trunc('month', day::timestamp)::date",
+    "all": "CAST(:first AS date)",
+}
+
+
+async def _rollup_sums(
+    conn: AsyncConnection, system: System, first: date, last: date, group: Group
+) -> tuple[dict[date, Counts], set[date]]:
+    """Stored daily counts summed per group by the database, and the days that have stored counts.
+
+    Summing whole numbers in SQL gives exactly what adding the daily rows in Python gives, with ~30 rows per
+    group instead of ~30 per day (a year: ~340 rows instead of ~8,600).
+    """
+    params = {"first": first, "last": last, **_scope_params(system)}
+    where = "WHERE day >= :first AND day <= :last" + ROLLUP_SCOPES
+    rows = (
+        await conn.execute(
+            text(
+                f"SELECT {_GROUP_SQL[group]} AS g, scope_type, scope_id, sum(valid)::bigint, sum(expected)::bigint "
+                f"FROM availability_daily {where} GROUP BY 1, 2, 3"
+            ),
+            params,
+        )
+    ).all()
+    out: dict[date, Counts] = {}
+    for g, scope_type, scope_id, valid, expected in rows:
+        out.setdefault(g, Counts()).add((scope_type, scope_id), int(valid), int(expected))
+    stored = {
+        r[0]
+        for r in (await conn.execute(text(f"SELECT DISTINCT day FROM availability_daily {where}"), params))
+    }
+    return out, stored
+
+
+def group_key(d: date, group: Group, first: date) -> date:
+    """The group a day (or a group start from SQL) belongs to, clipped to the period's first day."""
+    if group == "day":
+        return d
+    if group == "all":
+        return first
+    start = d - timedelta(days=d.weekday()) if group == "week" else d.replace(day=1)
+    return max(start, first)
 
 
 def scope_ids(system: System) -> dict[str, list[int]]:
@@ -272,12 +322,49 @@ async def daily_counts(
     return result, a, b
 
 
+async def grouped_counts(
+    conn: AsyncConnection, system: System, start: datetime, end: datetime, now: datetime, group: Group
+) -> tuple[dict[date, Counts], datetime, datetime]:
+    """Counts over [start, end) after clipping, summed per day, ISO week, month or the whole period.
+
+    Same figures as adding up ``daily_counts`` per group: complete days come from the stored rollups (summed by
+    the database), and partial days at either end, or complete days without rollups, are computed live.
+    Keys are group starts clipped to ``start``'s day, as ``matrix.build_matrix`` expects.
+    """
+    grace = await grace_minutes(conn)
+    a, b = clip_period(system, start, end, now, grace)
+    out: dict[date, Counts] = {}
+    if b <= a:
+        return out, a, b
+    period_first = start.date()
+
+    def into(d: date) -> Counts:
+        return out.setdefault(group_key(d, group, period_first), Counts())
+
+    first_day, last_day = a.date(), (b - timedelta(minutes=1)).date()
+    full_first = first_day if day_start(first_day) >= a else first_day + DAY
+    full_last = last_day if day_start(last_day) + DAY <= b else last_day - DAY
+    if full_first <= full_last:
+        sums, stored = await _rollup_sums(conn, system, full_first, full_last, group)
+        for g, c in sums.items():
+            into(g).merge(c)
+        d = full_first
+        while d <= full_last:  # normally none once rollups are maintained
+            if d not in stored:
+                into(d).merge(await live_counts(conn, system, day_start(d), day_start(d) + DAY))
+            d += DAY
+    for d in sorted({first_day, last_day}):
+        if not full_first <= d <= full_last:
+            into(d).merge(await live_counts(conn, system, max(a, day_start(d)), min(b, day_start(d) + DAY)))
+    return out, a, b
+
+
 async def period_counts(
     conn: AsyncConnection, system: System, start: datetime, end: datetime, now: datetime
 ) -> tuple[Counts, datetime, datetime]:
-    days, a, b = await daily_counts(conn, system, start, end, now)
+    groups, a, b = await grouped_counts(conn, system, start, end, now, "all")
     total = Counts()
-    for c in days.values():
+    for c in groups.values():
         total.merge(c)
     return total, a, b
 
