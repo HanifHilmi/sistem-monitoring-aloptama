@@ -1,13 +1,23 @@
 {
-  "app": { "footer": "SIMOLA · Sistem Monitoring ALOPTAMA · all times UTC" },
+  "app": {
+    "footer": "SIMOLA · Sistem Monitoring ALOPTAMA · all times UTC"
+  },
   "nav": {
     "board": "Performance",
     "skip": "Skip to content",
     "menu": "Menu",
     "theme": "Theme",
-    "themeName": { "system": "Follow device", "light": "Light", "dark": "Dark" },
+    "themeName": {
+      "system": "Follow device",
+      "light": "Light",
+      "dark": "Dark"
+    },
     "language": "Language",
-    "switchTo": "Bahasa Indonesia"
+    "switchTo": "Bahasa Indonesia",
+    "dashboard": "Dashboard",
+    "system": "System",
+    "metar": "METAR and METREPORT",
+    "later": "later"
   },
   "common": {
     "close": "Close",
@@ -19,7 +29,10 @@
     "apply": "Apply",
     "validOfExpected": "{valid} of {expected} minutes valid",
     "back": "Back",
-    "allUtc": "All times UTC."
+    "allUtc": "All times UTC.",
+    "durH": "{h} h",
+    "durHM": "{h} h {m} min",
+    "durM": "{m} min"
   },
   "period": {
     "label": "Period",
@@ -41,7 +54,11 @@
     "system": "System",
     "siteTotal": "Site total",
     "noCoverage": "no data",
-    "bucket": { "day": "Day", "week": "Week", "month": "Month" },
+    "bucket": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
     "minLost": "min lost",
     "matrix": "Availability by component and period",
     "losses": "Largest losses",
@@ -69,14 +86,22 @@
     "lostMinutes": "Minutes lost",
     "minuteMap": "Minute map (hours × minutes)",
     "minuteMapLabel": "Status of every minute of the day, one row per hour",
-    "code": { "v": "Valid", "f": "Mandatory field missing", "n": "No data", "u": "Not counted" },
+    "code": {
+      "v": "Valid",
+      "f": "Mandatory field missing",
+      "n": "No data",
+      "u": "Not counted"
+    },
     "intervals": "Lost intervals, longest first",
     "noIntervals": "No minute lost on this day.",
     "from": "From",
     "to": "To",
     "minutes": "Min",
     "cause": "Cause",
-    "causeName": { "field_missing": "Mandatory field missing", "no_data": "No data" },
+    "causeName": {
+      "field_missing": "Mandatory field missing",
+      "no_data": "No data"
+    },
     "more": "{n} more intervals",
     "openCharts": "Open this day's sensor charts"
   },
@@ -119,7 +144,11 @@
     "unavailable": "Live status unavailable"
   },
   "cdp": {
-    "flow": { "producing": "Producing data", "not_producing": "Not producing data", "unknown": "Unknown" },
+    "flow": {
+      "producing": "Producing data",
+      "not_producing": "Not producing data",
+      "unknown": "Unknown"
+    },
     "reach": {
       "reachable": "Reachable",
       "unreachable": "Unreachable",
@@ -134,7 +163,12 @@
     "none": "All clear",
     "noneLong": "No current problems.",
     "since": "since {time}",
-    "severity": { "critical": "Critical", "major": "Major", "minor": "Minor", "info": "Info" },
+    "severity": {
+      "critical": "Critical",
+      "major": "Major",
+      "minor": "Minor",
+      "info": "Info"
+    },
     "code": {
       "cdp_all_no_data": "Both CDPs aren't producing data",
       "cdp_no_data": "{cdp} isn't producing data",
@@ -156,7 +190,12 @@
   },
   "window": {
     "label": "Chart window",
-    "preset": { "3h": "3 h", "24h": "24 h", "7d": "7 d", "31d": "31 d" },
+    "preset": {
+      "3h": "3 h",
+      "24h": "24 h",
+      "7d": "7 d",
+      "31d": "31 d"
+    },
     "custom": "Custom",
     "max31": "up to 31 days"
   },
@@ -180,8 +219,9 @@
     "mandatory": "mandatory field",
     "mostFrequent": "mostly {state} ({n} min)",
     "noEventWindow": "no events",
-    "gustSummary": "{n} gust events · max {max} kt",
-    "footnote": "* mandatory field: the component counts as available only when all its mandatory fields are valid. Select a row for its chart."
+    "footnote": "* mandatory field: the component counts as available only when all its mandatory fields are valid. Select a row for its chart.",
+    "noCloud": "No cloud",
+    "noCloudShare": "No cloud detected in {p} % of the minutes (readings of 0 are left out of the dots and figures)"
   },
   "site": {
     "notFound": "Site not found",
@@ -211,5 +251,111 @@
     "noJobs": "No jobs",
     "yes": "Yes",
     "no": "No"
+  },
+  "overview": {
+    "title": "Dashboard",
+    "subtitle": "Every system at a glance",
+    "slaMonth": "SLA this month",
+    "olaMonth": "OLA this month",
+    "slaToday": "SLA today",
+    "problems": "{n} problem | {n} problems",
+    "noProblems": "No problems",
+    "lastData": "Last data {time}",
+    "open": "Open board"
+  },
+  "gust": {
+    "title": "Gusts",
+    "none": "No gusts in this window",
+    "events": "Gust events",
+    "total": "{d} in total",
+    "strongest": "Strongest gust",
+    "speedFrom": "{kt} kt from {dir}",
+    "when": "When (UTC)",
+    "lasted": "Lasted",
+    "max": "Max",
+    "from": "From",
+    "all": "Show all {n}",
+    "fewer": "Show fewer"
+  },
+  "sky": {
+    "chartLabel": "Cloud layers by height and coverage over time",
+    "clear": "No cloud detected",
+    "obscured": "Sky obscured",
+    "cover": {
+      "FEW": "Few (1–2/8)",
+      "SCT": "Scattered (3–4/8)",
+      "BKN": "Broken (5–7/8)",
+      "OVC": "Overcast (8/8)"
+    },
+    "band": {
+      "low": "Low",
+      "middle": "Middle",
+      "high": "High"
+    },
+    "ofTime": "{p} %",
+    "clearShare": "No cloud {p} %",
+    "obscuredShare": "sky obscured {p} %",
+    "ceiling": "lowest ceiling {cover} {h} ft at {time}",
+    "bandsNote": "Low below {lo} ft, middle {lo}–{mid} ft, high above {mid} ft",
+    "minutes": "{n} minutes reported",
+    "shareTitle": "Share of the time with cloud in each band"
+  },
+  "wx": {
+    "title": "Present weather",
+    "none": "no weather",
+    "noneInWindow": "No weather reported in this window",
+    "row": {
+      "thunderstorm": "Thunderstorm",
+      "rain": "Rain",
+      "drizzle": "Drizzle",
+      "mist_fog": "Mist, fog",
+      "haze": "Haze, smoke",
+      "other": "Other"
+    },
+    "light": "light",
+    "heavy": "heavy",
+    "tpl": "{intensity} {what}",
+    "nearby": "{what} nearby",
+    "with": " with ",
+    "and": " and ",
+    "d": {
+      "TS": "thunderstorm",
+      "SH": "showers of",
+      "FZ": "freezing",
+      "MI": "shallow",
+      "BC": "patches of",
+      "PR": "partial",
+      "DR": "drifting",
+      "BL": "blowing"
+    },
+    "p": {
+      "RA": "rain",
+      "DZ": "drizzle",
+      "BR": "mist",
+      "FG": "fog",
+      "HZ": "haze",
+      "FU": "smoke",
+      "DU": "dust",
+      "SA": "sand",
+      "SN": "snow",
+      "GR": "hail",
+      "GS": "small hail",
+      "SQ": "squalls",
+      "PL": "ice pellets",
+      "UP": "unknown precipitation"
+    }
+  },
+  "ltg": {
+    "title": "Lightning",
+    "none": "No lightning in this window",
+    "episodes": "{n} episodes",
+    "span": "first {first}, last {last}",
+    "row": {
+      "airport": "At the airport",
+      "vicinity": "Nearby",
+      "distant": "Distant"
+    },
+    "directions": "Directions of distant lightning",
+    "allAround": "All around: {d}"
   }
 }

@@ -1,6 +1,6 @@
 // U2 (PRD §15.3): explain a dip in last month's OLA with the outage breakdown (FR-KPI-009).
 import type { Locator, Page } from '@playwright/test'
-import { expect, expectNoPageScroll, test } from './fixtures'
+import { BOARD, test, expect, expectNoPageScroll } from './fixtures'
 
 const PCT = /^\d{1,3}[.,]\d{2}\s?%$/
 
@@ -16,7 +16,7 @@ function lastMonth(): string {
 }
 
 async function openBoard(page: Page, t: (key: string) => string, period = `month:${lastMonth()}`) {
-  await page.goto(`/?p=${period}`)
+  await page.goto(`${BOARD}?p=${period}`)
   await expect(
     page
       .getByRole('region', { name: t('board.kpis') })

@@ -13,7 +13,9 @@ import type {
   SeriesResponse,
   StatusResponse,
   SystemInfo,
+  SystemSummary,
 } from '@/api/types'
+import * as sensors from './sensors'
 
 const DAY = 86_400_000
 const GRACE = 3
@@ -624,16 +626,28 @@ function textVal(code: string, t: number): string | null {
   switch (code) {
     case 'D/N':
       return h >= 6 && h < 18 ? 'D' : 'N'
-    case 'SKY':
-      return hash(`c:${Math.floor(t / 1_800_000)}`) > 0.55
-        ? ['FEW018', 'SCT017', 'BKN016'][block % 3]!
-        : 'NCD'
+    case 'SKY': {
+      const r = hash(`c:${Math.floor(t / 1_800_000)}`)
+      if (r < 0.45) return 'NCD'
+      if (r < 0.48) return 'VV005'
+      return ['FEW018', 'SCT017 BKN080', 'BKN016 OVC120', 'FEW020 SCT090 BKN220', 'SCT025CB BKN100'][
+        block % 5
+      ]!
+    }
     case 'PW': {
       const r = hash(`pw:${block}`)
-      return r > 0.93 ? '-RA' : r > 0.85 ? 'BR' : ''
+      return r > 0.96 ? 'TSRA' : r > 0.93 ? '-RA' : r > 0.91 ? 'VCTS' : r > 0.86 ? 'BR' : r > 0.83 ? 'HZ' : ''
     }
-    case 'LTX':
-      return hash(`l:${block}`) > 0.94 ? 'LTG DSNT W' : ''
+    case 'LTX': {
+      const r = hash(`l:${block}`)
+      return r > 0.975
+        ? 'TS at Airport - LTG DSNT ALQDS'
+        : r > 0.955
+          ? 'TS in Vicinity - LTG DSNT NE AND E'
+          : r > 0.93
+            ? 'LTG DSNT W'
+            : ''
+    }
   }
   return null
 }
@@ -644,6 +658,8 @@ export function series(slug: string, type: string, from: number, to: number, now
   const total = Math.max(1, Math.floor((end - from) / 60_000))
   const step = Math.max(1, Math.ceil(total / 600))
   const pwBroken = slug === '04' && type === 'PWX'
+  const allTs = Array.from({ length: total }, (_, i) => from + i * 60_000)
+  const raw: Record<string, (number | string | null)[]> = {}
   const fields: SeriesField[] = comp.fields.map((code) => {
     const info = SYSTEM.fields[code]!
     const ts: number[] = []
@@ -661,11 +677,14 @@ export function series(slug: string, type: string, from: number, to: number, now
         vs.push(v)
       }
     }
-    const nums = all.filter((x): x is number => typeof x === 'number')
+    raw[code] = all
+    const cloudBase = code === 'LR1'
+    const nums = all.filter((x): x is number => typeof x === 'number' && !(cloudBase && x === 0))
     const base = { code, unit: info.unit, type: info.type, mandatory: comp.mandatory.includes(code) }
     const stats = {
       last,
-      count: all.filter((x) => x !== null).length,
+      count: cloudBase ? nums.length : all.filter((x) => x !== null).length,
+      ...(cloudBase ? { zero_minutes: all.filter((x) => x === 0).length } : {}),
       ...(info.type === 'numeric' && nums.length
         ? {
             min: Math.min(...nums),
@@ -674,8 +693,22 @@ export function series(slug: string, type: string, from: number, to: number, now
           }
         : {}),
     }
+    if (code === 'WGS' || code === 'WGD')
+      return { ...base, chart: 'gust' as const, series: { t: [], v: [], downsampled: false }, stats }
+    if (code === 'WD' || cloudBase)
+      return {
+        ...base,
+        chart: 'dots' as const,
+        series: sensors.dots(allTs, all as (number | null)[], total, cloudBase),
+        stats,
+      }
     if (info.type === 'numeric')
-      return { ...base, series: { t: ts, v: vs as (number | null)[], downsampled: step > 1 }, stats }
+      return {
+        ...base,
+        chart: 'line' as const,
+        series: { t: ts, v: vs as (number | null)[], downsampled: step > 1 },
+        stats,
+      }
     const transitions: [number, string | null][] = []
     const counts = new Map<string, number>()
     let missing = 0
@@ -694,6 +727,9 @@ export function series(slug: string, type: string, from: number, to: number, now
           .map(([value, minutes]) => ({ value, minutes })),
         missing_minutes: missing,
       },
+      ...(code === 'SKY' ? { sky: sensors.sky(allTs, all as (string | null)[], total) } : {}),
+      ...(code === 'PW' ? { weather: sensors.weather(allTs, all as (string | null)[], total) } : {}),
+      ...(code === 'LTX' ? { lightning: sensors.lightning(allTs, all as (string | null)[], total) } : {}),
       stats,
     }
   })
@@ -710,7 +746,16 @@ export function series(slug: string, type: string, from: number, to: number, now
           })),
           max_speed_kt: 15,
           min_speed_kt: 0,
-          gust: { count: 2, max_speed_kt: 18, direction_deg: 120 },
+          gust: {
+            count: (raw.WGS ?? []).filter((g) => typeof g === 'number' && g > 0).length,
+            max_speed_kt: 18,
+            direction_deg: 120,
+            ...sensors.gusts(
+              allTs,
+              (raw.WGS ?? []) as (number | null)[],
+              (raw.WGD ?? []) as (number | null)[],
+            ),
+          },
         }
       : undefined
   const [v, e] = sum({ kind: 'component', site: slug, type }, periodDays(from, to), now)
@@ -722,4 +767,25 @@ export function series(slug: string, type: string, from: number, to: number, now
     availability: avail(Math.round((v / Math.max(1, e)) * total), total),
     wind,
   }
+}
+
+/** GET /systems: one summary per system, as on the Dashboard. */
+export function systems(now: number): SystemSummary[] {
+  const d = new Date(now)
+  const month = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)
+  const today = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  const m = kpis(month, now, now)
+  return [
+    {
+      code: SYSTEM.code,
+      type: SYSTEM.type,
+      name: SYSTEM.name,
+      icao: SYSTEM.icao,
+      sla_today: kpis(today, now, now).sla,
+      sla_month: m.sla,
+      ola_month: { pct: m.ola.pct },
+      problems: 1, // the sample /problems has one
+      last_data_minute: status(now).last_data_minute,
+    },
+  ]
 }

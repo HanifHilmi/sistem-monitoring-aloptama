@@ -14,10 +14,20 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from simola.core.timeutil import floor_minute, intersect, minutes_between
+from simola.kpi import sensors
 from simola.kpi.engine import MINUTE_TABLE, clip_period, component_condition, grace_minutes, pct
 from simola.registry import Component, Site, System
 
 MAX_POINTS = 1000
+# How some fields are charted (agreed with the user 2026-11-05; field codes of the AWOS registry).
+DOT_FIELDS = frozenset({"WD", "LR1"})  # dots: a direction line jumps at 360/0; cloud bases are not a curve
+ZERO_IS_NONE = frozenset({"LR1"})  # cloud base 0 = no cloud detected: not a reading for the chart or figures
+GUST_FIELDS = frozenset({"WGS", "WGD"})  # shown as gust events (sensors.gust_events), not as lines
+TEXT_SUMMARIES = {
+    "SKY": ("sky", sensors.sky_summary),
+    "PW": ("weather", sensors.weather_summary),
+    "LTX": ("lightning", sensors.lightning_summary),
+}
 FULL_RES_MINUTES = 1440  # windows up to 1 day are returned at full resolution
 TEXT_TRANSITION_LIMIT = 2000
 WIND_SPEED_CLASSES = (
@@ -249,9 +259,23 @@ async def component_series(
         }
         if f.is_text:
             entry["text"] = text_series(times, vals)
+            if f.code in TEXT_SUMMARIES:
+                key, summarize = TEXT_SUMMARIES[f.code]
+                entry[key] = summarize(times, vals, window_minutes)
+        elif f.code in GUST_FIELDS:
+            entry["chart"] = "gust"
+            entry["series"] = {"t": [], "v": [], "downsampled": False}
+        elif f.code in DOT_FIELDS:
+            entry["chart"] = "dots"
+            entry["series"] = sensors.dot_series(
+                times, vals, window_minutes, zero_is_none=f.code in ZERO_IS_NONE
+            )
         else:
+            entry["chart"] = "line"
             entry["series"] = numeric_series(times, vals, window_minutes)
         entry["stats"] = field_stats(times, vals, numeric=not f.is_text)
+        if f.code in ZERO_IS_NONE:
+            entry["stats"] = sensors.nonzero_stats(entry["stats"], vals)
         out_fields.append(entry)
     result: dict[str, Any] = {
         "fields": out_fields,
@@ -259,6 +283,7 @@ async def component_series(
     }
     if comp.type_code == "ANEM" and {"WS", "WD", "WGS", "WGD"} <= set(columns):
         result["wind"] = wind_summary(columns["WS"], columns["WD"], columns["WGS"], columns["WGD"])
+        result["wind"]["gust"].update(sensors.gust_events(times, columns["WGS"], columns["WGD"]))
     return result
 
 

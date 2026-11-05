@@ -173,9 +173,64 @@ export interface SeriesField {
   unit: string | null
   type: 'numeric' | 'text'
   mandatory: boolean
+  /** How a numeric field is drawn: a line, dots (wind direction, cloud base) or as gust events (WGS, WGD). */
+  chart?: 'line' | 'dots' | 'gust'
   series?: NumericSeries
   text?: TextSeries
+  sky?: SkySummary
+  weather?: WeatherSummary
+  lightning?: LightningSummary
   stats: FieldStats
+}
+
+export type Cover = 'FEW' | 'SCT' | 'BKN' | 'OVC'
+export type CloudBand = 'low' | 'middle' | 'high'
+
+export interface SkySummary {
+  bucket_minutes: number
+  bands: { low_top_ft: number; middle_top_ft: number }
+  /** Minutes in which a band's densest layer had this coverage. */
+  band_minutes: Record<CloudBand, Record<Cover, number>>
+  clear_minutes: number
+  obscured_minutes: number
+  reported_minutes: number
+  lowest_ceiling: { height_ft: number; cover: Cover | 'VV'; time: string } | null
+  /** Each time bucket's most frequent sky: layers as [cover, height_ft, CB/TCU or null]. */
+  timeline: {
+    t: number
+    layers: [Cover, number, string | null][]
+    vv: number | null
+    obscured: boolean
+    clear: boolean
+  }[]
+}
+
+/** [start_ms, end_ms (exclusive), level 1 light / in the vicinity, 2 moderate, 3 heavy, most frequent code] */
+export type Segment = [number, number, number, string]
+
+export type WeatherRow = 'thunderstorm' | 'rain' | 'drizzle' | 'mist_fog' | 'haze' | 'other'
+export interface WeatherSummary {
+  rows: { key: WeatherRow; minutes: number; segments: Segment[] }[]
+  weather_minutes: number
+  reported_minutes: number
+}
+
+export type LightningRow = 'airport' | 'vicinity' | 'distant'
+export interface LightningSummary {
+  rows: { key: LightningRow; minutes: number; segments: Segment[] }[]
+  /** Minutes with distant lightning seen in each direction (ALQDS: all around). */
+  directions: Record<string, number>
+  episodes: number
+  first: string | null
+  last: string | null
+  reported_minutes: number
+}
+
+export interface GustEvent {
+  start: string
+  minutes: number
+  max_kt: number
+  direction_deg: number | null
 }
 
 export interface FieldStats {
@@ -184,13 +239,24 @@ export interface FieldStats {
   min?: number | null
   max?: number | null
   mean?: number | null
+  /** Cloud base: minutes reading 0 (no cloud detected), left out of count/min/max/mean. */
+  zero_minutes?: number
 }
 
 export interface WindSummary {
   rose: ({ sector: number } & Record<string, number>)[]
   max_speed_kt: number | null
   min_speed_kt: number | null
-  gust: { count: number; max_speed_kt: number | null; direction_deg: number | null }
+  gust: {
+    count: number
+    max_speed_kt: number | null
+    direction_deg: number | null
+    event_count?: number
+    minutes?: number
+    strongest?: GustEvent | null
+    events?: GustEvent[]
+    events_truncated?: boolean
+  }
 }
 
 export interface SeriesResponse {

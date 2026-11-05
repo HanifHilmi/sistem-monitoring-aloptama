@@ -16,7 +16,8 @@ import { usePolling } from '@/composables/usePolling'
 import { usePeriodQuery } from '@/composables/useUrlState'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { useLiveStore } from '@/stores/live'
+import { DEFAULT_SYSTEM } from '@/stores/live'
+import { sitePath } from '@/utils/paths'
 import {
   bucketFor,
   encodePeriod,
@@ -27,17 +28,16 @@ import {
   type Period,
 } from '@/utils/time'
 
-const props = defineProps<{ wall?: boolean }>()
+const props = withDefaults(defineProps<{ code?: string; wall?: boolean }>(), { code: DEFAULT_SYSTEM })
 const { t, locale } = useI18n()
 const lc = computed(() => locale.value as Locale)
 const display = useDisplayStore()
-const live = useLiveStore()
 const urlPeriod = usePeriodQuery()
 const period = computed<Period>({
   get: () => (props.wall ? periodContaining('month', new Date()) : urlPeriod.value),
   set: (p) => (urlPeriod.value = p),
 })
-const code = computed(() => live.systemCode)
+const code = computed(() => props.code)
 const info = ref<SystemInfo | null>(null)
 onMounted(async () => (info.value = await display.system(code.value)))
 
@@ -286,7 +286,7 @@ const siteLink = computed(() => {
   if (!p || p.kind !== 'day' || p.row.kind !== 'component') return null
   const from = new Date(`${p.day}T00:00:00Z`)
   const to = new Date(from.getTime() + 86_400_000)
-  return `/sites/${p.row.site}?w=custom:${from.toISOString()}~${to.toISOString()}`
+  return `${sitePath(code.value, p.row.site ?? '')}?w=custom:${from.toISOString()}~${to.toISOString()}`
 })
 const levelsLegend = computed(() => {
   const { good, warning } = display.thresholds

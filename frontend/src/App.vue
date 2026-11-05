@@ -2,12 +2,15 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { api } from '@/api/client'
 import LiveStrip from '@/components/LiveStrip.vue'
 import ProblemsDrawer from '@/components/ProblemsDrawer.vue'
+import SystemMenu, { type MenuItem } from '@/components/SystemMenu.vue'
 import { usePolling } from '@/composables/usePolling'
 import { setLocale, type Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { useLiveStore } from '@/stores/live'
+import { DEFAULT_SYSTEM, useLiveStore } from '@/stores/live'
+import { boardPath, sitePath } from '@/utils/paths'
 import { applyTheme, savedTheme, type ThemeChoice } from '@/utils/theme'
 import type { SystemInfo } from '@/api/types'
 
@@ -17,15 +20,23 @@ const display = useDisplayStore()
 const live = useLiveStore()
 const problemsOpen = ref(false)
 const menuOpen = ref(false)
-const info = ref<SystemInfo | null>(null)
+const systems = ref<SystemInfo[]>([])
 
 onMounted(async () => {
   void display.loadSettings()
   try {
-    info.value = await display.system(live.systemCode)
+    const codes = (await api.systems()).map((s) => s.code)
+    systems.value = await Promise.all(codes.map((c) => display.system(c)))
   } catch {
     /* shown by views */
   }
+})
+// Live status follows the system on screen (the Dashboard and wall screen show the default system's).
+const routeCode = computed(() => (typeof route.params.code === 'string' ? route.params.code : DEFAULT_SYSTEM))
+watch(routeCode, (c) => {
+  if (live.systemCode === c) return
+  live.systemCode = c
+  void live.refresh()
 })
 usePolling(() => live.refresh(), 30_000)
 
@@ -41,14 +52,19 @@ function cycleTheme() {
 }
 const otherLocale = computed<Locale>(() => (locale.value === 'id' ? 'en' : 'id'))
 const lc = computed(() => locale.value as Locale)
-const nav = computed(() => [
-  { to: '/', label: t('nav.board'), exact: true },
-  ...(info.value?.sites ?? []).map((s) => ({
-    to: `/sites/${s.slug}`,
-    label: s.name[lc.value],
-    exact: false,
+// "AWOS CAT. III WIDN" -> "AWOS CAT. III": the airport is the same for every system.
+const shortName = (s: SystemInfo) => s.name[lc.value].replace(new RegExp(`\\s*${s.icao ?? '$^'}\\s*$`), '')
+const menus = computed(() =>
+  systems.value.map((s) => ({
+    code: s.code,
+    label: shortName(s),
+    items: [
+      { to: boardPath(s.code), label: t('nav.system'), exact: true },
+      ...s.sites.map((x) => ({ to: sitePath(s.code, x.slug), label: x.name[lc.value] })),
+    ] as MenuItem[],
+    later: [t('nav.metar')],
   })),
-])
+)
 </script>
 
 <template>
@@ -70,20 +86,21 @@ const nav = computed(() => [
           </svg>
           <span class="text-sm font-semibold tracking-tight">SIMOLA</span>
         </RouterLink>
-        <span class="hidden h-5 w-px bg-line md:block" aria-hidden="true" />
-        <span class="hidden truncate text-xs text-ink-2 md:block">{{ info?.name[lc] }}</span>
-
-        <nav v-if="!wall" class="ml-2 hidden items-center gap-0.5 lg:flex" :aria-label="t('nav.menu')">
+        <nav v-if="!wall" class="ml-3 hidden items-center gap-1 lg:flex" :aria-label="t('nav.menu')">
           <RouterLink
-            v-for="n in nav"
-            :key="n.to"
-            :to="n.to"
-            class="rounded-md px-2.5 py-1.5 text-xs text-ink-2 hover:bg-sunken hover:text-ink"
-            :exact-active-class="n.exact ? '!bg-sunken !text-ink font-medium' : ''"
-            :active-class="n.exact ? '' : '!bg-sunken !text-ink font-medium'"
+            to="/"
+            class="rounded-md px-2.5 py-1.5 text-sm text-ink-2 hover:bg-sunken hover:text-ink"
+            exact-active-class="!bg-sunken !text-ink font-medium"
+            >{{ t('nav.dashboard') }}</RouterLink
           >
-            {{ n.label }}
-          </RouterLink>
+          <SystemMenu
+            v-for="m in menus"
+            :key="m.code"
+            :label="m.label"
+            :active="route.params.code === m.code"
+            :items="m.items"
+            :later="m.later"
+          />
         </nav>
 
         <div class="ml-auto flex items-center gap-2">
@@ -122,17 +139,26 @@ const nav = computed(() => [
       <nav
         v-if="menuOpen && !wall"
         id="mobile-nav"
-        class="border-t border-line px-3 py-1 lg:hidden"
+        class="border-t border-line px-3 pb-2 pt-1 lg:hidden"
         :aria-label="t('nav.menu')"
       >
-        <RouterLink
-          v-for="n in nav"
-          :key="n.to"
-          :to="n.to"
-          class="block py-2 text-sm"
-          @click="menuOpen = false"
-          >{{ n.label }}</RouterLink
-        >
+        <RouterLink to="/" class="block py-2 text-sm" @click="menuOpen = false">{{
+          t('nav.dashboard')
+        }}</RouterLink>
+        <div v-for="m in menus" :key="m.code" class="border-t border-line py-1">
+          <p class="eyebrow pb-1 pt-2">{{ m.label }}</p>
+          <RouterLink
+            v-for="i in m.items"
+            :key="i.to"
+            :to="i.to"
+            class="block py-2 pl-3 text-sm"
+            @click="menuOpen = false"
+            >{{ i.label }}</RouterLink
+          >
+          <p v-for="l in m.later" :key="l" class="py-2 pl-3 text-sm text-ink-3">
+            {{ l }} <span class="text-[0.625rem]">· {{ t('nav.later') }}</span>
+          </p>
+        </div>
       </nav>
     </header>
 

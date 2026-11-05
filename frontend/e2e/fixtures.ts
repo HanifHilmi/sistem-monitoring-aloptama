@@ -55,3 +55,7 @@ export async function expectNoPageScroll(page: Page): Promise<void> {
   }))
   expect(scroll, 'page width').toBeLessThanOrEqual(client + 1)
 }
+
+/** The system board (the Dashboard at / lists every system). */
+export const BOARD = '/systems/WIDN-CAT3'
+export const site = (slug: string) => `${BOARD}/sites/${slug}`

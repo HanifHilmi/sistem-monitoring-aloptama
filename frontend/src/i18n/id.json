@@ -1,13 +1,23 @@
 {
-  "app": { "footer": "SIMOLA · Sistem Monitoring ALOPTAMA · semua waktu dalam UTC" },
+  "app": {
+    "footer": "SIMOLA · Sistem Monitoring ALOPTAMA · semua waktu dalam UTC"
+  },
   "nav": {
     "board": "Kinerja",
     "skip": "Langsung ke konten",
     "menu": "Menu",
     "theme": "Tema",
-    "themeName": { "system": "Ikuti perangkat", "light": "Terang", "dark": "Gelap" },
+    "themeName": {
+      "system": "Ikuti perangkat",
+      "light": "Terang",
+      "dark": "Gelap"
+    },
     "language": "Bahasa",
-    "switchTo": "English"
+    "switchTo": "English",
+    "dashboard": "Dasbor",
+    "system": "Sistem",
+    "metar": "METAR dan METREPORT",
+    "later": "menyusul"
   },
   "common": {
     "close": "Tutup",
@@ -19,7 +29,10 @@
     "apply": "Terapkan",
     "validOfExpected": "{valid} dari {expected} menit valid",
     "back": "Kembali",
-    "allUtc": "Semua waktu dalam UTC."
+    "allUtc": "Semua waktu dalam UTC.",
+    "durH": "{h} jam",
+    "durHM": "{h} jam {m} mnt",
+    "durM": "{m} mnt"
   },
   "period": {
     "label": "Periode",
@@ -41,7 +54,11 @@
     "system": "Sistem",
     "siteTotal": "Total lokasi",
     "noCoverage": "tanpa data",
-    "bucket": { "day": "Hari", "week": "Minggu", "month": "Bulan" },
+    "bucket": {
+      "day": "Hari",
+      "week": "Minggu",
+      "month": "Bulan"
+    },
     "minLost": "menit hilang",
     "matrix": "Ketersediaan per komponen dan periode",
     "losses": "Kehilangan terbesar",
@@ -69,14 +86,22 @@
     "lostMinutes": "Menit hilang",
     "minuteMap": "Peta menit (jam × menit)",
     "minuteMapLabel": "Status setiap menit dalam sehari, satu baris per jam",
-    "code": { "v": "Valid", "f": "Field wajib hilang", "n": "Tidak ada data", "u": "Tidak dihitung" },
+    "code": {
+      "v": "Valid",
+      "f": "Field wajib hilang",
+      "n": "Tidak ada data",
+      "u": "Tidak dihitung"
+    },
     "intervals": "Rentang yang hilang, terpanjang dulu",
     "noIntervals": "Tidak ada menit yang hilang pada hari ini.",
     "from": "Dari",
     "to": "Sampai",
     "minutes": "Menit",
     "cause": "Penyebab",
-    "causeName": { "field_missing": "Field wajib hilang", "no_data": "Tidak ada data" },
+    "causeName": {
+      "field_missing": "Field wajib hilang",
+      "no_data": "Tidak ada data"
+    },
     "more": "{n} rentang lainnya",
     "openCharts": "Buka grafik sensor hari ini"
   },
@@ -138,7 +163,12 @@
     "none": "Semua normal",
     "noneLong": "Tidak ada masalah saat ini.",
     "since": "sejak {time}",
-    "severity": { "critical": "Kritis", "major": "Mayor", "minor": "Minor", "info": "Info" },
+    "severity": {
+      "critical": "Kritis",
+      "major": "Mayor",
+      "minor": "Minor",
+      "info": "Info"
+    },
     "code": {
       "cdp_all_no_data": "Kedua CDP tidak menghasilkan data",
       "cdp_no_data": "{cdp} tidak menghasilkan data",
@@ -160,7 +190,12 @@
   },
   "window": {
     "label": "Rentang grafik",
-    "preset": { "3h": "3 jam", "24h": "24 jam", "7d": "7 hari", "31d": "31 hari" },
+    "preset": {
+      "3h": "3 jam",
+      "24h": "24 jam",
+      "7d": "7 hari",
+      "31d": "31 hari"
+    },
     "custom": "Kustom",
     "max31": "maksimal 31 hari"
   },
@@ -184,8 +219,9 @@
     "mandatory": "field wajib",
     "mostFrequent": "umumnya {state} ({n} menit)",
     "noEventWindow": "tidak ada kejadian",
-    "gustSummary": "{n} kejadian hembusan · maks {max} kt",
-    "footnote": "* field wajib: komponen dihitung tersedia hanya jika semua field wajibnya valid. Pilih baris untuk melihat grafiknya."
+    "footnote": "* field wajib: komponen dihitung tersedia hanya jika semua field wajibnya valid. Pilih baris untuk melihat grafiknya.",
+    "noCloud": "Tidak ada awan",
+    "noCloudShare": "Tidak ada awan terdeteksi pada {p} % menit (nilai 0 tidak dihitung dalam titik dan angka)"
   },
   "site": {
     "notFound": "Lokasi tidak ditemukan",
@@ -215,5 +251,111 @@
     "noJobs": "Tidak ada pekerjaan",
     "yes": "Ya",
     "no": "Tidak"
+  },
+  "overview": {
+    "title": "Dasbor",
+    "subtitle": "Semua sistem dalam satu tampilan",
+    "slaMonth": "SLA bulan ini",
+    "olaMonth": "OLA bulan ini",
+    "slaToday": "SLA hari ini",
+    "problems": "{n} masalah",
+    "noProblems": "Tidak ada masalah",
+    "lastData": "Data terakhir {time}",
+    "open": "Buka papan"
+  },
+  "gust": {
+    "title": "Hembusan",
+    "none": "Tidak ada hembusan pada rentang ini",
+    "events": "Kejadian hembusan",
+    "total": "total {d}",
+    "strongest": "Hembusan terkuat",
+    "speedFrom": "{kt} kt dari {dir}",
+    "when": "Waktu (UTC)",
+    "lasted": "Durasi",
+    "max": "Maks",
+    "from": "Dari",
+    "all": "Tampilkan semua {n}",
+    "fewer": "Tampilkan lebih sedikit"
+  },
+  "sky": {
+    "chartLabel": "Lapisan awan menurut ketinggian dan tutupan dari waktu ke waktu",
+    "clear": "Tidak ada awan terdeteksi",
+    "obscured": "Langit tertutup",
+    "cover": {
+      "FEW": "Sedikit (1–2/8)",
+      "SCT": "Tersebar (3–4/8)",
+      "BKN": "Terputus (5–7/8)",
+      "OVC": "Tertutup penuh (8/8)"
+    },
+    "band": {
+      "low": "Rendah",
+      "middle": "Menengah",
+      "high": "Tinggi"
+    },
+    "ofTime": "{p} %",
+    "clearShare": "Tanpa awan {p} %",
+    "obscuredShare": "langit tertutup {p} %",
+    "ceiling": "plafon terendah {cover} {h} ft pada {time}",
+    "bandsNote": "Rendah di bawah {lo} ft, menengah {lo}–{mid} ft, tinggi di atas {mid} ft",
+    "minutes": "{n} menit dilaporkan",
+    "shareTitle": "Bagian waktu dengan awan di tiap lapisan"
+  },
+  "wx": {
+    "title": "Cuaca saat ini",
+    "none": "tidak ada cuaca",
+    "noneInWindow": "Tidak ada cuaca dilaporkan pada rentang ini",
+    "row": {
+      "thunderstorm": "Badai guntur",
+      "rain": "Hujan",
+      "drizzle": "Gerimis",
+      "mist_fog": "Kabut",
+      "haze": "Udara kabur, asap",
+      "other": "Lainnya"
+    },
+    "light": "ringan",
+    "heavy": "lebat",
+    "tpl": "{what} {intensity}",
+    "nearby": "{what} di sekitar",
+    "with": " disertai ",
+    "and": " dan ",
+    "d": {
+      "TS": "badai guntur",
+      "SH": "hujan deras sesaat",
+      "FZ": "membeku",
+      "MI": "dangkal",
+      "BC": "bercak",
+      "PR": "sebagian",
+      "DR": "terbawa angin rendah",
+      "BL": "terbawa angin"
+    },
+    "p": {
+      "RA": "hujan",
+      "DZ": "gerimis",
+      "BR": "kabut tipis",
+      "FG": "kabut tebal",
+      "HZ": "udara kabur",
+      "FU": "asap",
+      "DU": "debu",
+      "SA": "pasir",
+      "SN": "salju",
+      "GR": "hujan es",
+      "GS": "hujan es kecil",
+      "SQ": "angin kencang mendadak",
+      "PL": "butiran es",
+      "UP": "presipitasi tak dikenal"
+    }
+  },
+  "ltg": {
+    "title": "Petir",
+    "none": "Tidak ada petir pada rentang ini",
+    "episodes": "{n} episode",
+    "span": "pertama {first}, terakhir {last}",
+    "row": {
+      "airport": "Di bandara",
+      "vicinity": "Di sekitar",
+      "distant": "Jauh"
+    },
+    "directions": "Arah petir jauh",
+    "allAround": "Segala arah: {d}"
   }
 }

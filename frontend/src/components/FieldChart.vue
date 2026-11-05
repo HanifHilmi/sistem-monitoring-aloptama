@@ -4,7 +4,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SeriesField } from '@/api/types'
 import type { Locale } from '@/i18n'
-import { int } from '@/utils/format'
+import { int, num } from '@/utils/format'
 import { chartBase, SERIES } from '@/utils/theme'
 import type { ChartWindow } from '@/utils/time'
 import EChart from './EChart.vue'
@@ -23,6 +23,9 @@ const option = computed<EChartsCoreOption | null>(() => {
   const s = props.field.series
   if (!s) return null
   const base = chartBase()
+  // Dots for wind direction (a line would jump between 359° and 0°) and cloud base (0 = no cloud, left out).
+  const dots = props.field.chart === 'dots'
+  const direction = props.field.unit === '°'
   return {
     ...base,
     grid: { left: 52, right: 12, top: 18, bottom: 24 },
@@ -37,22 +40,38 @@ const option = computed<EChartsCoreOption | null>(() => {
     },
     yAxis: {
       type: 'value',
-      scale: true,
-      name: props.field.unit ?? '',
+      scale: !direction && !dots,
+      ...(direction ? { min: 0, max: 360, interval: 90 } : dots ? { min: 0 } : {}),
+      name:
+        props.field.unit && /^\d/.test(props.field.unit) ? `×${props.field.unit}` : (props.field.unit ?? ''),
       nameTextStyle: { color: base.axisLabel.color, fontSize: 10 },
-      axisLabel: base.axisLabel,
+      axisLabel: direction
+        ? {
+            ...base.axisLabel,
+            formatter: (v: number) => ({ 0: 'N', 90: 'E', 180: 'S', 270: 'W', 360: 'N' })[v] ?? '',
+          }
+        : base.axisLabel,
       splitLine: base.splitLine,
     },
     series: [
-      {
-        type: 'line',
-        name: props.name,
-        showSymbol: false,
-        connectNulls: false,
-        lineStyle: { width: 1.5, color: SERIES[0] },
-        itemStyle: { color: SERIES[0] },
-        data: s.t.map((x, i) => [x, s.v[i]]),
-      },
+      dots
+        ? {
+            type: 'scatter',
+            name: props.name,
+            symbolSize: 3,
+            large: s.t.length > 2000,
+            itemStyle: { color: SERIES[direction ? 2 : 5], opacity: 0.8 },
+            data: s.t.map((x, i) => [x, s.v[i]]),
+          }
+        : {
+            type: 'line',
+            name: props.name,
+            showSymbol: false,
+            connectNulls: false,
+            lineStyle: { width: 1.5, color: SERIES[0] },
+            itemStyle: { color: SERIES[0] },
+            data: s.t.map((x, i) => [x, s.v[i]]),
+          },
     ],
   }
 })
@@ -81,12 +100,22 @@ const segments = computed(() => {
     }
   })
 })
+const noCloudShare = computed(() => {
+  const z = props.field.stats.zero_minutes ?? 0
+  const n = z + props.field.stats.count
+  return num(n ? (z / n) * 100 : 0, lc.value, 0)
+})
 const label = (v: string | null) => (v === null ? t('sensor.missing') : v === '' ? t('sensor.noEvent') : v)
 const hhmm = (ms: number) => new Date(ms).toISOString().slice(11, 16)
 </script>
 
 <template>
-  <EChart v-if="option" :option="option" height="210px" :label="name" />
+  <div v-if="option">
+    <EChart :option="option" height="210px" :label="name" />
+    <p v-if="field.stats.zero_minutes !== undefined" class="num mt-1 text-[0.6875rem] text-ink-3">
+      {{ t('sensor.noCloudShare', { p: noCloudShare }) }}
+    </p>
+  </div>
   <div v-else class="flex flex-col gap-2">
     <div class="relative h-6 overflow-hidden rounded bg-sunken" role="img" :aria-label="name">
       <span

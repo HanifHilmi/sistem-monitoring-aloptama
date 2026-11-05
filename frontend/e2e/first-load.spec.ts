@@ -1,11 +1,11 @@
 // NFR-PERF-003: first page load. Measured only against a deployed site (real nginx with gzip).
-import { expect, test } from './fixtures'
+import { BOARD, expect, test } from './fixtures'
 
 test('first load: LCP ≤ 2.5 s and initial JS ≤ 400 KB gzip', async ({ page }, info) => {
   test.skip(!process.env.SIMOLA_E2E_URL, 'needs a deployed site (SIMOLA_E2E_URL)')
   test.skip(!info.project.name.startsWith('desktop'), 'the target is for desktop')
 
-  await page.goto('/', { waitUntil: 'networkidle' })
+  await page.goto(BOARD, { waitUntil: 'networkidle' })
   const lcp = await page.evaluate(
     () =>
       new Promise<number>((resolve) => {

@@ -14,7 +14,7 @@ function route(url: URL): Response {
   const to = Date.parse(q.get('to') ?? '')
   if (p === '/settings/display')
     return json({ color_thresholds: { good: 99, warning: 95 }, grace_minutes: 3 })
-  if (p === '/systems') return json([{ code: data.SYSTEM.code }])
+  if (p === '/systems') return json(data.systems(now))
   if (p === `/systems/${data.SYSTEM.code}`) return json(data.SYSTEM)
   if (p.endsWith('/kpis')) return json(data.kpis(from, to, now))
   if (p.endsWith('/matrix'))

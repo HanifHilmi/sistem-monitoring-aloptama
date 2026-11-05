@@ -1,12 +1,12 @@
 // J1 daily check (PRD §6.4, §15.3): board → figures and problems → a site → a component chart.
 import type { Page } from '@playwright/test'
-import { expect, expectNoPageScroll, test, text, type Lang } from './fixtures'
+import { BOARD, expect, expectNoPageScroll, test, text, type Lang } from './fixtures'
 
 const PCT = /^\d{1,3}[.,]\d{2}\s?%$/
 
 /** Opens the board and waits for its figures and matrix, so later clicks do not land on a moving page. */
 async function openBoard(page: Page, t: (key: string) => string): Promise<void> {
-  await page.goto('/')
+  await page.goto(BOARD)
   await expect(
     page
       .getByRole('region', { name: t('board.kpis') })
@@ -23,7 +23,7 @@ async function openBoard(page: Page, t: (key: string) => string): Promise<void> 
 
 test.describe('J1 daily check', () => {
   test('board shows the headline figures and the availability matrix', async ({ page, t }) => {
-    await page.goto('/')
+    await page.goto(BOARD)
     await expect(page.getByRole('heading', { level: 1 })).toContainText(t('board.title'))
 
     const kpis = page.getByRole('region', { name: t('board.kpis') })
@@ -78,10 +78,11 @@ test.describe('J1 daily check', () => {
 
   test('a site shows its sensors, and a field opens its chart', async ({ page, t }) => {
     await openBoard(page, t)
-    // On a phone the site links sit in the menu.
+    // Sites are in the system's menu in the top bar; on a phone, in the ☰ menu.
     const menu = page.getByRole('button', { name: t('nav.menu'), exact: true })
     if (await menu.isVisible()) await menu.click()
-    await page.locator('a[href^="/sites/"]:visible').first().click()
+    else await page.getByRole('button', { name: /AWOS/ }).click()
+    await page.locator(`a[href^="${BOARD}/sites/"]:visible`).first().click()
     await expect(page).toHaveURL(/\/sites\/[^/]+$/)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 

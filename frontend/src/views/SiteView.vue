@@ -10,17 +10,18 @@ import { usePolling } from '@/composables/usePolling'
 import { useWindowQuery } from '@/composables/useUrlState'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { useLiveStore } from '@/stores/live'
+import { DEFAULT_SYSTEM, useLiveStore } from '@/stores/live'
+import { boardPath } from '@/utils/paths'
 import { formatUtc, windowFromPreset } from '@/utils/time'
 
-const props = defineProps<{ slug: string }>()
+const props = withDefaults(defineProps<{ code?: string; slug: string }>(), { code: DEFAULT_SYSTEM })
 const { t, locale } = useI18n()
 const lc = computed(() => locale.value as Locale)
 const display = useDisplayStore()
 const live = useLiveStore()
 const chartWindow = useWindowQuery()
 const info = ref<SystemInfo | null>(null)
-onMounted(async () => (info.value = await display.system(live.systemCode)))
+onMounted(async () => (info.value = await display.system(props.code)))
 
 const site = computed(() => info.value?.sites.find((s) => s.slug === props.slug) ?? null)
 const liveSite = computed(() => live.status?.sites.find((s) => s.slug === props.slug) ?? null)
@@ -40,7 +41,9 @@ usePolling(() => {
     <template v-if="site">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <RouterLink to="/" class="eyebrow hover:text-accent">← {{ t('board.title') }}</RouterLink>
+          <RouterLink :to="boardPath(code)" class="eyebrow hover:text-accent"
+            >← {{ t('board.title') }}</RouterLink
+          >
           <h1 class="text-lg font-semibold">{{ site.name[lc] }}</h1>
           <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.6875rem] text-ink-3">
             <span class="num">{{ t('live.lastData', { time: formatUtc(liveSite?.last_data_minute) }) }}</span>
@@ -59,7 +62,7 @@ usePolling(() => {
         <SensorBlock
           v-for="c in site.components.filter((x) => !x.is_dcp)"
           :key="c.type"
-          :system-code="live.systemCode"
+          :system-code="code"
           :site-slug="slug"
           :component="c"
           :fields="info!.fields"

@@ -24,8 +24,8 @@ function message(p: Problem): string {
     if (v !== null && v !== undefined) params[k === 'lag_min' ? 'lag' : k] = v
   return t(`problems.code.${p.code}`, params)
 }
-const link = (p: Problem) =>
-  p.link.replace(/^\/systems\/[^/]+\/sites\//, '/sites/').replace(/^\/systems\/[^/]+$/, '/')
+// The API's links (/systems/{code}, /systems/{code}/sites/{slug}) are the app's own paths.
+const link = (p: Problem) => p.link
 </script>
 
 <template>

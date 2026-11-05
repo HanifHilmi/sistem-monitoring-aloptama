@@ -9,6 +9,10 @@ import { useDisplayStore } from '@/stores/display'
 import { figureLevel, int, LEVEL_TEXT, num, pct } from '@/utils/format'
 import type { ChartWindow } from '@/utils/time'
 import FieldChart from './FieldChart.vue'
+import GustPanel from './sensors/GustPanel.vue'
+import LightningView from './sensors/LightningView.vue'
+import SkyChart from './sensors/SkyChart.vue'
+import WeatherView from './sensors/WeatherView.vue'
 import Sparkline from './Sparkline.vue'
 import StatusPill from './StatusPill.vue'
 import WindRose from './WindRose.vue'
@@ -59,6 +63,10 @@ const textLabel = (v: string | null | undefined) =>
   v === null || v === undefined ? '—' : v === '' ? t('sensor.noEvent') : v
 const topState = (f: SeriesField) => f.text?.counts.find((c) => c.value !== '') ?? null
 const avail = computed(() => loader.data.value?.availability)
+// Gust speed and direction are shown as gust events under the table, not as rows.
+const rows = computed(() => (loader.data.value?.fields ?? []).filter((f) => f.chart !== 'gust'))
+// Cloud base 0 means no cloud detected.
+const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stats.last?.value === 0
 </script>
 
 <template>
@@ -107,7 +115,7 @@ const avail = computed(() => loader.data.value?.availability)
         </tr>
       </thead>
       <tbody>
-        <template v-for="f in loader.data.value.fields" :key="f.code">
+        <template v-for="f in rows" :key="f.code">
           <tr
             class="cursor-pointer border-t border-line hover:bg-sunken"
             :aria-expanded="open === f.code"
@@ -123,7 +131,8 @@ const avail = computed(() => loader.data.value?.availability)
               >
             </td>
             <td class="num text-right">
-              <template v-if="f.type === 'numeric'">
+              <span v-if="noCloud(f)" class="font-medium">{{ t('sensor.noCloud') }}</span>
+              <template v-else-if="f.type === 'numeric'">
                 <span class="text-sm font-semibold">{{ fmt(f.stats.last?.value, f.unit) }}</span>
                 <span class="text-ink-3"> {{ unitLabel(f.unit) }}</span>
               </template>
@@ -138,7 +147,7 @@ const avail = computed(() => loader.data.value?.availability)
             </td>
             <td class="pl-3 text-ink-3">
               <Sparkline v-if="f.series" :values="f.series.v" :width="120" :height="22" class="text-accent" />
-              <span v-else-if="topState(f)" class="truncate">{{
+              <span v-else-if="topState(f)" class="block truncate">{{
                 t('sensor.mostFrequent', { state: topState(f)!.value, n: int(topState(f)!.minutes, lc) })
               }}</span>
               <span v-else>{{ t('sensor.noEventWindow') }}</span>
@@ -164,17 +173,12 @@ const avail = computed(() => loader.data.value?.availability)
                     : ''
                 "
               >
-                <FieldChart :field="f" :name="name(f.code)" :window="window" />
+                <SkyChart v-if="f.sky" :field="f" :window="window" />
+                <WeatherView v-else-if="f.weather" :field="f" :window="window" />
+                <LightningView v-else-if="f.lightning" :field="f" :window="window" />
+                <FieldChart v-else :field="f" :name="name(f.code)" :window="window" />
                 <div v-if="loader.data.value.wind && (f.code === 'WS' || f.code === 'WD')">
                   <WindRose :wind="loader.data.value.wind" />
-                  <p class="num mt-1 text-[0.6875rem] text-ink-3">
-                    {{
-                      t('sensor.gustSummary', {
-                        n: int(loader.data.value.wind.gust.count, lc),
-                        max: num(loader.data.value.wind.gust.max_speed_kt, lc, 0),
-                      })
-                    }}
-                  </p>
                 </div>
               </div>
             </td>
@@ -182,5 +186,6 @@ const avail = computed(() => loader.data.value?.availability)
         </template>
       </tbody>
     </table>
+    <GustPanel v-if="loader.data.value?.wind" :wind="loader.data.value.wind" />
   </section>
 </template>
