@@ -124,6 +124,15 @@ jobs:
         run: sh deploy/backup/test.sh
       - name: Start database, API and web on the runner
         run: docker compose up -d --build --wait web
+      - name: Show why the stack did not start
+        # Annotations can be read without signing in to GitHub; the stack's passwords are throwaway.
+        if: failure()
+        run: |
+          docker compose ps -a
+          for s in db migrate api web; do
+            logs=$(docker compose logs --no-color --tail 25 "$s" 2>&1 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=$s (last 25 log lines)::$logs"
+          done
       - name: ZAP baseline scan
         run: |
           web=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(docker compose ps -q web)")
