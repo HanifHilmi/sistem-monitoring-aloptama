@@ -31,25 +31,27 @@ const items = computed(() => {
 </script>
 
 <template>
-  <ul class="flex flex-col">
-    <li v-for="it in items" :key="`${it.row.key}-${it.col}`">
+  <!-- One grid for the whole list: the figure columns take the width of their longest entry ("44.640 menit
+       hilang"), so every row lines up and nothing overflows in either language; the label is cut instead. -->
+  <ul class="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] gap-x-3">
+    <li v-for="it in items" :key="`${it.row.key}-${it.col}`" class="col-span-4 grid grid-cols-subgrid">
       <button
         type="button"
-        class="flex w-full items-center gap-3 border-b border-line px-1 py-2 text-left text-sm hover:bg-sunken disabled:cursor-default disabled:hover:bg-transparent"
+        class="col-span-4 grid grid-cols-subgrid items-center border-b border-line px-1 py-2 text-left text-sm hover:bg-sunken disabled:cursor-default disabled:hover:bg-transparent"
         :disabled="it.cell.pct === null"
         @click="emit('pick', it.row, it.col)"
       >
         <span
-          class="h-3.5 w-3.5 shrink-0 rounded-[2px]"
+          class="h-3.5 w-3.5 rounded-[2px]"
           :class="
             LEVEL_BG[figureLevel(it.cell, display.thresholds, matrixLost(props.matrix.rows, it.row, it.col))]
           "
         />
-        <span class="min-w-0 flex-1 truncate">{{ it.label }}</span>
-        <span class="num w-16 text-right">{{
+        <span class="min-w-0 truncate">{{ it.label }}</span>
+        <span class="num min-w-16 text-right whitespace-nowrap">{{
           it.cell.pct === null ? t('board.noCoverage') : pct(it.cell.pct, lc)
         }}</span>
-        <span class="num w-24 text-right text-xs whitespace-nowrap text-ink-3">
+        <span class="num text-right text-xs whitespace-nowrap text-ink-3">
           {{ it.cell.missing ? t('board.missing', { n: int(it.cell.missing, lc) }) : '' }}
         </span>
       </button>

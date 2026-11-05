@@ -31,6 +31,18 @@ async function openBoard(page: Page, t: (key: string) => string, period = `month
   ).toBeVisible()
 }
 
+/** No figure in a breakdown list is wider than its column ("44.640 menit hilang" once spilled out). */
+async function expectNothingOverflows(list: Locator): Promise<void> {
+  const spills = await list
+    .locator('li button > span')
+    .evaluateAll((els) =>
+      els
+        .filter((el) => el.scrollWidth > el.clientWidth + 1 && !el.classList.contains('truncate'))
+        .map((el) => el.textContent),
+    )
+  expect(spills).toEqual([])
+}
+
 /** The outage section of the open panel, once it has loaded (a summary, or "nothing lost"). */
 async function outageSection(page: Page, t: (key: string) => string): Promise<Locator> {
   const section = page.getByRole('dialog').getByRole('region', { name: t('outages.title') })
@@ -108,6 +120,7 @@ test.describe('U2 explain a dip', () => {
     const texts = await days.getByText(perDay.trim()).allInnerTexts()
     expect(texts.length).toBeGreaterThan(0)
     expect(texts.reduce((n, s) => n + firstNumber(s), 0)).toBe(await lostInSummary(section))
+    await expectNothingOverflows(days)
   })
 
   test('a year is explained month by month', async ({ page, t }) => {
@@ -124,6 +137,7 @@ test.describe('U2 explain a dip', () => {
     await months.and(page.locator(':enabled')).first().click()
     await outageSection(page, t)
     await expect(panel.getByRole('region', { name: t('outages.byBucket.day') })).toBeVisible()
+    await expectNothingOverflows(panel.getByRole('region', { name: t('outages.byBucket.day') }))
     await expect(panel.getByRole('button', { name: t('common.back'), exact: true })).toBeVisible()
     await expectNoPageScroll(page)
   })
