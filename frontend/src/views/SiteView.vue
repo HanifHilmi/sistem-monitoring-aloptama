@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api/client'
-import type { ComponentInfo, FlagRow, SystemInfo } from '@/api/types'
+import type { Assets, ComponentInfo, FlagRow, SystemInfo } from '@/api/types'
 import FlagForm from '@/components/flags/FlagForm.vue'
 import SensorBlock from '@/components/SensorBlock.vue'
 import SidePanel from '@/components/SidePanel.vue'
@@ -27,6 +27,18 @@ const info = ref<SystemInfo | null>(null)
 onMounted(async () => (info.value = await display.system(props.code)))
 
 const site = computed(() => info.value?.sites.find((s) => s.slug === props.slug) ?? null)
+// Records and calibration status (R2.5): serial and part numbers only reach signed-in users.
+const assets = ref<Assets | null>(null)
+onMounted(async () => {
+  try {
+    assets.value = await api.assets(props.code)
+  } catch {
+    /* the page works without them */
+  }
+})
+const siteMeta = computed(() => assets.value?.sites.find((s) => s.slug === props.slug)?.meta ?? null)
+const record = (type: string) =>
+  assets.value?.components.find((c) => c.site === props.slug && c.type === type)
 const liveSite = computed(() => live.status?.sites.find((s) => s.slug === props.slug) ?? null)
 const dcp = computed(() => site.value?.components.find((c) => c.is_dcp) ?? null)
 
@@ -76,6 +88,12 @@ function flagDone() {
             <span v-if="dcp" class="flex items-center gap-1"
               >DCP <StatusPill :status="live.componentStatus(slug, dcp.type)"
             /></span>
+            <span v-if="siteMeta && siteMeta.lat !== null && siteMeta.lon !== null" class="num">
+              {{ siteMeta.lat.toFixed(4) }}, {{ siteMeta.lon.toFixed(4) }}
+              <template v-if="siteMeta.elevation_m !== null">
+                · {{ t('records.place.elevationShort', { m: siteMeta.elevation_m }) }}</template
+              >
+            </span>
           </p>
         </div>
         <WindowBar v-model="chartWindow" />
@@ -92,6 +110,7 @@ function flagDone() {
           :window="chartWindow"
           :status="live.componentStatus(slug, c.type)"
           :refresh-key="refreshKey"
+          :record="record(c.type)"
           @flag="(r) => (flagPanel = { kind: 'new', component: c, ...r })"
           @edit-flag="editFlag"
         />

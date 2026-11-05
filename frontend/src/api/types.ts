@@ -489,11 +489,14 @@ export interface AdminSettings {
   color_thresholds: { good: number; warning: number }
   grace_minutes: number
   problem_thresholds: ProblemThresholds
+  /** days before a calibration falls due that it shows as "due soon" (R2.5) */
+  calibration_due_soon_days: number
   /** who last changed each setting, and when */
   changed: Record<string, { at: string; by: string }>
 }
 
-export type SettingKey = 'color_thresholds' | 'grace_minutes' | 'problem_thresholds'
+export type SettingKey =
+  'color_thresholds' | 'grace_minutes' | 'problem_thresholds' | 'calibration_due_soon_days'
 
 export interface MandatoryField {
   code: string
@@ -525,6 +528,105 @@ export interface ComponentRow {
   is_dcp: boolean
   in_service_from: string | null
   in_service_to: string | null
+  /** R2.5: the sensor's record and its calibration status */
+  meta: ComponentMeta
+  calibration: CalibrationSummary
+}
+
+// ---------------------------------------------------------------- records and calibration (R2.5, FR-REG-004/005)
+
+export interface StationMeta {
+  name: Names
+  icao: string | null
+  wmo_number: string | null
+  airport_name: string | null
+  lat: number | null
+  lon: number | null
+  elevation_m: number | null
+  procurement_year: number | null
+  notes: string | null
+}
+
+export interface SiteMeta {
+  lat: number | null
+  lon: number | null
+  elevation_m: number | null
+  threshold_elevation_m: number | null
+  description: string | null
+}
+
+export interface ComponentMeta {
+  sensor_type: string | null
+  manufacturer: string | null
+  model: string | null
+  /** signed-in users only: left out for the public */
+  part_number?: string | null
+  serial_number?: string | null
+  /** UTC date */
+  installed_on: string | null
+  firmware: string | null
+  notes: string | null
+}
+
+export const CALIBRATION_STATUSES = ['overdue', 'due_soon', 'ok', 'unknown'] as const
+export type CalibrationStatus = (typeof CALIBRATION_STATUSES)[number]
+
+/** Derived on read from the latest record (FR-REG-005): never stored. */
+export interface CalibrationSummary {
+  status: CalibrationStatus
+  /** date of the latest calibration */
+  last: string | null
+  next_due: string | null
+  /** days until it falls due; negative when overdue */
+  days_left: number | null
+}
+
+export interface Calibration {
+  id: number
+  component_id: number
+  /** UTC date */
+  date: string
+  performed_by: string
+  certificate: string | null
+  next_due: string
+  /** when the next due date came from an interval */
+  interval_months: number | null
+  notes: string | null
+  created_by: string
+  created_at: string
+  updated_by: string | null
+  updated_at: string | null
+}
+
+export interface CalibrationDraft {
+  component_id: number
+  date: string
+  performed_by: string
+  certificate: string | null
+  /** give a next due date, or an interval in months from the calibration date */
+  next_due: string | null
+  interval_months: number | null
+  notes: string | null
+}
+
+/** What the public site pages show about the station, its sites and its sensors (FR-REG-004/005). */
+export interface Assets {
+  station: StationMeta
+  sites: { slug: string; meta: SiteMeta }[]
+  components: { site: string; type: string; meta: ComponentMeta; calibration: CalibrationSummary }[]
+  due_soon_days: number
+}
+
+/** One change that moved a component's figures in a period (FR-AUD-003), from the audit log. */
+export interface TraceEvent {
+  id: number
+  time: string
+  actor: string | null
+  action: string
+  entity_type: string | null
+  entity_id: string | null
+  /** what changed, ready to show: dates, reasons, fields */
+  detail: Record<string, unknown>
 }
 
 // ---------------------------------------------------------------- manual flags (R2.3, FR-DQ-006/007)

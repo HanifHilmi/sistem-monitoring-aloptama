@@ -12,6 +12,7 @@ import { int, pct } from '@/utils/format'
 import DetectionList from './detections/DetectionList.vue'
 import FlagForm from './flags/FlagForm.vue'
 import FlagList from './flags/FlagList.vue'
+import FigureTrace from './records/FigureTrace.vue'
 
 // Minute-by-minute explanation of one day for one scope (FR-DSH-009): every lost minute and its cause. For a
 // component, flagged minutes and the day's flags are shown (FR-DQ-007), and Admins can flag minutes right here.
@@ -359,6 +360,13 @@ reload()
           {{ t('day.more', { n: loader.data.value.intervals.length - 30 }) }}
         </p>
       </section>
+      <FigureTrace
+        v-if="flaggable"
+        :system-code="systemCode"
+        :scope="scope"
+        :from="new Date(dayStart)"
+        :to="new Date(dayStart + 86_400_000)"
+      />
       <p class="text-[0.6875rem] text-ink-3">{{ t('common.allUtc') }}</p>
       <RouterLink v-if="siteLink" :to="siteLink" class="text-xs text-accent hover:underline"
         >{{ t('day.openCharts') }} →</RouterLink

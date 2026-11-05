@@ -5,6 +5,7 @@ import { api } from '@/api/client'
 import type { KpiResponse, MatrixResponse, MatrixRow, Outage, SystemInfo } from '@/api/types'
 import AvailabilityMatrix from '@/components/AvailabilityMatrix.vue'
 import DayDetail from '@/components/DayDetail.vue'
+import FigureTrace from '@/components/records/FigureTrace.vue'
 import KpiStrip, { type KpiItem } from '@/components/KpiStrip.vue'
 import LossesList from '@/components/LossesList.vue'
 import OutageList from '@/components/OutageList.vue'
@@ -428,6 +429,13 @@ const levelsLegend = computed(() => {
             :to="outageRange.to"
             :info="info"
             @pick="openOutage"
+          />
+          <FigureTrace
+            v-if="outageRange && panel.row.kind === 'component'"
+            :system-code="code"
+            :scope="scopeOf(panel.row)"
+            :from="outageRange.from"
+            :to="outageRange.to"
           />
           <section :aria-label="breakdownTitle">
             <h3 class="eyebrow mb-1.5">{{ breakdownTitle }}</h3>

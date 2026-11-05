@@ -190,7 +190,8 @@
       "source_unavailable": "{cdp}: log share unavailable",
       "ingest_stale": "{cdp}: ingestion is {lag} min behind",
       "backup_overdue": "Backup overdue",
-      "suspects_pending": "{n} suspect detection waiting for review | {n} suspect detections waiting for review"
+      "suspects_pending": "{n} suspect detection waiting for review | {n} suspect detections waiting for review",
+      "calibration_overdue": "{site} · {component}: calibration overdue since {due}"
     }
   },
   "status": {
@@ -525,7 +526,13 @@
       "rule_created": "Created rule",
       "rule_changed": "Changed rule",
       "detections_decided": "Decided detections",
-      "rule_deleted": "Deleted rule"
+      "rule_deleted": "Deleted rule",
+      "station_changed": "Changed station record",
+      "site_changed": "Changed site record",
+      "component_meta_changed": "Changed sensor record",
+      "calibration_added": "Recorded calibration",
+      "calibration_changed": "Changed calibration",
+      "calibration_removed": "Removed calibration"
     },
     "entity": {
       "user": "user",
@@ -537,7 +544,10 @@
       "component": "component",
       "flag": "flag",
       "rule": "rule",
-      "detection": "detection"
+      "detection": "detection",
+      "station": "station",
+      "site": "site",
+      "calibration": "calibration"
     },
     "yes": "yes",
     "no": "no",
@@ -576,7 +586,18 @@
       "site": "Site",
       "status": "Status",
       "withdrawn_suspects": "Suspects withdrawn",
-      "versions": "Versions"
+      "versions": "Versions",
+      "performed_by": "Performed by",
+      "certificate": "Certificate",
+      "next_due": "Next due",
+      "interval_months": "Interval (months)",
+      "date": "Date",
+      "serial_number": "Serial number",
+      "part_number": "Part number",
+      "model": "Model",
+      "manufacturer": "Manufacturer",
+      "installed_on": "Installed on",
+      "calibration_due_soon_days": "Due soon (days)"
     },
     "reason": {
       "password": "wrong password",
@@ -672,7 +693,14 @@
     "invalid": {
       "colors": "Green must be above amber, both between 1 and 100.",
       "grace": "Whole minutes from 1 to 15.",
-      "problems": "Whole minutes from 1 to 120."
+      "problems": "Whole minutes from 1 to 120.",
+      "dueSoon": "Use 1 to 180 days."
+    },
+    "calibration": {
+      "title": "Calibration \"due soon\"",
+      "hint": "How long before its due date a calibration shows as due soon on the site pages, the registry and the calibration list.",
+      "label": "Show as due soon within",
+      "days": "days"
     }
   },
   "mandatory": {
@@ -984,5 +1012,121 @@
     "affects": "Mandatory field: confirming changes the figures",
     "fieldOnly": "Optional field: marks the field only",
     "more": "Showing {shown} of {total}; narrow the filters to see the rest."
+  },
+  "calibration": {
+    "title": "Calibration",
+    "subtitle": "Every sensor by when its calibration falls due: overdue first, then due soon, unknown and OK. The status comes from the latest record.",
+    "chip": {
+      "overdue": "Overdue by {n} day | Overdue by {n} days",
+      "dueSoon": "Due in {n} day | Due in {n} days",
+      "dueToday": "Due today",
+      "ok": "Calibration OK",
+      "unknown": "No calibration on record"
+    },
+    "status": {
+      "overdue": "Overdue",
+      "due_soon": "Due soon",
+      "ok": "OK",
+      "unknown": "Unknown",
+      "label": "Status"
+    },
+    "nextDue": "Next due {date}",
+    "dcp": "A DCP is not calibrated: it only collects the sensors' data.",
+    "record": "Record a calibration",
+    "edit": "Edit calibration",
+    "date": "Calibration date (UTC)",
+    "performedBy": "Performed by",
+    "certificate": "Certificate or reference number",
+    "nextDueLabel": "Next due",
+    "every": "Every",
+    "months": "months",
+    "onDate": "On",
+    "preview": "Next due {date}, today | Next due {date}, in {n} day | Next due {date}, in {n} days",
+    "save": "Save calibration",
+    "history": "History",
+    "none": "No calibration recorded yet.",
+    "interval": "every {n} months",
+    "removeConfirm": "Remove this record? The removal stays in the audit log.",
+    "remove": "Remove",
+    "filter": "Calibration",
+    "all": "All",
+    "noneWithStatus": "No sensors with this calibration status.",
+    "last": "Last calibration",
+    "windowNote": "\"Due soon\" means within the window set in Admin → Settings (30 days by default)."
+  },
+  "records": {
+    "title": "Registry and records",
+    "subtitle": "The station, its sites and each sensor: what is installed, its calibration and its in-service period. Calibration status is shown on the site pages; serial and part numbers only to signed-in users.",
+    "tabs": "Sensor sections",
+    "tab": {
+      "details": "Details",
+      "calibration": "Calibration",
+      "service": "In-service period"
+    },
+    "meta": {
+      "sensor_type": "Sensor type",
+      "manufacturer": "Manufacturer",
+      "model": "Model",
+      "part_number": "Part number",
+      "serial_number": "Serial number",
+      "installed_on": "Installed on (UTC date)",
+      "firmware": "Firmware or version",
+      "notes": "Notes",
+      "last_calibration": "Last calibration",
+      "next_due": "Calibration due"
+    },
+    "serialHint": "Serial and part numbers are shown to signed-in users only.",
+    "save": "Save",
+    "open": "Open",
+    "sn": "S/N {sn}",
+    "details": "Sensor details",
+    "station": {
+      "title": "Station",
+      "airport_name": "Airport",
+      "wmo_number": "WMO station number"
+    },
+    "place": {
+      "lat": "Latitude",
+      "lon": "Longitude",
+      "elevation_m": "Elevation (m)",
+      "threshold_elevation_m": "Threshold elevation (m)",
+      "procurement_year": "Procurement year",
+      "description": "Description",
+      "coords": "Coordinates",
+      "elevationShort": "elev. {m} m"
+    },
+    "error": {
+      "date_in_future": "The date cannot be in the future.",
+      "invalid_date": "Give a valid date.",
+      "performed_by_required": "Say who performed it.",
+      "invalid_interval": "Use an interval of 1 to 120 months.",
+      "next_due_required": "Give the next due date or an interval.",
+      "next_due_before_date": "The next due date must be after the calibration date.",
+      "invalid_lat": "Latitude must be between −90 and 90.",
+      "invalid_lon": "Longitude must be between −180 and 180.",
+      "invalid_number": "Use numbers only, with a dot for decimals.",
+      "year_in_future": "The year cannot be in the future.",
+      "invalid_wmo": "A WMO number is 5 digits.",
+      "dcp_not_calibrated": "A DCP is not calibrated.",
+      "calibration_not_found": "This record no longer exists.",
+      "component_not_found": "This sensor no longer exists."
+    }
+  },
+  "trace": {
+    "title": "Changes to these figures",
+    "none": "Nothing changed these figures in this period.",
+    "note": "From the audit log; shown to signed-in users only.",
+    "flag_created": "Flag #{id} added: {reason}, {range}",
+    "flag_updated": "Flag #{id} changed: {reason}, {range}",
+    "flag_removed": "Flag #{id} removed: {reason}, {range}",
+    "detection_confirmed": "Detection #{id} confirmed: {rule}, {range}",
+    "detection_rejected": "Detection #{id} rejected: {rule}, {range}",
+    "detection_suspect": "Detection #{id} reopened: {rule}, {range}",
+    "mandatory_changed": "Mandatory fields of {type}: {before} → {after} (every period)",
+    "in_service_changed": "In-service period set: {from} to {to}",
+    "job_reprocess": "Reprocessed {days} from the CDP files",
+    "job_recompute": "Recalculated {days}",
+    "job_detect": "Validity rules run over {days}",
+    "job_import_legacy": "v2 probes imported for {days}"
   }
 }

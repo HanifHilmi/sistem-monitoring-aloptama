@@ -49,6 +49,9 @@ const ENTITIES = [
   'flag',
   'rule',
   'detection',
+  'station',
+  'site',
+  'calibration',
   'audit',
 ]
 const fieldLabel = (k: string) => (te(`audit.fieldName.${k}`) ? t(`audit.fieldName.${k}`) : k)

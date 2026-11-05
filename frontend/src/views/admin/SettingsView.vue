@@ -23,10 +23,12 @@ const problems = reactive<ProblemThresholds>({
   field_missing_min: 5,
   ingest_lag_min: 5,
 })
+const dueSoon = ref(30)
 function reset(s: AdminSettings) {
   Object.assign(colors, s.color_thresholds)
   grace.value = s.grace_minutes
   Object.assign(problems, s.problem_thresholds)
+  dueSoon.value = s.calibration_due_soon_days ?? 30
 }
 watch(
   () => loader.data.value,
@@ -43,8 +45,15 @@ const PROBLEM_KEYS: (keyof ProblemThresholds)[] = [
 ]
 const dirty = computed(() => {
   const s = loader.data.value
-  if (!s) return { color_thresholds: false, grace_minutes: false, problem_thresholds: false }
+  if (!s)
+    return {
+      color_thresholds: false,
+      grace_minutes: false,
+      problem_thresholds: false,
+      calibration_due_soon_days: false,
+    }
   return {
+    calibration_due_soon_days: dueSoon.value !== s.calibration_due_soon_days,
     color_thresholds:
       colors.good !== s.color_thresholds.good || colors.warning !== s.color_thresholds.warning,
     grace_minutes: grace.value !== s.grace_minutes,
@@ -61,6 +70,9 @@ const invalid = computed(() => ({
   )
     ? 'problems'
     : null,
+  calibration_due_soon_days: !(Number.isInteger(dueSoon.value) && dueSoon.value >= 1 && dueSoon.value <= 180)
+    ? 'dueSoon'
+    : null,
 }))
 const saving = ref<SettingKey | null>(null)
 const saved = ref<SettingKey | null>(null)
@@ -70,7 +82,13 @@ async function save(key: SettingKey) {
   error.value = { ...error.value, [key]: undefined }
   try {
     const value =
-      key === 'color_thresholds' ? { ...colors } : key === 'grace_minutes' ? grace.value : { ...problems }
+      key === 'color_thresholds'
+        ? { ...colors }
+        : key === 'grace_minutes'
+          ? grace.value
+          : key === 'calibration_due_soon_days'
+            ? dueSoon.value
+            : { ...problems }
     loader.data.value = await api.saveSetting(key, value as never)
     saved.value = key
     if (key === 'color_thresholds') display.thresholds = { ...colors }
@@ -270,6 +288,60 @@ const swatches = computed(() => [
             t('settings.changed', {
               who: changed('problem_thresholds')!.by,
               time: formatUtc(changed('problem_thresholds')!.at),
+            })
+          }}</span>
+        </footer>
+      </section>
+
+      <!-- Calibration "due soon" window (FR-REG-005, FR-ADM-003) -->
+      <section
+        class="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4"
+        :aria-label="t('settings.calibration.title')"
+      >
+        <div>
+          <h3 class="text-sm font-semibold">{{ t('settings.calibration.title') }}</h3>
+          <p class="text-xs text-ink-2">{{ t('settings.calibration.hint') }}</p>
+        </div>
+        <label class="flex flex-col gap-1">
+          <span class="label">{{ t('settings.calibration.label') }}</span>
+          <span class="flex items-center gap-1.5"
+            ><input
+              v-model.number="dueSoon"
+              type="number"
+              min="1"
+              max="180"
+              step="1"
+              class="input w-24 py-1.5"
+            />
+            {{ t('settings.calibration.days') }}</span
+          >
+        </label>
+        <footer class="flex flex-wrap items-center gap-3 border-t border-line pt-3 text-xs">
+          <button
+            type="button"
+            class="btn-primary"
+            :disabled="
+              !dirty.calibration_due_soon_days || !!invalid.calibration_due_soon_days || saving !== null
+            "
+            @click="save('calibration_due_soon_days')"
+          >
+            {{ t('settings.save') }}
+          </button>
+          <span
+            v-if="invalid.calibration_due_soon_days && dirty.calibration_due_soon_days"
+            class="text-bad"
+            >{{ t('settings.invalid.dueSoon') }}</span
+          >
+          <span v-else-if="error.calibration_due_soon_days" class="text-bad">{{ t('common.error') }}</span>
+          <span
+            v-else-if="saved === 'calibration_due_soon_days' && !dirty.calibration_due_soon_days"
+            class="text-ok"
+            >{{ t('settings.saved') }}</span
+          >
+          <span v-if="changed('calibration_due_soon_days')" class="ml-auto text-ink-3">{{
+            t('settings.changed', {
+              who: changed('calibration_due_soon_days')!.by,
+              time: formatUtc(changed('calibration_due_soon_days')!.at),
             })
           }}</span>
         </footer>

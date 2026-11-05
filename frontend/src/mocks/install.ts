@@ -1,7 +1,7 @@
 // Fetch interceptor for sample-data mode (VITE_MOCK=1). Only bundled when that flag is set at build time.
 import type { MatrixBucket } from '@/api/types'
 import { accountsRoute, currentUser, signedIn } from './accounts'
-import { adminRoute, recalculating } from './admin'
+import { adminRoute, assets, calibrationProblems, recalculating, trace } from './admin'
 import * as data from './data'
 import { dqRoute, isAdmin, pendingSuspects, publicDetections } from './dq'
 import { flagsRoute, publicFlags } from './flags'
@@ -43,6 +43,11 @@ function route(url: URL, method: string, body: unknown): Response {
   }
   if (p.endsWith('/flags')) return publicFlags(url)
   if (p.endsWith('/detections')) return publicDetections(url)
+  if (p.endsWith('/assets')) return json(assets(signedIn(), now))
+  if (p.endsWith('/trace')) {
+    if (!signedIn()) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
+    return json(trace(q.get('scope') ?? '', from, to, now))
+  }
   if (p.endsWith('/minutes'))
     return json(data.minutes(q.get('day') ?? '', q.get('scope') ?? 'sla', now, signedIn()))
   if (p.endsWith('/outages')) {
@@ -61,6 +66,7 @@ function route(url: URL, method: string, body: unknown): Response {
           link: '/systems/WIDN-CAT3/sites/04',
           params: { site: 'RWY04', component: 'PWX', since: new Date(now - 3_600_000).toISOString() },
         },
+        ...calibrationProblems(now),
         // Pending suspect detections are for signed-in users only (PRD FR-DSH-010, OPEN-13).
         ...(signedIn() && pendingSuspects()
           ? [

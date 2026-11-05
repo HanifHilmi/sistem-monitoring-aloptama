@@ -198,3 +198,16 @@ export function isoWeek(d: Date): number {
     )
   )
 }
+
+/**
+ * A UTC date (YYYY-MM-DD) `months` later, on the same day or the month's last day when it has fewer days
+ * (31 Jan + 1 → 28 or 29 Feb), as the server works out a calibration's next due date (FR-REG-005).
+ */
+export function addMonths(date: string, months: number): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number]
+  const total = m - 1 + months
+  const year = y + Math.floor(total / 12)
+  const month = (((total % 12) + 12) % 12) + 1
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`
+}

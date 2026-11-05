@@ -1,5 +1,12 @@
 import type {
   AdminSettings,
+  Assets,
+  Calibration,
+  CalibrationDraft,
+  ComponentMeta,
+  SiteMeta,
+  StationMeta,
+  TraceEvent,
   AuditFilter,
   AuditPage,
   ComponentRow,
@@ -150,6 +157,11 @@ export const api = {
   /** Detections touching a scope in a period: confirmed for everyone, suspect and rejected for signed-in users. */
   detections: (code: string, from: Date, to: Date, scope?: string) =>
     get<Detection[]>(`/systems/${encodeURIComponent(code)}/detections`, { ...period(from, to), scope }),
+  /** Station, site and sensor records with calibration status (serial and part numbers for signed-in users). */
+  assets: (code: string) => get<Assets>(`/systems/${encodeURIComponent(code)}/assets`),
+  /** Changes that moved a scope's figures in a period (signed-in users). */
+  trace: (code: string, scope: string, from: Date, to: Date) =>
+    get<TraceEvent[]>(`/systems/${encodeURIComponent(code)}/trace`, { ...period(from, to), scope }),
   internalHealth: () => get<Record<string, unknown>>('/internal/health'),
 
   // Accounts (R2.1)
@@ -224,6 +236,24 @@ export const api = {
   createRule: (draft: RuleDraft) => send<RuleChange>('POST', '/admin/rules', draft),
   updateRule: (id: number, draft: RuleDraft) => send<RuleChange>('PUT', `/admin/rules/${id}`, draft),
   deleteRule: (id: number) => send<{ deleted: number }>('DELETE', `/admin/rules/${id}`),
+
+  // Records and calibration (R2.5)
+  station: (system: string) => get<StationMeta>('/admin/station', { system }),
+  saveStation: (system: string, meta: Omit<StationMeta, 'name'>) =>
+    send<StationMeta>('PUT', `/admin/station?system=${encodeURIComponent(system)}`, meta),
+  saveSiteMeta: (system: string, slug: string, meta: SiteMeta) =>
+    send<SiteMeta>(
+      'PUT',
+      `/admin/sites/${encodeURIComponent(slug)}?system=${encodeURIComponent(system)}`,
+      meta,
+    ),
+  saveComponentMeta: (id: number, meta: ComponentMeta) =>
+    send<ComponentMeta>('PUT', `/admin/components/${id}/meta`, meta),
+  calibrations: (componentId: number) => get<Calibration[]>(`/admin/components/${componentId}/calibrations`),
+  addCalibration: (draft: CalibrationDraft) => send<Calibration>('POST', '/admin/calibrations', draft),
+  updateCalibration: (id: number, draft: CalibrationDraft) =>
+    send<Calibration>('PATCH', `/admin/calibrations/${id}`, draft),
+  removeCalibration: (id: number) => send<{ removed: number }>('DELETE', `/admin/calibrations/${id}`),
   reviewQueue: (system: string, filter: DetectionFilter, offset = 0) =>
     get<DetectionPage>('/admin/detections', { system, ...filter, offset, limit: 50 }),
   decide: (decision: Decision) => send<DecisionResult>('POST', '/admin/detections/decide', decision),

@@ -24,7 +24,7 @@ const GROUPS: { key: string; sections: Section[] }[] = [
     key: 'station',
     sections: [
       { key: 'registry', to: '/admin/components' },
-      { key: 'calibration', phase: 'R2.5' },
+      { key: 'calibration', to: '/admin/calibration' },
       { key: 'mandatory', to: '/admin/mandatory' },
     ],
   },

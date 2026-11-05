@@ -63,6 +63,11 @@ export const router = createRouter({
         { path: 'review', name: 'admin-review', component: () => import('@/views/admin/ReviewView.vue') },
         { path: 'rules', name: 'admin-rules', component: () => import('@/views/admin/RulesView.vue') },
         {
+          path: 'calibration',
+          name: 'admin-calibration',
+          component: () => import('@/views/admin/CalibrationView.vue'),
+        },
+        {
           path: 'settings',
           name: 'admin-settings',
           component: () => import('@/views/admin/SettingsView.vue'),

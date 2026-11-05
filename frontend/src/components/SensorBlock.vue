@@ -2,7 +2,15 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api/client'
-import type { ComponentInfo, Detection, FieldInfo, Flag, SeriesField, SeriesResponse } from '@/api/types'
+import type {
+  Assets,
+  ComponentInfo,
+  Detection,
+  FieldInfo,
+  Flag,
+  SeriesField,
+  SeriesResponse,
+} from '@/api/types'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -13,6 +21,7 @@ import type { ChartWindow } from '@/utils/time'
 import DetectionList from './detections/DetectionList.vue'
 import FieldChart from './FieldChart.vue'
 import FlagList from './flags/FlagList.vue'
+import CalibrationChip from './records/CalibrationChip.vue'
 import GustPanel from './sensors/GustPanel.vue'
 import LightningView from './sensors/LightningView.vue'
 import SkyChart from './sensors/SkyChart.vue'
@@ -30,6 +39,8 @@ const props = defineProps<{
   window: ChartWindow
   status: string
   refreshKey: number
+  /** R2.5: the sensor's record and calibration status */
+  record?: Assets['components'][number]
 }>()
 const emit = defineEmits<{
   /** an Admin picked a range to flag on this component */
@@ -41,6 +52,7 @@ const lc = computed(() => locale.value as Locale)
 const display = useDisplayStore()
 const auth = useAuthStore()
 const open = ref<string | null>(null)
+const details = ref(false)
 
 const loader = useLoader<SeriesResponse>(() =>
   api.series(props.systemCode, props.siteSlug, props.component.type, props.window.from, props.window.to),
@@ -89,6 +101,24 @@ const detections = computed(() => detLoader.data.value ?? [])
 const fieldDetections = (code: string) => detections.value.filter((d) => d.field === code)
 const suspects = computed(() => detections.value.filter((d) => d.status === 'suspect').length)
 const confirmed = computed(() => detections.value.filter((d) => d.status === 'confirmed').length)
+
+// ---- sensor details (R2.5): what is on record; serial and part numbers only for signed-in users ----
+const detailRows = computed(() => {
+  const r = props.record
+  if (!r) return []
+  const m = r.meta
+  const rows: { key: string; value: string }[] = [
+    { key: 'sensor_type', value: m.sensor_type ?? '—' },
+    { key: 'model', value: [m.manufacturer, m.model].filter(Boolean).join(' ') || '—' },
+    { key: 'installed_on', value: m.installed_on ?? '—' },
+    { key: 'last_calibration', value: r.calibration.last ?? '—' },
+    { key: 'next_due', value: r.calibration.next_due ?? '—' },
+  ]
+  if (m.firmware) rows.push({ key: 'firmware', value: m.firmware })
+  if (m.serial_number !== undefined) rows.push({ key: 'serial_number', value: m.serial_number ?? '—' })
+  if (m.part_number !== undefined) rows.push({ key: 'part_number', value: m.part_number ?? '—' })
+  return rows
+})
 const selecting = ref(false)
 const selection = ref<[number, number] | null>(null)
 watch(open, () => {
@@ -172,6 +202,18 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
         data-testid="detection-chip"
         >{{ t('detections.chipConfirmed', { n: confirmed }, confirmed) }}</span
       >
+      <CalibrationChip v-if="record" :calibration="record.calibration" compact />
+      <button
+        v-if="record"
+        type="button"
+        class="icon-btn h-6 min-w-6 text-[0.6875rem]"
+        :aria-expanded="details"
+        :aria-label="t('records.details')"
+        :title="t('records.details')"
+        @click="details = !details"
+      >
+        ⓘ
+      </button>
       <span
         v-if="avail"
         class="num ml-auto text-xs"
@@ -185,6 +227,16 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
       </span>
     </header>
 
+    <dl
+      v-if="details && record"
+      class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 border-b border-line bg-sunken/50 px-3 py-2 text-xs sm:grid-cols-[auto_minmax(0,1fr)_auto_minmax(0,1fr)]"
+      data-testid="sensor-details"
+    >
+      <template v-for="row in detailRows" :key="row.key">
+        <dt class="text-ink-3">{{ t(`records.meta.${row.key}`) }}</dt>
+        <dd class="num min-w-0 truncate">{{ row.value }}</dd>
+      </template>
+    </dl>
     <p v-if="loader.error.value" class="px-3 py-3 text-sm text-warn" role="alert">
       {{ t('common.error') }}
       <button type="button" class="icon-btn" @click="loader.load()">{{ t('common.retry') }}</button>
