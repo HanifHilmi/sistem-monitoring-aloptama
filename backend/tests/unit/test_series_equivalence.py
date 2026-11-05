@@ -9,6 +9,7 @@ from typing import Any
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from simola.kpi import sensors
 from simola.kpi import series as fast
 from tests.unit import series_reference as ref
 
@@ -107,3 +108,23 @@ def test_a_full_31_day_window_is_unchanged() -> None:
     out = fast.numeric_series(ms, values, 44_640)
     assert out == ref.numeric_series(times, values, 44_640)
     assert out["downsampled"] is True and len(out["t"]) < 1300
+
+
+@settings(max_examples=80, deadline=None)
+@given(shapes, st.sampled_from([60, 1440, 1441, 10_080, 44_640]), st.booleans())
+def test_dot_series_is_unchanged(
+    shape: tuple[int, int, float, float], window: int, zero_is_none: bool
+) -> None:
+    """Wind direction and cloud base dots (kpi/sensors.py): many equal readings and zeros, so ties are tested."""
+    seed, n, gap_rate, none_rate = shape
+    ms, _times = minute_rows(seed, n, gap_rate)
+    rnd = random.Random(seed)
+    values: list[float | None] = [
+        None
+        if rnd.random() < none_rate
+        else float(rnd.choice([0, 0, 10, 90, 180, 270, 359, rnd.randrange(360)]))
+        for _ in range(n)
+    ]
+    assert sensors.dot_series(ms, values, window, zero_is_none=zero_is_none) == ref.dot_series(
+        ms, values, window, zero_is_none=zero_is_none
+    )

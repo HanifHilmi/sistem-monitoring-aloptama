@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 from bisect import bisect_right
 from collections import Counter
@@ -16,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from simola.core.timeutil import floor_minute, intersect, minutes_between
 from simola.kpi import sensors
 from simola.kpi.engine import MINUTE_TABLE, clip_period, component_condition, grace_minutes, pct
-from simola.registry import Component, Site, System
+from simola.registry import Component, MetricField, Site, System
 
 MAX_POINTS = 1000
 # How some fields are charted (agreed with the user 2026-11-05; field codes of the AWOS registry).
@@ -244,6 +245,19 @@ async def component_series(
             {"s": site.id, "a": start, "b": end},
         )
     ).all()
+    availability = await component_window_availability(conn, system, comp, start, end, now)
+    # Building the chart is pure Python (up to ~0.3 s for 31 days). On a thread, this API process keeps
+    # answering other requests meanwhile instead of making them wait until the chart is done.
+    return await asyncio.to_thread(_build, comp, fields, rows, window_minutes, availability)
+
+
+def _build(
+    comp: Component,
+    fields: list[MetricField],
+    rows: Sequence[Sequence[Any]],
+    window_minutes: int,
+    availability: dict[str, Any],
+) -> dict[str, Any]:
     by_column: list[tuple[Any, ...]] = list(zip(*rows, strict=True)) if rows else [()] * (len(fields) + 1)
     times = by_column[0]
     out_fields = []
@@ -277,10 +291,7 @@ async def component_series(
         if f.code in ZERO_IS_NONE:
             entry["stats"] = sensors.nonzero_stats(entry["stats"], vals)
         out_fields.append(entry)
-    result: dict[str, Any] = {
-        "fields": out_fields,
-        "availability": await component_window_availability(conn, system, comp, start, end, now),
-    }
+    result: dict[str, Any] = {"fields": out_fields, "availability": availability}
     if comp.type_code == "ANEM" and {"WS", "WD", "WGS", "WGD"} <= set(columns):
         result["wind"] = wind_summary(columns["WS"], columns["WD"], columns["WGS"], columns["WGD"])
         result["wind"]["gust"].update(sensors.gust_events(times, columns["WGS"], columns["WGD"]))

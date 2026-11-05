@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -144,3 +145,37 @@ def field_stats(times: list[datetime], values: list[Any], *, numeric: bool) -> d
             mean=round(sum(nums) / len(nums), 3) if nums else None,
         )
     return out
+
+
+# Frozen 2026-11-05 from simola/kpi/sensors.py before the speed-up (MAX_DOTS = 1000, FULL_RES_MINUTES = 1440).
+DOT_MAX = 1000
+DOT_FULL_RES = 1440
+
+
+def dot_series(
+    ms: Sequence[int], values: Sequence[float | None], window_minutes: int, *, zero_is_none: bool = False
+) -> dict[str, Any]:
+    """Readings as dots, without gaps or joins. Windows over a day keep each time bucket's lowest and highest
+    reading (in time order), so the lowest cloud bases and the extreme directions always show."""
+    pts = [
+        (t, float(v))
+        for t, v in zip(ms, values, strict=True)
+        if v is not None and not (zero_is_none and v == 0)
+    ]
+    if window_minutes <= DOT_FULL_RES or len(pts) <= 2 * DOT_MAX:
+        return {"t": [p[0] for p in pts], "v": [p[1] for p in pts], "downsampled": False}
+    first, span = pts[0][0], max(1, pts[-1][0] - pts[0][0] + 1)
+    buckets: dict[int, tuple[tuple[int, float], tuple[int, float]]] = {}
+    for p in pts:
+        b = (p[0] - first) * DOT_MAX // span
+        lo_hi = buckets.get(b)
+        if lo_hi is None:
+            buckets[b] = (p, p)
+        else:
+            lo, hi = lo_hi
+            buckets[b] = (p if p[1] < lo[1] else lo, p if p[1] > hi[1] else hi)
+    kept: list[tuple[int, float]] = []
+    for b in sorted(buckets):
+        lo, hi = buckets[b]
+        kept.extend(sorted({lo, hi}))
+    return {"t": [p[0] for p in kept], "v": [p[1] for p in kept], "downsampled": True}

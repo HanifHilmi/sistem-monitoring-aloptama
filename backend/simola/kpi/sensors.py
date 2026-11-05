@@ -14,10 +14,12 @@ from __future__ import annotations
 
 import math
 import re
+from bisect import bisect_left
 from collections import Counter
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from functools import lru_cache
+from itertools import pairwise
 from typing import Any
 
 MINUTE_MS = 60_000
@@ -32,28 +34,31 @@ def dot_series(
 ) -> dict[str, Any]:
     """Readings as dots, without gaps or joins. Windows over a day keep each time bucket's lowest and highest
     reading (in time order), so the lowest cloud bases and the extreme directions always show."""
-    pts = [
-        (t, float(v))
-        for t, v in zip(ms, values, strict=True)
-        if v is not None and not (zero_is_none and v == 0)
-    ]
-    if window_minutes <= FULL_RES_MINUTES or len(pts) <= 2 * MAX_DOTS:
-        return {"t": [p[0] for p in pts], "v": [p[1] for p in pts], "downsampled": False}
-    first, span = pts[0][0], max(1, pts[-1][0] - pts[0][0] + 1)
-    buckets: dict[int, tuple[tuple[int, float], tuple[int, float]]] = {}
-    for p in pts:
-        b = (p[0] - first) * MAX_DOTS // span
-        lo_hi = buckets.get(b)
-        if lo_hi is None:
-            buckets[b] = (p, p)
-        else:
-            lo, hi = lo_hi
-            buckets[b] = (p if p[1] < lo[1] else lo, p if p[1] > hi[1] else hi)
-    kept: list[tuple[int, float]] = []
-    for b in sorted(buckets):
-        lo, hi = buckets[b]
-        kept.extend(sorted({lo, hi}))
-    return {"t": [p[0] for p in kept], "v": [p[1] for p in kept], "downsampled": True}
+    ts: list[int] = []
+    vs: list[float] = []
+    for t, v in zip(ms, values, strict=True):
+        if v is not None and not (zero_is_none and v == 0):
+            ts.append(t)
+            vs.append(float(v))
+    if window_minutes <= FULL_RES_MINUTES or len(ts) <= 2 * MAX_DOTS:
+        return {"t": ts, "v": vs, "downsampled": False}
+    # Times are in order, so each bucket is one slice: find the slice ends by bisection and take each
+    # slice's first lowest and first highest reading with min/max (31 days: ~5x faster than point by point).
+    first, span = ts[0], max(1, ts[-1] - ts[0] + 1)
+    cuts = [0]
+    cuts += (bisect_left(ts, first + (b * span + MAX_DOTS - 1) // MAX_DOTS) for b in range(1, MAX_DOTS))
+    cuts.append(len(ts))
+    kt: list[int] = []
+    kv: list[float] = []
+    for i, j in pairwise(cuts):
+        if i == j:
+            continue
+        chunk = vs[i:j]
+        lo, hi = i + chunk.index(min(chunk)), i + chunk.index(max(chunk))
+        for k in (lo,) if lo == hi else sorted((lo, hi)):
+            kt.append(ts[k])
+            kv.append(vs[k])
+    return {"t": kt, "v": kv, "downsampled": True}
 
 
 def nonzero_stats(stats: dict[str, Any], values: Sequence[float | None]) -> dict[str, Any]:
