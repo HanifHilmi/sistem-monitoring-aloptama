@@ -276,11 +276,16 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
 
 def check_accounts(web: str) -> None:
     """Without a session nothing above public is served; the CSRF cookie cannot travel in clear or cross-site."""
-    for path in (*INTERNAL_ROUTES, "/api/v1/admin/users", "/api/v1/admin/audit", "/api/v1/auth/me"):
+    for path in (*INTERNAL_ROUTES, "/api/v1/admin/users", "/api/v1/admin/audit"):
         status, _, body = http("GET", web + path)
         code = json.loads(body).get("code") if body.startswith(b"{") else None
         report(status == 401, "accounts", f"GET {path} without a session -> {status} {code or ''}".rstrip())
-    _, h, _ = http("GET", web + "/api/v1/auth/me")
+    status, h, body = http("GET", web + "/api/v1/auth/me")
+    report(
+        status == 200 and body.strip() == b"null",
+        "accounts",
+        f"GET /api/v1/auth/me without a session -> {status} null",
+    )
     cookie = h.get("set-cookie", "")
     flags = cookie.lower()
     report(
@@ -305,7 +310,7 @@ def check_leaks(web: str, routes: list[tuple[str, str, dict[str, Any]]]) -> None
 
 def check_access(public: str) -> None:
     for path in ("/internal/health", *INTERNAL_ROUTES, "/admin", "/api/v1/admin/users"):
-        status, h, _ = http("GET", public + path)
+        status, h, body = http("GET", public + path)
         location = h.get("location", "")
         host = urllib.parse.urlparse(location).hostname or ""
         guarded = (status in (301, 302, 303, 307) and host.endswith("cloudflareaccess.com")) or status in (
@@ -313,8 +318,13 @@ def check_access(public: str) -> None:
             403,
         )
         if path.startswith(("/admin", "/api/v1/admin")):
-            # The Admin area keeps Cloudflare Access as a second lock in front of SIMOLA's sign-in (D4).
-            guarded = status in (301, 302, 303, 307) and host.endswith("cloudflareaccess.com")
+            # The Admin area keeps Cloudflare Access as a second lock in front of SIMOLA's sign-in (D4): the
+            # answer must come from Cloudflare (its login redirect, or its own 403 for this script's User-Agent),
+            # never from SIMOLA.
+            from_cloudflare = h.get("server", "").lower() == "cloudflare" and b"urn:simola" not in body
+            guarded = (status in (301, 302, 303, 307) and host.endswith("cloudflareaccess.com")) or (
+                status == 403 and from_cloudflare
+            )
         report(guarded, "access", f"{path} -> {status}{' (Access login)' if guarded and location else ''}")
     status, h, _ = http("GET", public + "/")
     print(

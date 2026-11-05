@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from simola.api.deps import ApiError, problem_response
+from simola.api.deps import ApiError
 from simola.api.security import (
     SESSION_COOKIE,
     clear_session,
@@ -52,11 +52,10 @@ class PasswordBody(BaseModel):
 
 @router.get("/me")
 async def me(request: Request) -> JSONResponse:
-    """The signed-in user, or 401. Also hands out the CSRF cookie the sign-in form needs."""
+    """The signed-in user, or null for a visitor. Not 401: browsers log every 401 as an error, and every
+    public page asks. Also hands out the CSRF cookie the sign-in form needs."""
     user = await principal(request)
-    response = (
-        JSONResponse(user.public()) if user else problem_response(401, "not_authenticated", "not signed in")
-    )
+    response = JSONResponse(user.public() if user else None)
     ensure_csrf_cookie(request, response)
     return response
 

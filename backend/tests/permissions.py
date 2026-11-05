@@ -25,7 +25,7 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("GET", "/api/v1/systems/{code}/matrix"): "public",
     ("GET", "/api/v1/systems/{code}/outages"): "public",
     ("GET", "/api/v1/systems/{code}/minutes"): "public",
-    ("GET", "/api/v1/auth/me"): "public",  # answers 401 when nobody is signed in
+    ("GET", "/api/v1/auth/me"): "public",  # null when nobody is signed in
     ("POST", "/api/v1/auth/login"): "public",
     ("POST", "/api/v1/auth/logout"): "public",
     ("POST", "/api/v1/auth/password"): "viewer",

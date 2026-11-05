@@ -123,7 +123,8 @@ export const api = {
   internalHealth: () => get<Record<string, unknown>>('/internal/health'),
 
   // Accounts (R2.1)
-  me: () => get<Me>('/auth/me'),
+  /** null for a visitor */
+  me: () => get<Me | null>('/auth/me'),
   login: (username: string, password: string) => send<Me>('POST', '/auth/login', { username, password }),
   logout: () => send<void>('POST', '/auth/logout'),
   changePassword: (current_password: string, new_password: string) =>

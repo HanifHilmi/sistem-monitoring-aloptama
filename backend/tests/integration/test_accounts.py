@@ -82,7 +82,7 @@ async def people(engine: AsyncEngine) -> dict[str, int]:
 async def test_csrf_cookie_comes_first_and_writes_need_its_header(people: dict[str, int]) -> None:
     async with Browser() as b:
         r = await b.get("/api/v1/auth/me")
-        assert r.status_code == 401 and r.json()["code"] == "not_authenticated"
+        assert r.status_code == 200 and r.json() is None  # a visitor: nobody signed in
         assert b.c.cookies.get("simola_csrf")
         r = await b.send("POST", "/api/v1/auth/login", {"username": "t-admin", "password": PW}, csrf=False)
         assert r.status_code == 403 and r.json()["code"] == "csrf_failed"
@@ -99,7 +99,7 @@ async def test_sign_in_sets_safe_cookies_and_sign_out_kills_a_copied_one(people:
         assert (await b.send("POST", "/api/v1/auth/logout")).status_code == 204
     async with Browser() as thief:
         thief.c.cookies.set("simola_session", stolen or "", domain="testserver")
-        assert (await thief.get("/api/v1/auth/me")).status_code == 401
+        assert (await thief.get("/api/v1/auth/me")).json() is None
 
 
 async def test_a_wrong_password_and_an_unknown_user_look_the_same(people: dict[str, int]) -> None:
@@ -173,11 +173,11 @@ async def test_new_account_temporary_password_change_and_reset(people: dict[str,
             assert ok.status_code == 200 and ok.json()["must_change_password"] is False
             health = await joko.get("/api/v1/internal/health")
             assert health.status_code == 200 and LEAK_PROBE_ADDRESS in health.text  # Viewer-level details
-            assert (await joko_phone.get("/api/v1/auth/me")).status_code == 401  # other sessions signed out
+            assert (await joko_phone.get("/api/v1/auth/me")).json() is None  # other sessions signed out
 
             reset = await admin.send("POST", f"/api/v1/admin/users/{user_id}/reset-password")
             assert reset.status_code == 200
-            assert (await joko.get("/api/v1/auth/me")).status_code == 401  # signed out everywhere
+            assert (await joko.get("/api/v1/auth/me")).json() is None  # signed out everywhere
             assert (await joko.login("t-joko", "hujan-deras-di-runway")).status_code == 401
             assert (await joko.login("t-joko", reset.json()["temporary_password"])).json()[
                 "must_change_password"
@@ -257,11 +257,7 @@ async def test_every_route_answers_each_role_as_the_prd_says(
             for role, browser in (("public", public), ("viewer", viewer), ("admin", admin)):
                 r = await browser.send(method, url, {} if method != "GET" else None)
                 allowed = need == "public" or (need == "viewer" and role != "public") or role == "admin"
-                if (
-                    allowed
-                    and r.status_code in (401, 403)
-                    and not (path == "/api/v1/auth/me" and role == "public")
-                ):
+                if allowed and r.status_code in (401, 403):
                     wrong.append(f"{role} {method} {path}: refused {r.status_code}")
                 if not allowed and r.status_code != (401 if role == "public" else 403):
                     wrong.append(f"{role} {method} {path}: expected refusal, got {r.status_code}")

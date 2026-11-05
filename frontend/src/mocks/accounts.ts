@@ -183,7 +183,7 @@ export function accountsRoute(path: string, url: URL, method: string, body: unkn
     return r
   }
 
-  if (path === '/auth/me') return current ? json(me(current)) : problem(401, 'not_authenticated')
+  if (path === '/auth/me') return json(current ? me(current) : null)
   if (path === '/auth/login' && method === 'POST') {
     const u = s.users.find((x) => x.username === String(b.username ?? '').toLowerCase())
     if (u?.locked_until && Date.parse(u.locked_until) > now) return done(problem(423, 'account_locked'))
