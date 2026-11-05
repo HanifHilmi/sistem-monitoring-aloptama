@@ -1,6 +1,7 @@
 // Fetch interceptor for sample-data mode (VITE_MOCK=1). Only bundled when that flag is set at build time.
 import type { MatrixBucket } from '@/api/types'
-import { accountsRoute, signedIn } from './accounts'
+import { accountsRoute, currentUser, signedIn } from './accounts'
+import { adminRoute } from './admin'
 import * as data from './data'
 
 function json(body: unknown, status = 200): Response {
@@ -12,6 +13,13 @@ function route(url: URL, method: string, body: unknown): Response {
   const p = url.pathname.replace(/^\/api\/v1/, '')
   const accounts = accountsRoute(p, url, method, body)
   if (accounts) return accounts
+  if (p.startsWith('/admin/')) {
+    const me = currentUser()
+    if (!me) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
+    if (me.role !== 'admin') return json({ code: 'forbidden', title: 'Admins only', status: 403 }, 403)
+    const admin = adminRoute(p, url, method, body, me.username)
+    if (admin) return admin
+  }
   const q = url.searchParams
   const from = Date.parse(q.get('from') ?? '')
   const to = Date.parse(q.get('to') ?? '')

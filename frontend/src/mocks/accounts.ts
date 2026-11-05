@@ -323,3 +323,10 @@ export function signedIn(): boolean {
   const s = load(Date.now())
   return s.users.some((u) => u.username === s.session && u.active)
 }
+
+/** The signed-in sample user, if any. */
+export function currentUser(): { username: string; role: Role } | null {
+  const s = load(Date.now())
+  const u = s.users.find((x) => x.username === s.session && x.active)
+  return u ? { username: u.username, role: u.role } : null
+}

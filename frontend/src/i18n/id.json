@@ -526,5 +526,133 @@
       "password": "kata sandi salah",
       "locked": "saat terkunci"
     }
+  },
+  "jobs": {
+    "subtitle": "Proses ulang hari dari file CDP atau hitung ulang angka. Pekerjaan berjalan di worker satu per satu dan tetap tercatat saat layanan dimulai ulang.",
+    "new": "Pekerjaan baru",
+    "type": {
+      "reprocess": "Proses ulang dari file CDP",
+      "recompute": "Hitung ulang angka",
+      "import_legacy": "Impor probe v2"
+    },
+    "hint": {
+      "reprocess": "Membaca ulang file 1-menit kedua CDP untuk hari-hari ini, mengganti menit yang tersimpan, lalu menghitung ulang angka. Gunakan setelah share terputus atau file diperbaiki. Hanya satu dalam satu waktu.",
+      "recompute": "Menghitung ulang angka harian dari menit yang tersimpan tanpa membaca file, misalnya setelah aturan diubah."
+    },
+    "status": {
+      "queued": "Antre",
+      "running": "Berjalan",
+      "done": "Selesai",
+      "failed": "Gagal",
+      "cancelled": "Dibatalkan",
+      "interrupted": "Terputus"
+    },
+    "days": "{n} hari",
+    "seconds": "{n} dtk",
+    "minutes": "{n} mnt",
+    "by": "dimulai oleh {who}",
+    "details": "Rincian",
+    "statusLabel": "Status",
+    "startedBy": "Dimulai oleh",
+    "created": "Masuk antrean",
+    "duration": "Durasi",
+    "result": "Hasil",
+    "cancel": "Batalkan pekerjaan…",
+    "cancelConfirm": "Batalkan pekerjaan ini? Hari yang sudah selesai tetap tersimpan.",
+    "cancelYes": "Batalkan",
+    "log": "Log",
+    "noLog": "Belum ada catatan.",
+    "kind": "Jenis pekerjaan",
+    "range": "Hari (UTC)",
+    "from": "Dari",
+    "to": "Sampai (termasuk)",
+    "preset": {
+      "yesterday": "Kemarin",
+      "week": "7 hari terakhir",
+      "lastMonth": "Bulan lalu",
+      "all": "Seluruh riwayat"
+    },
+    "problem": {
+      "missing": "Pilih kedua tanggal.",
+      "order": "'Dari' tidak boleh setelah 'Sampai'.",
+      "future": "Hari yang akan datang belum memiliki data.",
+      "coverage": "Data SIMOLA dimulai pada {date}."
+    },
+    "estimate": "sekitar {n} menit",
+    "start": "Mulai pekerjaan",
+    "error": {
+      "running": "Proses ulang lain sedang antre atau berjalan. Tunggu, atau batalkan dahulu."
+    }
+  },
+  "settings": {
+    "subtitle": "Cara SIMOLA menampilkan dan menilai data. Setiap bagian disimpan sendiri dan dicatat di log audit; menit yang tersimpan tidak pernah berubah.",
+    "colors": {
+      "title": "Warna ketersediaan",
+      "hint": "Ambang tampilan untuk warna papan, bukan target. Warna bukan satu-satunya penanda: angka selalu ditampilkan.",
+      "good": "Hijau mulai",
+      "warning": "Kuning mulai",
+      "preview": "Pratinjau"
+    },
+    "grace": {
+      "title": "Waktu tunggu data",
+      "hint": "Sebuah menit baru dinilai setelah sekian menit, sehingga file yang sedikit terlambat tidak dihitung hilang. Hari yang sudah lewat tidak terpengaruh.",
+      "label": "Tunggu sebelum menilai menit"
+    },
+    "problems": {
+      "title": "Panel masalah",
+      "hint": "Kapan sebuah butir muncul di panel Masalah.",
+      "cdp_no_data_min": "CDP tidak menghasilkan data lebih dari",
+      "cdp_unreachable_min": "CDP tidak menjawab selama",
+      "site_no_data_min": "Situs (DCP) tanpa data lebih dari",
+      "field_missing_min": "Field wajib hilang lebih dari",
+      "ingest_lag_min": "Data datang terlambat lebih dari"
+    },
+    "minutes": "menit",
+    "min": "mnt",
+    "save": "Simpan",
+    "saved": "Tersimpan.",
+    "changed": "Terakhir diubah oleh {who}, {time}",
+    "invalid": {
+      "colors": "Hijau harus di atas kuning, keduanya antara 1 dan 100.",
+      "grace": "Menit bulat dari 1 sampai 15.",
+      "problems": "Menit bulat dari 1 sampai 120."
+    }
+  },
+  "mandatory": {
+    "subtitle": "Sebuah komponen dihitung tersedia pada suatu menit hanya bila semua field wajibnya bernilai. Perubahan berlaku untuk semua data sejak {date} dan menghitung ulang angka.",
+    "dcp": "Aturan khusus: tersedia bila ada field mana pun di situsnya yang bernilai. Tidak dapat diubah.",
+    "fieldsOf": "Field {name}",
+    "required": "wajib",
+    "optional": "opsional",
+    "previewTitle": "Bulan ini dengan perubahan",
+    "previewLoading": "Menghitung…",
+    "site": "Situs",
+    "now": "Sekarang",
+    "after": "Sesudah",
+    "applies": "Berlaku untuk semua periode sejak data dimulai. Penghitungan ulang memakan beberapa menit dan dicatat di log audit.",
+    "save": "Simpan dan hitung ulang",
+    "saved": "Tersimpan. Angka sedang dihitung ulang:",
+    "jobLink": "pekerjaan #{id}"
+  },
+  "components": {
+    "title": "Komponen",
+    "subtitle": "Periode operasi setiap komponen. Menit di luar periode itu tidak diharapkan, sehingga sensor yang dilepas, belum dipasang, atau sedang diganti tidak menurunkan ketersediaan.",
+    "always": "Beroperasi",
+    "inSince": "Beroperasi {from} – {to}",
+    "open": "sekarang",
+    "notYet": "Belum beroperasi (mulai {time})",
+    "out": "Tidak beroperasi sejak {time}",
+    "edit": "Ubah periode",
+    "dcp": "mengikuti situsnya",
+    "dcpHint": "DCP tidak memiliki periode operasi sendiri.",
+    "later": "Metadata (model, nomor seri) dan kalibrasi ditambahkan ke halaman ini pada tahap berikutnya (R2.5).",
+    "explain": "Kosongkan tanggal bila tanpa batas. Waktu dalam UTC.",
+    "from": "Beroperasi mulai (UTC)",
+    "fromHint": "Kosong: sejak data dimulai.",
+    "to": "Beroperasi sampai (UTC)",
+    "toHint": "Kosong: masih beroperasi.",
+    "order": "'Mulai' harus sebelum 'sampai'.",
+    "effect": "Menyimpan akan menghitung ulang angka untuk semua hari dan dicatat di log audit. Menit di luar periode tidak lagi diharapkan, sehingga angka komponen ini, situsnya, dan OLA berubah untuk hari-hari tersebut.",
+    "save": "Simpan periode"
   }
 }

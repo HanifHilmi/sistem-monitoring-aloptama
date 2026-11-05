@@ -23,16 +23,16 @@ const GROUPS: { key: string; sections: Section[] }[] = [
   {
     key: 'station',
     sections: [
-      { key: 'registry', phase: 'R2.5' },
+      { key: 'registry', to: '/admin/components' },
       { key: 'calibration', phase: 'R2.5' },
-      { key: 'mandatory', phase: 'R2.2' },
+      { key: 'mandatory', to: '/admin/mandatory' },
     ],
   },
   {
     key: 'system',
     sections: [
-      { key: 'settings', phase: 'R2.2' },
-      { key: 'jobs', phase: 'R2.2' },
+      { key: 'settings', to: '/admin/settings' },
+      { key: 'jobs', to: '/admin/jobs' },
       { key: 'users', to: '/admin/users' },
       { key: 'audit', to: '/admin/audit' },
       { key: 'health', to: '/internal/health' },

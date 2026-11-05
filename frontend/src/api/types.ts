@@ -427,3 +427,82 @@ export interface AuditFilter {
   action?: string
   entity_type?: string
 }
+
+// ---------------------------------------------------------------- admin operations (R2.2, FR-ADM-002/003, FR-REG-003/006)
+
+export type JobType = 'reprocess' | 'recompute' | 'import_legacy'
+export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'interrupted'
+
+export interface JobRow {
+  id: number
+  type: JobType
+  params: { system?: string; from?: string; to?: string }
+  status: JobStatus
+  progress: number
+  message: string | null
+  created_by: string
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+}
+
+export interface JobDetail extends JobRow {
+  log: string
+}
+
+export interface NewJob {
+  type: 'reprocess' | 'recompute'
+  system: string
+  from: string
+  to: string
+}
+
+export interface ProblemThresholds {
+  cdp_no_data_min: number
+  cdp_unreachable_min: number
+  site_no_data_min: number
+  field_missing_min: number
+  ingest_lag_min: number
+}
+
+export interface AdminSettings {
+  color_thresholds: { good: number; warning: number }
+  grace_minutes: number
+  problem_thresholds: ProblemThresholds
+  /** who last changed each setting, and when */
+  changed: Record<string, { at: string; by: string }>
+}
+
+export type SettingKey = 'color_thresholds' | 'grace_minutes' | 'problem_thresholds'
+
+export interface MandatoryField {
+  code: string
+  name: Names
+  mandatory: boolean
+}
+
+export interface MandatoryType {
+  type: string
+  name: Names
+  is_dcp: boolean
+  fields: MandatoryField[]
+}
+
+/** This month's availability per site for a component type, now and with the proposed mandatory fields. */
+export interface MandatoryPreview {
+  type: string
+  from: string
+  to: string
+  sites: { slug: string; name: Names; current: Availability; proposed: Availability }[]
+}
+
+export interface ComponentRow {
+  id: number
+  site: string
+  site_name: Names
+  type: string
+  name: Names
+  is_dcp: boolean
+  in_service_from: string | null
+  in_service_to: string | null
+}

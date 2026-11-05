@@ -526,5 +526,133 @@
       "password": "wrong password",
       "locked": "while locked"
     }
+  },
+  "jobs": {
+    "subtitle": "Reprocess days from the CDP files or recompute figures. Jobs run in the worker one after another and are kept when services restart.",
+    "new": "New job",
+    "type": {
+      "reprocess": "Reprocess from CDP files",
+      "recompute": "Recompute figures",
+      "import_legacy": "Import v2 probes"
+    },
+    "hint": {
+      "reprocess": "Reads both CDPs' 1-minute files again for these days, replaces the stored minutes and recomputes the figures. Use it after a share outage or a corrected file. Only one at a time.",
+      "recompute": "Recomputes the daily figures from the stored minutes without reading files, for example after a rule change."
+    },
+    "status": {
+      "queued": "Queued",
+      "running": "Running",
+      "done": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "interrupted": "Interrupted"
+    },
+    "days": "{n} day | {n} days",
+    "seconds": "{n} s",
+    "minutes": "{n} min",
+    "by": "started by {who}",
+    "details": "Details",
+    "statusLabel": "Status",
+    "startedBy": "Started by",
+    "created": "Queued at",
+    "duration": "Duration",
+    "result": "Result",
+    "cancel": "Cancel job…",
+    "cancelConfirm": "Cancel this job? Days already done stay done.",
+    "cancelYes": "Cancel job",
+    "log": "Log",
+    "noLog": "Nothing written yet.",
+    "kind": "What to do",
+    "range": "Days (UTC)",
+    "from": "From",
+    "to": "To (included)",
+    "preset": {
+      "yesterday": "Yesterday",
+      "week": "Last 7 days",
+      "lastMonth": "Last month",
+      "all": "All history"
+    },
+    "problem": {
+      "missing": "Choose both dates.",
+      "order": "'From' must not be after 'To'.",
+      "future": "Days in the future have no data yet.",
+      "coverage": "SIMOLA's data starts on {date}."
+    },
+    "estimate": "takes about {n} min",
+    "start": "Start job",
+    "error": {
+      "running": "A reprocess is already queued or running. Wait for it, or cancel it first."
+    }
+  },
+  "settings": {
+    "subtitle": "How SIMOLA shows and judges data. Each section is saved on its own and recorded in the audit log; stored minutes never change.",
+    "colors": {
+      "title": "Availability colours",
+      "hint": "Display thresholds for the board's colours, not targets. Colour is never the only sign: the figures are always shown.",
+      "good": "Green from",
+      "warning": "Amber from",
+      "preview": "Preview"
+    },
+    "grace": {
+      "title": "Waiting time for data",
+      "hint": "A minute is judged only after this many minutes, so a file written a little late does not count as missing. Past days are not affected.",
+      "label": "Wait before judging a minute"
+    },
+    "problems": {
+      "title": "Problems panel",
+      "hint": "When an item appears in the Problems panel.",
+      "cdp_no_data_min": "A CDP produces no data for more than",
+      "cdp_unreachable_min": "A CDP does not answer for",
+      "site_no_data_min": "A site (DCP) has no data for more than",
+      "field_missing_min": "A mandatory field is missing for more than",
+      "ingest_lag_min": "Data arrives later than"
+    },
+    "minutes": "minutes",
+    "min": "min",
+    "save": "Save",
+    "saved": "Saved.",
+    "changed": "Last changed by {who}, {time}",
+    "invalid": {
+      "colors": "Green must be above amber, both between 1 and 100.",
+      "grace": "Whole minutes from 1 to 15.",
+      "problems": "Whole minutes from 1 to 120."
+    }
+  },
+  "mandatory": {
+    "subtitle": "A component counts as available in a minute only when all its mandatory fields have a value. A change applies to all data since {date} and recomputes the figures.",
+    "dcp": "Special rule: available when any field of its site has a value. Not editable.",
+    "fieldsOf": "Fields of {name}",
+    "required": "required",
+    "optional": "optional",
+    "previewTitle": "This month with the change",
+    "previewLoading": "Calculating…",
+    "site": "Site",
+    "now": "Now",
+    "after": "After",
+    "applies": "Applies to every period since data began. The recompute takes a few minutes and is recorded in the audit log.",
+    "save": "Save and recompute",
+    "saved": "Saved. Figures are being recomputed:",
+    "jobLink": "job #{id}"
+  },
+  "components": {
+    "title": "Components",
+    "subtitle": "Each component's in-service period. Minutes outside it are not expected, so a sensor that is removed, not yet installed or being replaced does not lower availability.",
+    "always": "In service",
+    "inSince": "In service {from} – {to}",
+    "open": "now",
+    "notYet": "Not yet in service (from {time})",
+    "out": "Out of service since {time}",
+    "edit": "Edit period",
+    "dcp": "follows its site",
+    "dcpHint": "The DCP has no in-service period of its own.",
+    "later": "Metadata (models, serial numbers) and calibration are added to this page in a later phase (R2.5).",
+    "explain": "Leave a date empty for no limit. Times are UTC.",
+    "from": "In service from (UTC)",
+    "fromHint": "Empty: since data began.",
+    "to": "In service until (UTC)",
+    "toHint": "Empty: still in service.",
+    "order": "'From' must be before 'until'.",
+    "effect": "Saving recomputes the figures for all days and is recorded in the audit log. Minutes outside the period stop being expected, so this component's, its site's and the OLA figures change for those days.",
+    "save": "Save period"
   }
 }

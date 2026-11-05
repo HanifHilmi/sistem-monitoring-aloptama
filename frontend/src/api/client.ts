@@ -1,6 +1,14 @@
 import type {
+  AdminSettings,
   AuditFilter,
   AuditPage,
+  ComponentRow,
+  JobDetail,
+  JobRow,
+  MandatoryPreview,
+  MandatoryType,
+  NewJob,
+  SettingKey,
   CalendarResponse,
   MatrixBucket,
   MatrixResponse,
@@ -137,4 +145,27 @@ export const api = {
   audit: (filter: AuditFilter, before?: number) =>
     get<AuditPage>('/admin/audit', { ...filter, before, limit: 50 }),
   auditCsvUrl: (filter: AuditFilter) => `${BASE}/admin/audit${query({ ...filter, format: 'csv' })}`,
+
+  // Admin operations (R2.2)
+  jobs: () => get<JobRow[]>('/admin/jobs'),
+  job: (id: number) => get<JobDetail>(`/admin/jobs/${id}`),
+  startJob: (job: NewJob) => send<JobRow>('POST', '/admin/jobs', job),
+  cancelJob: (id: number) => send<JobRow>('POST', `/admin/jobs/${id}/cancel`),
+  adminSettings: () => get<AdminSettings>('/admin/settings'),
+  saveSetting: <K extends SettingKey>(key: K, value: AdminSettings[K]) =>
+    send<AdminSettings>('PUT', `/admin/settings/${key}`, { value }),
+  mandatoryFields: (system: string) => get<MandatoryType[]>('/admin/mandatory-fields', { system }),
+  previewMandatory: (system: string, type: string, fields: string[]) =>
+    get<MandatoryPreview>(`/admin/mandatory-fields/${encodeURIComponent(type)}/preview`, {
+      system,
+      fields: fields.join(','),
+    }),
+  saveMandatory: (system: string, type: string, fields: string[]) =>
+    send<{ job: JobRow }>('PUT', `/admin/mandatory-fields/${encodeURIComponent(type)}`, { system, fields }),
+  components: (system: string) => get<ComponentRow[]>('/admin/components', { system }),
+  saveInService: (id: number, from: string | null, to: string | null) =>
+    send<{ component: ComponentRow; job: JobRow | null }>('PATCH', `/admin/components/${id}`, {
+      in_service_from: from,
+      in_service_to: to,
+    }),
 }
