@@ -87,6 +87,11 @@ def _component_window(comp: Component, a: datetime, b: datetime) -> tuple[dateti
     return intersect((a, b), (comp.in_service_from, comp.in_service_to))
 
 
+def component_window(comp: Component, a: datetime, b: datetime) -> tuple[datetime, datetime]:
+    """The part of [a, b) inside the component's in-service period (FR-REG-006)."""
+    return _component_window(comp, a, b)
+
+
 def component_valid_sql(system: System, comp: Component) -> str:
     """SQL condition for 'record valid for this component' on a merged minute row (PRD §7.3.1).
 

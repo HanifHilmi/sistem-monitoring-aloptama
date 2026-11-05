@@ -1,6 +1,7 @@
 # Runbook: load, reprocess and verify history
 
-All commands run inside the worker container. In Coolify use *Terminal → worker*, or on the host:
+Admins can also start reprocess and recompute jobs in **Admin → Jobs** ([admin.md](admin.md)).
+All commands below run inside the worker container. In Coolify use *Terminal → worker*, or on the host:
 `docker exec -it <worker-container> <command>`.
 
 ## First load (FR-ING-011)

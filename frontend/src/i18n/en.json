@@ -500,13 +500,21 @@
       "user_created": "Created user",
       "user_updated": "Changed user",
       "password_reset": "Reset password",
-      "audit_exported": "Exported audit log"
+      "audit_exported": "Exported audit log",
+      "job_started": "Started job",
+      "job_cancelled": "Cancelled job",
+      "setting_changed": "Changed setting",
+      "mandatory_changed": "Changed mandatory fields",
+      "in_service_changed": "Changed in-service period"
     },
     "entity": {
       "user": "user",
       "session": "session",
       "setting": "setting",
-      "audit": "audit log"
+      "audit": "audit log",
+      "job": "job",
+      "mandatory": "mandatory fields",
+      "component": "component"
     },
     "yes": "yes",
     "no": "no",
@@ -520,7 +528,22 @@
       "rows": "Rows",
       "reason": "Reason",
       "filter": "Filter",
-      "by": "By"
+      "by": "By",
+      "type": "Type",
+      "system": "System",
+      "from": "From",
+      "to": "To",
+      "fields": "Fields",
+      "good": "Green from",
+      "warning": "Amber from",
+      "grace_minutes": "Waiting time (min)",
+      "cdp_no_data_min": "CDP no data (min)",
+      "cdp_unreachable_min": "CDP not answering (min)",
+      "site_no_data_min": "Site no data (min)",
+      "field_missing_min": "Mandatory field missing (min)",
+      "ingest_lag_min": "Data late (min)",
+      "in_service_from": "In service from",
+      "in_service_to": "In service until"
     },
     "reason": {
       "password": "wrong password",

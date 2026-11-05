@@ -39,13 +39,14 @@ async function load(more = false) {
 watch(query, () => void load(), { immediate: true })
 
 const actionLabel = (a: string) => (te(`audit.action.${a}`) ? t(`audit.action.${a}`) : a)
-const ENTITIES = ['user', 'session', 'setting', 'audit']
+const ENTITIES = ['user', 'session', 'setting', 'job', 'mandatory', 'component', 'audit']
 const fieldLabel = (k: string) => (te(`audit.fieldName.${k}`) ? t(`audit.fieldName.${k}`) : k)
 function showValue(key: string, v: unknown): string {
   if (v === undefined || v === null || v === '') return '—'
   if (typeof v === 'boolean') return v ? t('audit.yes') : t('audit.no')
   if (key === 'role' && (v === 'viewer' || v === 'admin')) return t(`role.${v}`)
-  if (key === 'locked_until' && typeof v === 'string') return formatUtc(v)
+  if ((key === 'locked_until' || key.startsWith('in_service')) && typeof v === 'string') return formatUtc(v)
+  if (Array.isArray(v)) return v.join(', ')
   if (key === 'reason' && typeof v === 'string' && te(`audit.reason.${v}`)) return t(`audit.reason.${v}`)
   return typeof v === 'string' ? v : JSON.stringify(v)
 }

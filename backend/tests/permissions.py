@@ -35,7 +35,27 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("PATCH", "/api/v1/admin/users/{user_id}"): "admin",
     ("POST", "/api/v1/admin/users/{user_id}/reset-password"): "admin",
     ("GET", "/api/v1/admin/audit"): "admin",
+    ("GET", "/api/v1/admin/jobs"): "admin",
+    ("POST", "/api/v1/admin/jobs"): "admin",
+    ("GET", "/api/v1/admin/jobs/{job_id}"): "admin",
+    ("POST", "/api/v1/admin/jobs/{job_id}/cancel"): "admin",
+    ("GET", "/api/v1/admin/settings"): "admin",
+    ("PUT", "/api/v1/admin/settings/{key}"): "admin",
+    ("GET", "/api/v1/admin/mandatory-fields"): "admin",
+    ("GET", "/api/v1/admin/mandatory-fields/{component_type}/preview"): "admin",
+    ("PUT", "/api/v1/admin/mandatory-fields/{component_type}"): "admin",
+    ("GET", "/api/v1/admin/components"): "admin",
+    ("PATCH", "/api/v1/admin/components/{component_id}"): "admin",
 }
 
-# Sample values for path parameters.
-PATH_VALUES = {"code": "WIDN-CAT3", "slug": "04", "component": "ATRH"}
+# Sample values for path parameters. The matrix test sends {} as every write's body, which is invalid or
+# changes nothing, so no Admin call in it alters data.
+PATH_VALUES = {
+    "code": "WIDN-CAT3",
+    "slug": "04",
+    "component": "ATRH",
+    "job_id": "1",
+    "key": "grace_minutes",
+    "component_type": "ATRH",
+    "component_id": "2",
+}

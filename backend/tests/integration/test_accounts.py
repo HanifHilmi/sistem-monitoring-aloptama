@@ -2,73 +2,18 @@
 
 from __future__ import annotations
 
-import itertools
-from typing import Any
-
-import httpx
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from simola.api.app import create_app
-from simola.auth import passwords
 from simola.core.config import get_settings
 from simola.migrations.runner import ensure_app_role
+from tests.integration.browser import PW, Browser, _add_user
 from tests.integration.conftest import LEAK_PROBE_ADDRESS
 from tests.permissions import MATRIX, PATH_VALUES
 
 pytestmark = pytest.mark.integration
-
-PW = "stasiun-cuaca-2026"
-_addresses = (f"198.51.100.{n}" for n in itertools.count(10))  # RFC 5737; one per browser keeps limits apart
-
-
-class Browser:
-    """One browser: its own cookies and address. Writes carry the CSRF header unless told otherwise."""
-
-    def __init__(self, address: str | None = None) -> None:
-        self.c = httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=create_app()),
-            base_url="https://testserver",
-            headers={"cf-connecting-ip": address or next(_addresses)},
-        )
-
-    async def __aenter__(self) -> Browser:
-        await self.c.get("/api/v1/auth/me")  # picks up the CSRF cookie, like the app on startup
-        return self
-
-    async def __aexit__(self, *_: object) -> None:
-        await self.c.aclose()
-
-    async def get(self, path: str, **kw: Any) -> httpx.Response:
-        return await self.c.get(path, **kw)
-
-    async def send(self, method: str, path: str, json: Any = None, *, csrf: bool = True) -> httpx.Response:
-        headers = {"x-csrf-token": self.c.cookies.get("simola_csrf", "")} if csrf else {}
-        return await self.c.request(method, path, json=json, headers=headers)
-
-    async def login(self, username: str, password: str = PW) -> httpx.Response:
-        return await self.send("POST", "/api/v1/auth/login", {"username": username, "password": password})
-
-
-async def _add_user(engine: AsyncEngine, username: str, role: str, *, must_change: bool = False) -> int:
-    async with engine.begin() as conn:
-        return int(
-            await conn.scalar(
-                text("""
-            INSERT INTO app_user (username, display_name, role, password_hash, must_change_password, created_by)
-            VALUES (:u, :n, :r, :h, :m, 'test') RETURNING id
-        """),
-                {
-                    "u": username,
-                    "n": username.title(),
-                    "r": role,
-                    "h": passwords.hash_password(PW),
-                    "m": must_change,
-                },
-            )
-        )
 
 
 @pytest.fixture(scope="module")

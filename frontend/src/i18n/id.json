@@ -500,13 +500,21 @@
       "user_created": "Membuat pengguna",
       "user_updated": "Mengubah pengguna",
       "password_reset": "Mengatur ulang kata sandi",
-      "audit_exported": "Mengekspor log audit"
+      "audit_exported": "Mengekspor log audit",
+      "job_started": "Memulai pekerjaan",
+      "job_cancelled": "Membatalkan pekerjaan",
+      "setting_changed": "Mengubah pengaturan",
+      "mandatory_changed": "Mengubah field wajib",
+      "in_service_changed": "Mengubah periode operasi"
     },
     "entity": {
       "user": "pengguna",
       "session": "sesi",
       "setting": "pengaturan",
-      "audit": "log audit"
+      "audit": "log audit",
+      "job": "pekerjaan",
+      "mandatory": "field wajib",
+      "component": "komponen"
     },
     "yes": "ya",
     "no": "tidak",
@@ -520,7 +528,22 @@
       "rows": "Baris",
       "reason": "Alasan",
       "filter": "Filter",
-      "by": "Oleh"
+      "by": "Oleh",
+      "type": "Jenis",
+      "system": "Sistem",
+      "from": "Dari",
+      "to": "Sampai",
+      "fields": "Field",
+      "good": "Hijau mulai",
+      "warning": "Kuning mulai",
+      "grace_minutes": "Waktu tunggu (menit)",
+      "cdp_no_data_min": "CDP tanpa data (menit)",
+      "cdp_unreachable_min": "CDP tidak menjawab (menit)",
+      "site_no_data_min": "Situs tanpa data (menit)",
+      "field_missing_min": "Field wajib hilang (menit)",
+      "ingest_lag_min": "Data terlambat (menit)",
+      "in_service_from": "Beroperasi mulai",
+      "in_service_to": "Beroperasi sampai"
     },
     "reason": {
       "password": "kata sandi salah",

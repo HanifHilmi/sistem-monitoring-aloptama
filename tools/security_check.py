@@ -63,6 +63,16 @@ ADMIN_ROUTES = (
     "/api/v1/admin/users/{user_id}",
     "/api/v1/admin/users/{user_id}/reset-password",
     "/api/v1/admin/audit",
+    "/api/v1/admin/jobs",
+    "/api/v1/admin/jobs/{job_id}",
+    "/api/v1/admin/jobs/{job_id}/cancel",
+    "/api/v1/admin/settings",
+    "/api/v1/admin/settings/{key}",
+    "/api/v1/admin/mandatory-fields",
+    "/api/v1/admin/mandatory-fields/{component_type}",
+    "/api/v1/admin/mandatory-fields/{component_type}/preview",
+    "/api/v1/admin/components",
+    "/api/v1/admin/components/{component_id}",
 )
 AUTH_ROUTES = ("/api/v1/auth/me", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password")
 # Every state-changing route the API may publish; a new one fails the check until it is reviewed here.
@@ -73,6 +83,11 @@ KNOWN_WRITES = {
     "POST /api/v1/admin/users",
     "PATCH /api/v1/admin/users/{user_id}",
     "POST /api/v1/admin/users/{user_id}/reset-password",
+    "POST /api/v1/admin/jobs",
+    "POST /api/v1/admin/jobs/{job_id}/cancel",
+    "PUT /api/v1/admin/settings/{key}",
+    "PUT /api/v1/admin/mandatory-fields/{component_type}",
+    "PATCH /api/v1/admin/components/{component_id}",
 }
 # Routes that exist inside the containers but are not public API routes.
 NON_PUBLIC = {"/health", "/ready"}
@@ -251,7 +266,18 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
             f"note  routes    OpenAPI document not served ({status}; normal in production): route list not compared"
         )
 
-    extra = [p.replace("{user_id}", "1") for p in (*INTERNAL_ROUTES, *ADMIN_ROUTES, *AUTH_ROUTES)]
+    ids = {
+        "{user_id}": "1",
+        "{job_id}": "1",
+        "{key}": "grace_minutes",
+        "{component_type}": "ATRH",
+        "{component_id}": "2",
+    }
+    extra = []
+    for p in (*INTERNAL_ROUTES, *ADMIN_ROUTES, *AUTH_ROUTES):
+        for k, v in ids.items():
+            p = p.replace(k, v)
+        extra.append(p)
     paths = sorted({p for _, p, _ in routes} | set(extra))
     bad = []
     for path in paths:

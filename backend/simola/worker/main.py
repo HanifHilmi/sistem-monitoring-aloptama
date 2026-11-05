@@ -26,7 +26,7 @@ from simola.core.timeutil import day_start
 from simola.ingestion.cat3 import Cat3Ingestor
 from simola.ingestion.probe import Prober
 from simola.kpi.engine import recompute_days
-from simola.registry import System, load_systems
+from simola.registry import System, get_setting, load_systems
 from simola.worker import jobs
 
 logger = logging.getLogger("simola.worker")
@@ -57,10 +57,12 @@ class Worker:
         self.probers: dict[str, Prober] = {}
         self.leader = False
         self._finalised: set[tuple[date, int]] = set()
+        self._registry_version: object = None
 
     async def load(self) -> None:
         async with self.engine.connect() as conn:
             self.systems = await load_systems(conn)
+            self._registry_version = await get_setting(conn, "registry_version")
         for s in self.systems:
             if s.type_code == "AWOS_CAT3":
                 self.ingestors[s.code] = Cat3Ingestor(self.engine, s, self.settings)
@@ -88,7 +90,23 @@ class Worker:
             await p.probe_once()
             await p.flush()
 
+    async def refresh_registry(self) -> None:
+        """Admins change mandatory fields and in-service periods (R2.2); they bump registry_version, and the
+        worker then reloads the registry so its daily rollups follow the new rules."""
+        async with self.engine.connect() as conn:
+            version = await get_setting(conn, "registry_version")
+            if version == self._registry_version:
+                return
+            systems = await load_systems(conn)
+        self.systems = systems
+        self._registry_version = version
+        for s in systems:
+            if s.code in self.ingestors:
+                self.ingestors[s.code].system = s
+        logger.info("registry reloaded", extra={"version": version})
+
     async def rollups(self) -> None:
+        await self.refresh_registry()
         now = datetime.now(UTC)
         today = now.date()
         for s in self.systems:

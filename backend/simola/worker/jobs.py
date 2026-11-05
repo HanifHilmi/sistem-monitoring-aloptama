@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from simola.core.timeutil import iter_days
 from simola.ingestion.cat3 import Cat3Ingestor
 from simola.kpi.engine import recompute_days
-from simola.registry import System
+from simola.registry import System, load_system
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +152,10 @@ async def execute(
         if job["type"] == "reprocess":
             message = await run_reprocess(ctx, ingestor, params)
         elif job["type"] == "recompute":
-            message = await run_recompute(ctx, engine, ingestor.system, params)
+            # The rules may have just changed (mandatory fields, in-service periods): read them fresh.
+            async with engine.connect() as conn:
+                system = await load_system(conn, params["system"]) or ingestor.system
+            message = await run_recompute(ctx, engine, system, params)
         else:
             raise ValueError(f"unsupported job type {job['type']}")
         await ctx.finish("done", message)
