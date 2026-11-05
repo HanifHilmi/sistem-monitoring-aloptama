@@ -72,3 +72,5 @@ It prints PASS/FAIL for NFR-PERF-001 (KPI and status p95 ≤ 1.0 s) and NFR-PERF
 | 2026-11-05 | Browser, staging | 30 passed, twice in a row |
 | 2026-11-05 | Security, staging | All passed |
 | 2026-11-05 | CI (66065ef) | All 6 jobs green, including e2e and the ZAP baseline (no High-risk alert) |
+| 2026-11-05 | Load, staging (189ec8c: yearly figures summed in the database) | **Passed**: every target met, 0 errors in 11,515 requests. p95: status 0.82 s, problems 0.80 s, KPIs 0.64/0.84 s (month/year), matrix 0.79/0.93 s (month/year), 31-day chart 1.10 s (limit 1.5), largest chart 90.8 KB. Thin margins: the 4 CPUs were saturated (load ≈ 3.9), the load generator included |
+| 2026-11-05 | CI (189ec8c) | All 6 jobs green |
