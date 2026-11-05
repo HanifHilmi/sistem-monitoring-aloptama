@@ -49,8 +49,7 @@ public route until the switch.
 
 - UAT U1, U2, U8 and U10 signed off.
 - December on staging: SM-1 recount exact; SM-2: for every completed day, stored minutes = minutes present in
-  either CDP file. `tools/recount.py` compares monthly figures today; a per-day comparison is to be added before
-  January.
+  either CDP file. Both come from `tools/recount.py ... --month 2026-12 --daily` ([history.md](history.md), Verify).
 - Production prepared (A): history loaded, recount exact, `backup-verify` passed.
 - The decision is recorded in the PRD revision history, together with the changes since v1.1:
   - backups run only on request (replaces the nightly backup of NFR-BAK-001 and SM-5);
