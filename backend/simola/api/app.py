@@ -6,7 +6,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from simola.api.deps import ApiError, problem_response
 from simola.api.routers import admin, admin_ops, auth, dq, flags, internal, public, records
+from simola.api.security import principal
 from simola.core.config import get_settings
 from simola.core.db import get_engine, set_engine
 from simola.core.logging import setup_logging
@@ -33,6 +34,16 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     set_engine(None)
 
 
+async def session_first(request: Request) -> None:
+    """Looks up the signed-in user before a route takes its database connection.
+
+    The lookup uses a short connection of its own and caches the result for the request. Done later, inside a
+    route that already holds a connection, a page load of ~20 signed-in requests can leave every pooled connection
+    waiting for a second one until the pool times out (30 s). Done first, a request never holds two at once.
+    """
+    await principal(request)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
@@ -42,6 +53,7 @@ def create_app() -> FastAPI:
         docs_url=None,  # interactive docs are Admin-only (API-02); enabled with accounts in R2
         redoc_url=None,
         openapi_url="/api/v1/openapi.json" if settings.environment != "production" else None,
+        dependencies=[Depends(session_first)],  # before every route's own dependencies
     )
 
     @app.exception_handler(ApiError)
