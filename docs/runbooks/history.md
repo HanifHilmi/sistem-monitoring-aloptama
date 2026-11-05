@@ -38,3 +38,13 @@ python3 tools/recount.py --cdp1 /mnt/<cdp1-share-mount> --cdp2 /mnt/<cdp2-share-
 ```
 
 Every figure must match exactly (exit code 0). The script shares no code with SIMOLA.
+
+## After the reader fix of 2026-11-05
+
+Present weather was cut to 6 characters ("VCTS DZ" stored as "VCTS D") and the lightning text to 32. The reader
+now takes present weather at its full 10 characters and the lightning text to the end of the line. Rows already
+stored keep the cut text until their days are reprocessed:
+
+```bash
+simola load-history          # rebuilds every day from the files; figures do not change
+```

@@ -161,3 +161,23 @@ def test_duplicate_minute_later_line_wins() -> None:
     res = widn.parse_text(content)
     assert res.duplicate_minutes == 1
     assert len(res.records) == 1
+
+
+def test_present_weather_and_lightning_are_read_in_full() -> None:
+    """Present weather is 10 characters wide and the lightning text runs to the end of the line.
+
+    v2's slices cut them to 6 and 32 characters ("VCTS DZ" -> "VCTS D"); checked against CDP files 2026-11-05.
+    """
+    lines = fixture_text("cdp1_091OneMinute.20261103.dat").splitlines()
+    head, line = lines[: widn.HEADER_LINES], lines[widn.HEADER_LINES + 600].ljust(332)
+    line = (
+        line[:306]
+        + "VCTS DZ".ljust(10)
+        + "-TSRA".ljust(10)
+        + line[326:332]
+        + "TS in Vicinity - LTG DSNT S AND NW"
+    )
+    rec = widn.parse_text("\n".join([*head, line])).records[0]
+    assert rec.stations["04"].values["PW"] == "VCTS DZ"
+    assert rec.stations["22"].values["PW"] == "-TSRA"
+    assert rec.stations["M"].values["LTX"] == "TS in Vicinity - LTG DSNT S AND NW"

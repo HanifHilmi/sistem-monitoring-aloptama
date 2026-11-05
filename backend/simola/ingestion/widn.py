@@ -3,7 +3,8 @@
 Format (verified against production files, 2025-12 .. 2026-11):
 - 4 header lines, then one fixed-width record per minute for all three stations.
 - Timestamp columns: date [4:12], hour [13:15], minute [16:18], in UTC.
-- Field positions below are the slices proven in production by v2 (``parsers.py::_SLICES``).
+- Field positions below started from v2's slices (``parsers.py::_SLICES``). v2 cut present weather to 6
+  characters and the lightning text to 32; both are wider in the files (checked 2026-11-05) and are read in full.
 
 Token rules:
 - A run of ``/`` (one per character of the field)  -> missing (sensor offline).            [verified]
@@ -68,7 +69,7 @@ STATION_SLICES: dict[str, tuple[FieldSlice, ...]] = {
         _num("LR1", 218, 222),
         _txt("SKY", 228, 258),
         _num("RA", 288, 294),
-        _txt("PW", 306, 312),
+        _txt("PW", 306, 316),  # 10 wide: "VCTS DZ" (6 cut it to "VCTS D")
     ),
     "M": (
         _num("WS", 39, 44),
@@ -82,7 +83,7 @@ STATION_SLICES: dict[str, tuple[FieldSlice, ...]] = {
         _num("DA", 148, 154),
         _num("RA", 294, 300),
         _num("SOL", 326, 331),
-        _txt("LTX", 332, 364),
+        _txt("LTX", 332, LINE_PAD),  # free text to the end of the line (32 cut it)
     ),
     "22": (
         _num("WS", 59, 64),
@@ -100,7 +101,7 @@ STATION_SLICES: dict[str, tuple[FieldSlice, ...]] = {
         _num("LR1", 223, 227),
         _txt("SKY", 258, 288),
         _num("RA", 300, 306),
-        _txt("PW", 316, 322),
+        _txt("PW", 316, 326),  # 10 wide, up to SOL at 326
     ),
 }
 
