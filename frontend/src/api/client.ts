@@ -1,4 +1,6 @@
 import type {
+  AuditFilter,
+  AuditPage,
   CalendarResponse,
   MatrixBucket,
   MatrixResponse,
@@ -7,11 +9,15 @@ import type {
   DisplaySettings,
   HistoryResponse,
   KpiResponse,
+  Me,
+  NewUser,
   ProblemsResponse,
   SeriesResponse,
   StatusResponse,
   SystemInfo,
   SystemSummary,
+  TemporaryPassword,
+  UserRow,
 } from './types'
 
 /** RFC 9457 problem returned by the API; `code` is stable and translatable. */
@@ -27,22 +33,58 @@ export class ApiProblem extends Error {
 
 const BASE = '/api/v1'
 
-async function get<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
-  const qs = new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString()
-  const res = await fetch(`${BASE}${path}${qs ? `?${qs}` : ''}`, { headers: { Accept: 'application/json' } })
-  if (!res.ok) {
-    let code = 'http_error'
-    let title = res.statusText
-    try {
-      const body = (await res.json()) as { code?: string; title?: string }
-      code = body.code ?? code
-      title = body.title ?? title
-    } catch {
-      /* not JSON */
-    }
-    throw new ApiProblem(res.status, code, title)
+async function problem(res: Response): Promise<ApiProblem> {
+  let code = 'http_error'
+  let title = res.statusText
+  try {
+    const body = (await res.json()) as { code?: string; title?: string }
+    code = body.code ?? code
+    title = body.title ?? title
+  } catch {
+    /* not JSON */
   }
+  return new ApiProblem(res.status, code, title)
+}
+
+type Params = Record<string, string | number | undefined>
+const query = (params: Params) => {
+  const qs = new URLSearchParams(
+    Object.entries(params)
+      .filter(([, v]) => v !== undefined && v !== '')
+      .map(([k, v]) => [k, String(v)]),
+  ).toString()
+  return qs ? `?${qs}` : ''
+}
+
+async function get<T>(path: string, params: Params = {}): Promise<T> {
+  const res = await fetch(`${BASE}${path}${query(params)}`, { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw await problem(res)
   return (await res.json()) as T
+}
+
+/** CSRF double-submit (PRD §11.6): every change sends the value of the `simola_csrf` cookie in a header. */
+function csrfToken(): string {
+  const m = document.cookie.match(/(?:^|;\s*)simola_csrf=([^;]+)/)
+  return m ? decodeURIComponent(m[1]!) : ''
+}
+
+async function send<T>(
+  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      'X-CSRF-Token': csrfToken(),
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    credentials: 'same-origin',
+  })
+  if (!res.ok) throw await problem(res)
+  return (res.status === 204 ? undefined : await res.json()) as T
 }
 
 const period = (from: Date, to: Date) => ({ from: from.toISOString(), to: to.toISOString() })
@@ -79,4 +121,19 @@ export const api = {
       limit,
     }),
   internalHealth: () => get<Record<string, unknown>>('/internal/health'),
+
+  // Accounts (R2.1)
+  me: () => get<Me>('/auth/me'),
+  login: (username: string, password: string) => send<Me>('POST', '/auth/login', { username, password }),
+  logout: () => send<void>('POST', '/auth/logout'),
+  changePassword: (current_password: string, new_password: string) =>
+    send<Me>('POST', '/auth/password', { current_password, new_password }),
+  users: () => get<UserRow[]>('/admin/users'),
+  createUser: (user: NewUser) => send<TemporaryPassword>('POST', '/admin/users', user),
+  updateUser: (id: number, patch: Partial<Pick<UserRow, 'display_name' | 'email' | 'role' | 'active'>>) =>
+    send<UserRow>('PATCH', `/admin/users/${id}`, patch),
+  resetPassword: (id: number) => send<TemporaryPassword>('POST', `/admin/users/${id}/reset-password`),
+  audit: (filter: AuditFilter, before?: number) =>
+    get<AuditPage>('/admin/audit', { ...filter, before, limit: 50 }),
+  auditCsvUrl: (filter: AuditFilter) => `${BASE}/admin/audit${query({ ...filter, format: 'csv' })}`,
 }

@@ -1,5 +1,5 @@
-"""Viewer-level diagnostics (FR-ADM-004). Until accounts exist (R2), this path is protected by a
-path-based Cloudflare Access policy (PRD §12.4). It is the only place infrastructure details appear."""
+"""Viewer-level diagnostics (FR-ADM-004): signed-in Viewers and Admins only (R2.1). It is the only place
+infrastructure details appear."""
 
 from __future__ import annotations
 
@@ -11,11 +11,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from simola.api.deps import systems
+from simola.api.security import require_viewer
 from simola.core.config import get_settings
 from simola.core.db import connection
 from simola.kpi import status
 
-router = APIRouter(prefix="/api/v1/internal", tags=["internal"])
+router = APIRouter(prefix="/api/v1/internal", tags=["internal"], dependencies=[Depends(require_viewer)])
 
 
 @router.get("/health")

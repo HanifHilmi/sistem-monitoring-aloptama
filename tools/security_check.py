@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""R1 security checks against a running SIMOLA site (PRD §15.4, SM-6). Standard library only.
+"""Security checks against a running SIMOLA site (PRD §15.4, SM-6; R2.1 accounts). Standard library only.
 
     python3 tools/security_check.py --web http://<web-container-address>:8080 \
         [--public https://<public-hostname>] [--containers <coolify-app-uuid>]
 
 Checks (each prints PASS or FAIL; the exit code is 1 on any FAIL):
   headers   security headers on the page and the API, no server version, no open CORS (NFR-SEC-003)
-  writes    no route accepts POST/PUT/PATCH/DELETE: R1 has no state-changing route at all (SM-6)
+  writes    the only state-changing routes are the known account ones, and every write without a session
+            and CSRF token is refused (SM-6, FR-AUTH-002)
   routes    every route the API publishes is covered here, so a new route cannot skip these checks
+  accounts  without a session, Viewer and Admin routes answer 401; the CSRF cookie is Secure and
+            SameSite=Lax (FR-AUTH-002, FR-AUTH-005)
   leaks     public responses hold no IP address, file path, serial number or infrastructure field
-            (FR-AUTH-006, SM-6); only /api/v1/internal/* may, and only behind Cloudflare Access
-  access    with --public: internal pages answer with the Cloudflare Access login, never with data
+            (FR-AUTH-006, SM-6); only signed-in Viewers and Admins see /api/v1/internal/*
+  access    with --public: internal and Admin pages never answer with data; the Admin area stays behind
+            the Cloudflare Access login (decision D4)
   exposure  with --containers: no SIMOLA container publishes a port on the host (NFR-SEC-001)
 
 Never commit the addresses you pass in: the repository is public (NFR-SEC-010).
@@ -53,7 +57,23 @@ INFRA_KEYS = {
     "probe_method",
 }
 WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
-INTERNAL_ROUTES = ("/api/v1/internal/health",)
+INTERNAL_ROUTES = ("/api/v1/internal/health",)  # Viewer and Admin
+ADMIN_ROUTES = (
+    "/api/v1/admin/users",
+    "/api/v1/admin/users/{user_id}",
+    "/api/v1/admin/users/{user_id}/reset-password",
+    "/api/v1/admin/audit",
+)
+AUTH_ROUTES = ("/api/v1/auth/me", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password")
+# Every state-changing route the API may publish; a new one fails the check until it is reviewed here.
+KNOWN_WRITES = {
+    "POST /api/v1/auth/login",
+    "POST /api/v1/auth/logout",
+    "POST /api/v1/auth/password",
+    "POST /api/v1/admin/users",
+    "PATCH /api/v1/admin/users/{user_id}",
+    "POST /api/v1/admin/users/{user_id}/reset-password",
+}
 # Routes that exist inside the containers but are not public API routes.
 NON_PUBLIC = {"/health", "/ready"}
 
@@ -204,7 +224,7 @@ def check_headers(web: str) -> None:
 
 def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any]]]) -> None:
     status, _, body = http("GET", web + "/api/v1/openapi.json")
-    covered = {t for t, _, _ in routes} | set(INTERNAL_ROUTES)
+    covered = {t for t, _, _ in routes} | set(INTERNAL_ROUTES) | set(ADMIN_ROUTES) | set(AUTH_ROUTES)
     if status == 200:
         spec = json.loads(body)
         published = set(spec.get("paths", {}))
@@ -220,15 +240,19 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
             for m in ops
             if m.upper() in WRITE_METHODS
         )
+        unknown = sorted(set(writes) - KNOWN_WRITES)
         report(
-            not writes, "writes", "no state-changing route is published" + (f": {writes}" if writes else "")
+            not unknown,
+            "writes",
+            f"{len(writes)} state-changing routes, all reviewed" + (f"; new: {unknown}" if unknown else ""),
         )
     else:
         print(
             f"note  routes    OpenAPI document not served ({status}; normal in production): route list not compared"
         )
 
-    paths = sorted({p for _, p, _ in routes} | set(INTERNAL_ROUTES))
+    extra = [p.replace("{user_id}", "1") for p in (*INTERNAL_ROUTES, *ADMIN_ROUTES, *AUTH_ROUTES)]
+    paths = sorted({p for _, p, _ in routes} | set(extra))
     bad = []
     for path in paths:
         for method in WRITE_METHODS:
@@ -238,7 +262,8 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
     report(
         not bad,
         "writes",
-        f"{len(paths) * len(WRITE_METHODS)} write attempts refused" + (f"; accepted: {bad}" if bad else ""),
+        f"{len(paths) * len(WRITE_METHODS)} write attempts without a session or CSRF token refused"
+        + (f"; accepted: {bad}" if bad else ""),
     )
 
     status, h, _ = http("GET", web + "/ready")
@@ -246,6 +271,22 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
         not h.get("content-type", "").startswith("application/json"),
         "writes",
         "readiness probe stays inside the container network",
+    )
+
+
+def check_accounts(web: str) -> None:
+    """Without a session nothing above public is served; the CSRF cookie cannot travel in clear or cross-site."""
+    for path in (*INTERNAL_ROUTES, "/api/v1/admin/users", "/api/v1/admin/audit", "/api/v1/auth/me"):
+        status, _, body = http("GET", web + path)
+        code = json.loads(body).get("code") if body.startswith(b"{") else None
+        report(status == 401, "accounts", f"GET {path} without a session -> {status} {code or ''}".rstrip())
+    _, h, _ = http("GET", web + "/api/v1/auth/me")
+    cookie = h.get("set-cookie", "")
+    flags = cookie.lower()
+    report(
+        cookie.startswith("simola_csrf=") and "secure" in flags and "samesite=lax" in flags,
+        "accounts",
+        "CSRF cookie is Secure and SameSite=Lax",
     )
 
 
@@ -263,7 +304,7 @@ def check_leaks(web: str, routes: list[tuple[str, str, dict[str, Any]]]) -> None
 
 
 def check_access(public: str) -> None:
-    for path in ("/internal/health", *INTERNAL_ROUTES):
+    for path in ("/internal/health", *INTERNAL_ROUTES, "/admin", "/api/v1/admin/users"):
         status, h, _ = http("GET", public + path)
         location = h.get("location", "")
         host = urllib.parse.urlparse(location).hostname or ""
@@ -271,6 +312,9 @@ def check_access(public: str) -> None:
             401,
             403,
         )
+        if path.startswith(("/admin", "/api/v1/admin")):
+            # The Admin area keeps Cloudflare Access as a second lock in front of SIMOLA's sign-in (D4).
+            guarded = status in (301, 302, 303, 307) and host.endswith("cloudflareaccess.com")
         report(guarded, "access", f"{path} -> {status}{' (Access login)' if guarded and location else ''}")
     status, h, _ = http("GET", public + "/")
     print(
@@ -316,6 +360,7 @@ def main() -> int:
     routes = public_routes(web)
     check_headers(web)
     check_routes_and_writes(web, routes)
+    check_accounts(web)
     check_leaks(web, routes)
     if args.public:
         check_access(args.public.rstrip("/"))

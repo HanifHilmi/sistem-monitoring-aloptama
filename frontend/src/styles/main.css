@@ -138,4 +138,20 @@
   .field {
     @apply rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink;
   }
+  /* Forms (R2): sign-in, accounts and the Admin area */
+  .input {
+    @apply w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-3 hover:border-line-strong disabled:opacity-60;
+  }
+  .label {
+    @apply text-xs font-medium text-ink-2;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink-2 hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-bad/50 bg-surface px-3 py-1.5 text-sm text-bad hover:bg-bad/10 disabled:cursor-not-allowed disabled:opacity-50;
+  }
 }

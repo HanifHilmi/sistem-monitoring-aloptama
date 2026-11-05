@@ -6,6 +6,8 @@ simola reprocess --from 2026-10-01 --to 2026-10-31 [--inline]
 simola recompute --from 2026-01-01 --to 2026-10-31
 simola jobs | simola cancel <id>
 simola import-legacy-probes --csv v2_probes.csv       # one-off at cutover (FR-ING-014)
+simola create-admin --username <name> [--display-name "<Full name>"]   # first Admin (FR-AUTH-001)
+simola create-admin --username <name> --reset          # new password for an Admin who is locked out
 simola dev-reset                                       # development only
 """
 
@@ -220,6 +222,93 @@ async def _cmd_import_legacy(a: argparse.Namespace) -> int:
     return 0
 
 
+def _read_password(from_stdin: bool) -> str:
+    if from_stdin:
+        return sys.stdin.readline().rstrip("\n")
+    import getpass
+
+    first = getpass.getpass("New password (12+ characters): ")
+    if getpass.getpass("Again: ") != first:
+        raise SystemExit("the two passwords differ")
+    return first
+
+
+async def _cmd_create_admin(a: argparse.Namespace) -> int:
+    """First Admin (no self-registration, FR-AUTH-001), or a new password for an Admin who is locked out.
+
+    Run in the worker container: docker exec -it <worker> simola create-admin --username <name>
+    """
+    from simola.auth import audit, passwords, sessions
+
+    username = a.username.strip().lower()
+    password = _read_password(a.password_stdin)
+    problem = passwords.policy_problem(password, username)
+    if problem:
+        print(
+            json.dumps({"error": problem, "rule": "12+ characters, not the username, not a common password"})
+        )
+        return 2
+    password_hash = passwords.hash_password(password)
+    engine = make_engine(get_settings().database_url, pool_size=1, application_name="simola-cli")
+    try:
+        async with engine.begin() as conn:
+            row = (
+                await conn.execute(
+                    text("SELECT id, role FROM app_user WHERE username = :u FOR UPDATE"), {"u": username}
+                )
+            ).first()
+            if a.reset:
+                if row is None or row.role != "admin":
+                    print(json.dumps({"error": "not_an_admin", "username": username}))
+                    return 1
+                await conn.execute(
+                    text("""
+                    UPDATE app_user SET password_hash = :h, must_change_password = false, active = true,
+                           locked_until = NULL, failures_reset_at = now(), password_changed_at = now()
+                    WHERE id = :id
+                """),
+                    {"h": password_hash, "id": row.id},
+                )
+                await sessions.end_all(conn, row.id)
+                await audit.record(
+                    conn,
+                    "password_reset",
+                    actor="cli",
+                    entity_type="user",
+                    entity_id=username,
+                    after={"by": "server command"},
+                )
+                print(json.dumps({"reset": username}))
+                return 0
+            admins = await conn.scalar(text("SELECT count(*) FROM app_user WHERE role = 'admin' AND active"))
+            if admins:
+                print(json.dumps({"error": "admin_exists", "hint": "use the Users page, or --reset"}))
+                return 1
+            if row is not None:
+                print(json.dumps({"error": "username_taken", "username": username}))
+                return 1
+            display_name = (a.display_name or username).strip()
+            await conn.execute(
+                text("""
+                INSERT INTO app_user (username, display_name, role, password_hash, must_change_password, created_by)
+                VALUES (:u, :n, 'admin', :h, false, 'cli')
+            """),
+                {"u": username, "n": display_name, "h": password_hash},
+            )
+            await audit.record(
+                conn,
+                "user_created",
+                actor="cli",
+                entity_type="user",
+                entity_id=username,
+                after={"username": username, "display_name": display_name, "role": "admin", "active": True},
+            )
+        print(json.dumps({"created_admin": username}))
+        return 0
+    finally:
+        await engine.dispose()
+
+
 async def _cmd_dev_reset(_a: argparse.Namespace) -> int:
     settings = get_settings()
     if settings.environment != "development":
@@ -256,6 +345,11 @@ def build_parser() -> argparse.ArgumentParser:
     il = sub.add_parser("import-legacy-probes", help="import v2 probe samples (CSV) as legacy reachability")
     il.add_argument("--system", default=DEFAULT_SYSTEM)
     il.add_argument("--csv", required=True)
+    ca = sub.add_parser("create-admin", help="create the first Admin, or reset a locked-out Admin's password")
+    ca.add_argument("--username", required=True)
+    ca.add_argument("--display-name")
+    ca.add_argument("--reset", action="store_true", help="new password for an existing Admin")
+    ca.add_argument("--password-stdin", action="store_true", help="read the password from standard input")
     sub.add_parser("dev-reset", help="drop and recreate the schema (development only)")
     return p
 
@@ -268,6 +362,7 @@ COMMANDS = {
     "jobs": _cmd_jobs,
     "cancel": _cmd_cancel,
     "import-legacy-probes": _cmd_import_legacy,
+    "create-admin": _cmd_create_admin,
     "dev-reset": _cmd_dev_reset,
 }
 

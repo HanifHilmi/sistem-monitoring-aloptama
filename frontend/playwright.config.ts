@@ -28,6 +28,12 @@ export default defineConfig<Options>({
     baseURL: target ?? `http://127.0.0.1:${port}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    // SIMOLA's session cookies are Secure. Staging's web container is reached over plain http on the
+    // host, so the test browser treats that one address as secure (tests only; users come through https).
+    launchOptions:
+      target?.startsWith('http://') && !/^http:\/\/(localhost|127\.0\.0\.1)/.test(target)
+        ? { args: [`--unsafely-treat-insecure-origin-as-secure=${new URL(target).origin}`] }
+        : {},
   },
   projects: [
     { name: 'desktop-id', use: { ...desktop, locale: 'id-ID', lang: 'id' } },

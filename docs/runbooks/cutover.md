@@ -41,7 +41,9 @@ public route until the switch.
    figure must match.
 6. **Backup:** `backup-now`, then `backup-verify` in production's `backup` container; it must end with `PASSED`
    ([backup-restore.md](backup-restore.md)).
-7. **Access before the domain:** in Cloudflare Access, protect all of `simola.hilmihanif.my.id` first. Only then
+7. **First Admin:** `simola create-admin` in production's worker ([accounts.md](accounts.md)), then the other
+   accounts in Admin → Users.
+8. **Access before the domain:** in Cloudflare Access, protect all of `simola.hilmihanif.my.id` first. Only then
    set the `web` service's domain in Coolify (`http://simola.hilmihanif.my.id:8080`), redeploy, and check that every
    path answers 302 to the Access login.
 
@@ -84,7 +86,9 @@ SIMOLA's own probe minutes are never overwritten. Affected days are recomputed a
 
 1. Back up production again and check that the backup restores ([backup-restore.md](backup-restore.md)): in the
    production `backup` container run `backup-now`, then `backup-verify`; it must end with `PASSED`.
-2. In Cloudflare Access, remove the policy covering all of `simola.hilmihanif.my.id`. Keep the `/internal/*` policies until R2.
+2. In Cloudflare Access, remove the policy covering all of `simola.hilmihanif.my.id`. If production already has
+   R2.1 (accounts), keep a policy on `/admin*` and `/api/v1/admin*` only (decision D4; [accounts.md](accounts.md));
+   otherwise keep the `/internal/*` policies until it does.
 3. Add a Cloudflare redirect rule: `rhf-monitoring.hilmihanif.my.id/*` → `https://simola.hilmihanif.my.id/$1` (301). Old v2 paths such as `/cat3/runway/04` are mapped by the SPA router.
 4. Announce the change to users.
 

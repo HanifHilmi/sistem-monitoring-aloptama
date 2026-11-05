@@ -124,6 +124,9 @@ async def ensure_app_role(dsn: str, user: str, password: str) -> None:
         await conn.execute(
             f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO {ident}"
         )
+        # The audit log is append-only (FR-AUD-001): the application may add entries, never change them.
+        if await conn.fetchval("SELECT to_regclass('audit_event') IS NOT NULL"):
+            await conn.execute(f"REVOKE UPDATE, DELETE, TRUNCATE ON audit_event FROM {ident}")
     finally:
         await conn.close()
 

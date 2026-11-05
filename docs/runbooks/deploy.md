@@ -65,7 +65,7 @@ docker exec <worker-container> ls /mnt/cdp/<cdp1-share-folder>/oneminute | tail 
 A CDP that is off the network does not stop a deploy: the worker starts, marks that CDP unavailable and reads its
 missed minutes from the files once the share answers again.
 
-On first deploy, load history: see [history.md](history.md).
+On first deploy, load history ([history.md](history.md)) and create the first Admin ([accounts.md](accounts.md)).
 
 ## Rollback
 

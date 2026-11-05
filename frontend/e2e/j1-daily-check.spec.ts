@@ -1,6 +1,6 @@
 // J1 daily check (PRD §6.4, §15.3): board → figures and problems → a site → a component chart.
 import type { Page } from '@playwright/test'
-import { BOARD, expect, expectNoPageScroll, test, text, type Lang } from './fixtures'
+import { BOARD, expect, expectNoPageScroll, hasAccount, signIn, test, text, type Lang } from './fixtures'
 
 const PCT = /^\d{1,3}[.,]\d{2}\s?%$/
 
@@ -110,8 +110,11 @@ test.describe('J1 daily check', () => {
     expect(await page.evaluate(() => localStorage.getItem('simola.locale'))).toBe(other)
   })
 
-  test('the system health page loads', async ({ page, t }) => {
+  test('the system health page asks for a sign-in, then loads', async ({ page, t }) => {
+    test.skip(!hasAccount(), 'needs SIMOLA_E2E_USER and SIMOLA_E2E_PASSWORD on a deployed site')
     await page.goto('/internal/health')
+    await expect(page).toHaveURL(/\/login\?next=/)
+    await signIn(page, t, 'siti')
     await expect(page.getByRole('heading', { level: 1 })).toContainText(t('health.title'))
   })
 })

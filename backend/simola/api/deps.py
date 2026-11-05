@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta
+from typing import Any
 
 from fastapi import HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from simola.core.timeutil import ensure_utc, floor_minute
@@ -13,6 +15,22 @@ from simola.registry import System, load_systems
 
 _CACHE: tuple[float, list[System]] | None = None
 CACHE_TTL_S = 60.0
+
+
+PROBLEM = "application/problem+json"
+
+
+def problem_response(status: int, code: str, title: str, detail: Any = None) -> JSONResponse:
+    """RFC 9457 problem+json with a stable ``code`` (NFR-SEC-007)."""
+    body: dict[str, Any] = {
+        "type": f"urn:simola:error:{code}",
+        "title": title,
+        "status": status,
+        "code": code,
+    }
+    if detail is not None:
+        body["detail"] = detail
+    return JSONResponse(body, status_code=status, media_type=PROBLEM)
 
 
 class ApiError(HTTPException):

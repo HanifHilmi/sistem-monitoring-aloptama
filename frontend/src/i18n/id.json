@@ -357,5 +357,174 @@
     },
     "directions": "Arah petir jauh",
     "allAround": "Segala arah: {d}"
+  },
+  "role": {
+    "viewer": "Pemantau",
+    "admin": "Admin"
+  },
+  "auth": {
+    "title": "Masuk",
+    "subtitle": "Akun SIMOLA untuk teknisi dan kepala stasiun. Dasbor publik tidak memerlukan akun.",
+    "username": "Nama pengguna",
+    "password": "Kata sandi",
+    "show": "Tampilkan",
+    "hide": "Sembunyikan",
+    "signIn": "Masuk",
+    "signingIn": "Sedang masuk…",
+    "signOut": "Keluar",
+    "menu": "Menu akun {name}",
+    "help": "Lupa kata sandi atau akun terkunci? Minta Admin untuk mengatur ulang. Setelah 5 kali salah, akun menunggu 15 menit.",
+    "error": {
+      "invalid": "Nama pengguna atau kata sandi salah.",
+      "locked": "Terlalu banyak percobaan. Coba lagi dalam 15 menit, atau hubungi Admin.",
+      "network": "Tidak dapat menghubungi SIMOLA. Coba lagi.",
+      "expired": "Halaman terbuka terlalu lama. Muat ulang lalu masuk kembali."
+    },
+    "forbidden": {
+      "title": "Tidak ada akses",
+      "body": "Halaman ini khusus Admin. Hubungi Admin bila Anda memerlukannya.",
+      "home": "Kembali ke dasbor"
+    }
+  },
+  "account": {
+    "title": "Ubah kata sandi",
+    "subtitle": "Pilih kata sandi yang hanya Anda ketahui.",
+    "forced": "Kata sandi Anda diatur oleh Admin. Buat kata sandi sendiri sebelum melanjutkan.",
+    "current": "Kata sandi saat ini",
+    "temporary": "Kata sandi sementara",
+    "new": "Kata sandi baru",
+    "repeat": "Ulangi kata sandi baru",
+    "rule": {
+      "short": "Minimal {n} karakter",
+      "username": "Tidak memuat nama pengguna Anda",
+      "same": "Berbeda dari kata sandi saat ini",
+      "repeat": "Kedua kata sandi baru sama"
+    },
+    "save": "Simpan kata sandi",
+    "changed": "Kata sandi diubah. Sesi Anda yang lain telah dikeluarkan.",
+    "continue": "Lanjutkan",
+    "error": {
+      "wrong_password": "Kata sandi saat ini salah.",
+      "weak_password": "Kata sandi ini terlalu umum. Pilih yang lain.",
+      "other": "Kata sandi tidak dapat diubah. Coba lagi."
+    }
+  },
+  "admin": {
+    "title": "Admin",
+    "group": {
+      "quality": "Kualitas data",
+      "station": "Stasiun",
+      "system": "Sistem"
+    },
+    "section": {
+      "review": "Antrean tinjauan",
+      "flags": "Penandaan",
+      "rules": "Aturan validitas",
+      "registry": "Registri dan metadata",
+      "calibration": "Kalibrasi",
+      "mandatory": "Field wajib",
+      "settings": "Pengaturan",
+      "jobs": "Pekerjaan",
+      "users": "Pengguna",
+      "audit": "Log audit",
+      "health": "Kesehatan sistem"
+    }
+  },
+  "users": {
+    "subtitle": "Teknisi sebagai Admin; kepala stasiun sebagai Pemantau. Akun tidak pernah dihapus: nonaktifkan saja.",
+    "new": "Pengguna baru",
+    "name": "Nama",
+    "role": "Peran",
+    "status": "Status",
+    "lastLogin": "Terakhir masuk",
+    "edit": "Ubah",
+    "you": "Anda",
+    "active": "Aktif",
+    "inactive": "Nonaktif",
+    "locked": "Terkunci sampai {time}",
+    "never": "belum pernah",
+    "editTitle": "Ubah {name}",
+    "username": "Nama pengguna",
+    "usernameHint": "3–32 karakter: huruf kecil, angka, titik, tanda hubung, atau garis bawah. Tidak dapat diubah kemudian.",
+    "displayName": "Nama lengkap",
+    "email": "Email",
+    "optional": "opsional",
+    "roleHint": {
+      "viewer": "Melihat semuanya, termasuk detail infrastruktur, nomor seri, dan deteksi yang dicurigai. Tidak mengubah apa pun.",
+      "admin": "Juga meninjau dan menandai data, mengubah aturan, catatan, dan pengaturan, menjalankan pekerjaan, serta mengelola akun."
+    },
+    "activeLabel": "Akun aktif",
+    "activeHint": "Akun nonaktif tidak dapat masuk. Riwayatnya tetap ada di log audit.",
+    "create": "Buat pengguna",
+    "save": "Simpan",
+    "cancel": "Batal",
+    "resetTitle": "Kata sandi",
+    "resetHint": "Atur ulang memberikan kata sandi sementara dan mengeluarkan pengguna dari semua sesi. Pengguna membuat kata sandi baru saat masuk berikutnya.",
+    "reset": "Atur ulang kata sandi…",
+    "resetConfirm": "Atur ulang kata sandi {name}?",
+    "resetYes": "Atur ulang",
+    "issued": "Kata sandi sementara untuk {name}",
+    "issuedNote": "Hanya ditampilkan sekarang. Berikan langsung atau melalui telepon; pengguna wajib menggantinya saat pertama kali masuk.",
+    "copy": "Salin",
+    "copied": "Tersalin",
+    "error": {
+      "username_taken": "Nama pengguna ini sudah dipakai.",
+      "last_admin": "SIMOLA memerlukan setidaknya satu Admin aktif.",
+      "own_account": "Anda tidak dapat menonaktifkan atau menurunkan peran akun Anda sendiri."
+    },
+    "temporary": "Kata sandi sementara"
+  },
+  "audit": {
+    "subtitle": "Setiap masuk dan setiap perubahan: siapa, kapan, dan apa yang berubah. Entri tidak dapat diubah atau dihapus.",
+    "csv": "Ekspor CSV",
+    "from": "Dari (UTC)",
+    "to": "Sampai (UTC)",
+    "actor": "Siapa",
+    "actionLabel": "Tindakan",
+    "entityLabel": "Objek",
+    "all": "Semua",
+    "empty": "Tidak ada entri untuk filter ini.",
+    "system": "sistem",
+    "field": "Field",
+    "before": "Sebelum",
+    "after": "Sesudah",
+    "source": "Dari alamat",
+    "more": "Muat entri lebih lama",
+    "appendOnly": "Log menyimpan semuanya sejak akun diperkenalkan. Tidak ada yang dapat mengubahnya dari halaman ini.",
+    "action": {
+      "login_ok": "Masuk",
+      "login_failed": "Gagal masuk",
+      "account_locked": "Akun dikunci",
+      "logout": "Keluar",
+      "password_changed": "Mengubah kata sandi sendiri",
+      "user_created": "Membuat pengguna",
+      "user_updated": "Mengubah pengguna",
+      "password_reset": "Mengatur ulang kata sandi",
+      "audit_exported": "Mengekspor log audit"
+    },
+    "entity": {
+      "user": "pengguna",
+      "session": "sesi",
+      "setting": "pengaturan",
+      "audit": "log audit"
+    },
+    "yes": "ya",
+    "no": "tidak",
+    "fieldName": {
+      "username": "Nama pengguna",
+      "display_name": "Nama lengkap",
+      "email": "Email",
+      "role": "Peran",
+      "active": "Akun aktif",
+      "locked_until": "Terkunci sampai",
+      "rows": "Baris",
+      "reason": "Alasan",
+      "filter": "Filter",
+      "by": "Oleh"
+    },
+    "reason": {
+      "password": "kata sandi salah",
+      "locked": "saat terkunci"
+    }
   }
 }

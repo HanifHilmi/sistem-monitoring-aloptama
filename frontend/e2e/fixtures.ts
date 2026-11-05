@@ -59,3 +59,17 @@ export async function expectNoPageScroll(page: Page): Promise<void> {
 /** The system board (the Dashboard at / lists every system). */
 export const BOARD = '/systems/WIDN-CAT3'
 export const site = (slug: string) => `${BOARD}/sites/${slug}`
+
+/** Password of every sample account (src/mocks/accounts.ts). Against a deployed site, set
+ *  SIMOLA_E2E_USER and SIMOLA_E2E_PASSWORD instead. */
+export const SAMPLE_PASSWORD = 'sampel-sandi-12'
+export const hasAccount = () => !process.env.SIMOLA_E2E_URL || !!process.env.SIMOLA_E2E_PASSWORD
+
+/** Fills the sign-in page that is on screen and submits it. */
+export async function signIn(page: Page, t: (key: string) => string, username = 'andi'): Promise<void> {
+  await page.getByLabel(t('auth.username')).fill(process.env.SIMOLA_E2E_USER ?? username)
+  await page
+    .getByLabel(t('auth.password'), { exact: true })
+    .fill(process.env.SIMOLA_E2E_PASSWORD ?? SAMPLE_PASSWORD)
+  await page.getByRole('button', { name: t('auth.signIn'), exact: true }).click()
+}

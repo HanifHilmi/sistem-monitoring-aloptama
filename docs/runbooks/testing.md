@@ -27,6 +27,10 @@ npm run e2e                                    # sample data (what CI runs)
 SIMOLA_E2E_URL=http://<address>:8080 npm run e2e  # staging, real data
 ```
 
+Against a deployed site, tests that need a session sign in with `SIMOLA_E2E_USER` and `SIMOLA_E2E_PASSWORD` (a
+Viewer account made for testing; they are skipped without it). The session cookie is Secure, so the test browser
+treats the container's plain-http address as secure (`playwright.config.ts`).
+
 Against a deployed site this also measures NFR-PERF-003 (largest contentful paint ≤ 2.5 s, initial JS ≤ 400 KB
 gzip). It is measured from the host, so it leaves out the Cloudflare leg.
 
@@ -40,13 +44,16 @@ python3 tools/security_check.py --web http://<address>:8080 \
     --public https://simola-staging.hilmihanif.my.id --containers <staging-app-uuid>
 ```
 
-It checks security headers, that no route accepts writes (R1 has none), that every published API route is
-covered, that public answers hold no IP address, file path, serial or infrastructure field, that the internal
-pages are behind Access, and that no SIMOLA container publishes a port on the host. Exit code 1 on any failure.
+It checks security headers; that the only state-changing routes are the known account ones and that every write
+without a session and CSRF token is refused; that every published API route is covered; that, without a session,
+Viewer and Admin routes answer 401 and the CSRF cookie is Secure and SameSite=Lax; that public answers hold no IP
+address, file path, serial or infrastructure field; that internal and Admin pages never answer with data on the
+public hostname and the Admin area stays behind Access (D4); and that no SIMOLA container publishes a port on the
+host. Exit code 1 on any failure. Accounts in detail: [accounts.md](accounts.md).
 
 The OWASP ZAP baseline scan runs in CI (`zap` job) against a throwaway stack on GitHub's runner and fails on any
-High-risk alert; its report is kept as the `zap-report` artifact. Account checks (CSRF, sessions, lockout) arrive
-with accounts in R2.
+High-risk alert; its report is kept as the `zap-report` artifact. Account behaviour (CSRF, sessions, lockout, the audit log, the permission matrix) is tested by the
+backend's integration tests in CI (`tests/integration/test_accounts.py`).
 
 ## Load test (§15.5)
 

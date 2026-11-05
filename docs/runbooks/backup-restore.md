@@ -31,7 +31,8 @@ database and drops the scratch database again. **The live database is not touche
 - the reference tables (registry, settings) are equal;
 - the minute and daily tables are equal for everything older than two days before the backup was written (newer
   rows may have changed since; a reprocess of old days after the backup also shows up as a difference);
-- tables that change by themselves (jobs, heartbeats, backup runs, ingest status, rollup marks) are present.
+- tables that change by themselves (jobs, heartbeats, backup runs, ingest status, rollup marks, sign-in sessions,
+  accounts) are present; the audit log is compared like the minute tables (rows older than two days).
 
 The server needs free disk for one more copy of the database while it runs. CI runs both commands against a
 throwaway stack on every push (job `zap`), and `deploy/backup/test.sh` tests their failure paths.

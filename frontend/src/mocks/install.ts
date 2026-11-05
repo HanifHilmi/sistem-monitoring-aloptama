@@ -1,14 +1,17 @@
 // Fetch interceptor for sample-data mode (VITE_MOCK=1). Only bundled when that flag is set at build time.
 import type { MatrixBucket } from '@/api/types'
+import { accountsRoute, signedIn } from './accounts'
 import * as data from './data'
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 }
 
-function route(url: URL): Response {
+function route(url: URL, method: string, body: unknown): Response {
   const now = Date.now()
   const p = url.pathname.replace(/^\/api\/v1/, '')
+  const accounts = accountsRoute(p, url, method, body)
+  if (accounts) return accounts
   const q = url.searchParams
   const from = Date.parse(q.get('from') ?? '')
   const to = Date.parse(q.get('to') ?? '')
@@ -40,6 +43,8 @@ function route(url: URL): Response {
     })
   const m = p.match(/^\/systems\/[^/]+\/sites\/([^/]+)\/components\/([^/]+)\/series$/)
   if (m) return json(data.series(decodeURIComponent(m[1]!), decodeURIComponent(m[2]!), from, to, now))
+  if (p === '/internal/health' && !signedIn())
+    return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
   if (p === '/internal/health')
     return json({
       version: 'sample-data',
@@ -98,7 +103,14 @@ export function installMocks(): void {
     )
     if (!url.pathname.startsWith('/api/v1/')) return real(input, init)
     await new Promise((r) => setTimeout(r, 80))
-    return route(url)
+    const method = (init?.method ?? 'GET').toUpperCase()
+    let body: unknown = undefined
+    try {
+      body = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined
+    } catch {
+      /* not JSON */
+    }
+    return route(url, method, body)
   }
   console.info('[SIMOLA] sample-data mode: all API responses are generated in the browser')
 }

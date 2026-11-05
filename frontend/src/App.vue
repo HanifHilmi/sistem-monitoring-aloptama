@@ -6,8 +6,10 @@ import { api } from '@/api/client'
 import LiveStrip from '@/components/LiveStrip.vue'
 import ProblemsDrawer from '@/components/ProblemsDrawer.vue'
 import SystemMenu, { type MenuItem } from '@/components/SystemMenu.vue'
+import UserMenu from '@/components/UserMenu.vue'
 import { usePolling } from '@/composables/usePolling'
 import { setLocale, type Locale } from '@/i18n'
+import { useAuthStore } from '@/stores/auth'
 import { useDisplayStore } from '@/stores/display'
 import { DEFAULT_SYSTEM, useLiveStore } from '@/stores/live'
 import { boardPath, sitePath } from '@/utils/paths'
@@ -17,6 +19,7 @@ import type { SystemInfo } from '@/api/types'
 const { t, locale } = useI18n()
 const route = useRoute()
 const display = useDisplayStore()
+const auth = useAuthStore()
 const live = useLiveStore()
 const problemsOpen = ref(false)
 const menuOpen = ref(false)
@@ -101,11 +104,19 @@ const menus = computed(() =>
             :items="m.items"
             :later="m.later"
           />
+          <RouterLink
+            v-if="auth.isAdmin"
+            to="/admin"
+            class="rounded-md px-2.5 py-1.5 text-sm text-ink-2 hover:bg-sunken hover:text-ink"
+            active-class="!bg-sunken !text-ink font-medium"
+            >{{ t('admin.title') }}</RouterLink
+          >
         </nav>
 
         <div class="ml-auto flex items-center gap-2">
           <LiveStrip :compact="wall" @problems="problemsOpen = true" />
           <template v-if="!wall">
+            <UserMenu />
             <button
               type="button"
               class="icon-btn"
@@ -159,6 +170,13 @@ const menus = computed(() =>
             {{ l }} <span class="text-[0.625rem]">· {{ t('nav.later') }}</span>
           </p>
         </div>
+        <RouterLink
+          v-if="auth.isAdmin"
+          to="/admin"
+          class="block border-t border-line py-2.5 text-sm"
+          @click="menuOpen = false"
+          >{{ t('admin.title') }}</RouterLink
+        >
       </nav>
     </header>
 

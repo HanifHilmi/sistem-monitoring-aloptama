@@ -358,3 +358,72 @@ export interface OutagesResponse {
   truncated: boolean
   intervals: Outage[]
 }
+
+// ---------------------------------------------------------------- accounts and audit (R2.1, FR-AUTH, FR-AUD)
+
+export type Role = 'viewer' | 'admin'
+
+/** The signed-in user (GET /auth/me). */
+export interface Me {
+  id: number
+  username: string
+  display_name: string
+  role: Role
+  must_change_password: boolean
+}
+
+export interface UserRow {
+  id: number
+  username: string
+  display_name: string
+  email: string | null
+  role: Role
+  active: boolean
+  /** set while the account is locked after failed sign-ins (FR-AUTH-004) */
+  locked_until: string | null
+  /** a temporary password from an Admin is still waiting to be changed at the first sign-in */
+  password_temporary: boolean
+  last_login_at: string | null
+  created_at: string
+}
+
+export interface NewUser {
+  username: string
+  display_name: string
+  email: string | null
+  role: Role
+}
+
+/** A new account or a reset: the temporary password is shown once and must be changed at first sign-in. */
+export interface TemporaryPassword {
+  user: UserRow
+  temporary_password: string
+}
+
+export interface AuditEvent {
+  id: number
+  time: string
+  actor: string | null
+  action: string
+  entity_type: string | null
+  entity_id: string | null
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+  source_ip: string | null
+}
+
+export interface AuditPage {
+  events: AuditEvent[]
+  /** id to pass as `before` for the next (older) page, or null at the end */
+  next_before: number | null
+  actors: string[]
+  actions: string[]
+}
+
+export interface AuditFilter {
+  from?: string
+  to?: string
+  actor?: string
+  action?: string
+  entity_type?: string
+}

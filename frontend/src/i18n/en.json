@@ -357,5 +357,174 @@
     },
     "directions": "Directions of distant lightning",
     "allAround": "All around: {d}"
+  },
+  "role": {
+    "viewer": "Viewer",
+    "admin": "Admin"
+  },
+  "auth": {
+    "title": "Sign in",
+    "subtitle": "SIMOLA accounts are for technicians and the station head. The public dashboards need no account.",
+    "username": "Username",
+    "password": "Password",
+    "show": "Show",
+    "hide": "Hide",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "signOut": "Sign out",
+    "menu": "Account menu for {name}",
+    "help": "Forgot your password or locked out? Ask an Admin to reset it. After 5 wrong attempts an account waits 15 minutes.",
+    "error": {
+      "invalid": "Username or password is wrong.",
+      "locked": "Too many attempts. Try again in 15 minutes, or ask an Admin.",
+      "network": "Couldn't reach SIMOLA. Try again.",
+      "expired": "The page was open too long. Reload it and sign in again."
+    },
+    "forbidden": {
+      "title": "No access",
+      "body": "This page is for Admins. Ask an Admin if you need it.",
+      "home": "Back to the dashboard"
+    }
+  },
+  "account": {
+    "title": "Change password",
+    "subtitle": "Choose a password only you know.",
+    "forced": "Your password was set by an Admin. Choose your own before you continue.",
+    "current": "Current password",
+    "temporary": "Temporary password",
+    "new": "New password",
+    "repeat": "New password again",
+    "rule": {
+      "short": "At least {n} characters",
+      "username": "Does not contain your username",
+      "same": "Differs from the current password",
+      "repeat": "Both new passwords match"
+    },
+    "save": "Save password",
+    "changed": "Password changed. Your other sessions were signed out.",
+    "continue": "Continue",
+    "error": {
+      "wrong_password": "The current password is wrong.",
+      "weak_password": "This password is too common. Choose another.",
+      "other": "Couldn't change the password. Try again."
+    }
+  },
+  "admin": {
+    "title": "Admin",
+    "group": {
+      "quality": "Data quality",
+      "station": "Station",
+      "system": "System"
+    },
+    "section": {
+      "review": "Review queue",
+      "flags": "Flags",
+      "rules": "Validity rules",
+      "registry": "Registry and metadata",
+      "calibration": "Calibration",
+      "mandatory": "Mandatory fields",
+      "settings": "Settings",
+      "jobs": "Jobs",
+      "users": "Users",
+      "audit": "Audit log",
+      "health": "System health"
+    }
+  },
+  "users": {
+    "subtitle": "Technicians are Admins; the station head is a Viewer. Accounts are never deleted: deactivate them instead.",
+    "new": "New user",
+    "name": "Name",
+    "role": "Role",
+    "status": "Status",
+    "lastLogin": "Last sign-in",
+    "edit": "Edit",
+    "you": "you",
+    "active": "Active",
+    "inactive": "Deactivated",
+    "locked": "Locked until {time}",
+    "never": "never",
+    "editTitle": "Edit {name}",
+    "username": "Username",
+    "usernameHint": "3–32 characters: lowercase letters, digits, dot, dash or underscore. It can't be changed later.",
+    "displayName": "Full name",
+    "email": "Email",
+    "optional": "optional",
+    "roleHint": {
+      "viewer": "Reads everything, including infrastructure details, serial numbers and suspect detections. Changes nothing.",
+      "admin": "Also reviews and flags data, edits rules, records and settings, runs jobs and manages accounts."
+    },
+    "activeLabel": "Account active",
+    "activeHint": "A deactivated account can't sign in. Its history stays in the audit log.",
+    "create": "Create user",
+    "save": "Save",
+    "cancel": "Cancel",
+    "resetTitle": "Password",
+    "resetHint": "A reset gives a temporary password and signs the user out everywhere. They choose a new one at the next sign-in.",
+    "reset": "Reset password…",
+    "resetConfirm": "Reset the password of {name}?",
+    "resetYes": "Reset",
+    "issued": "Temporary password for {name}",
+    "issuedNote": "Shown only now. Give it to them in person or by phone; they must change it at the first sign-in.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "error": {
+      "username_taken": "This username is already used.",
+      "last_admin": "SIMOLA needs at least one active Admin.",
+      "own_account": "You can't deactivate or demote your own account."
+    },
+    "temporary": "Temporary password"
+  },
+  "audit": {
+    "subtitle": "Every sign-in and every change: who, when and what changed. Entries can't be edited or deleted.",
+    "csv": "Export CSV",
+    "from": "From (UTC)",
+    "to": "To (UTC)",
+    "actor": "Who",
+    "actionLabel": "Action",
+    "entityLabel": "Applies to",
+    "all": "All",
+    "empty": "No entries for this filter.",
+    "system": "system",
+    "field": "Field",
+    "before": "Before",
+    "after": "After",
+    "source": "From address",
+    "more": "Load older entries",
+    "appendOnly": "The log keeps everything since accounts were introduced. Nothing on this page can change it.",
+    "action": {
+      "login_ok": "Signed in",
+      "login_failed": "Sign-in failed",
+      "account_locked": "Account locked",
+      "logout": "Signed out",
+      "password_changed": "Changed own password",
+      "user_created": "Created user",
+      "user_updated": "Changed user",
+      "password_reset": "Reset password",
+      "audit_exported": "Exported audit log"
+    },
+    "entity": {
+      "user": "user",
+      "session": "session",
+      "setting": "setting",
+      "audit": "audit log"
+    },
+    "yes": "yes",
+    "no": "no",
+    "fieldName": {
+      "username": "Username",
+      "display_name": "Full name",
+      "email": "Email",
+      "role": "Role",
+      "active": "Account active",
+      "locked_until": "Locked until",
+      "rows": "Rows",
+      "reason": "Reason",
+      "filter": "Filter",
+      "by": "By"
+    },
+    "reason": {
+      "password": "wrong password",
+      "locked": "while locked"
+    }
   }
 }

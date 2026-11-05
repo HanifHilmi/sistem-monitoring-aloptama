@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -13,27 +12,15 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from simola.api.deps import ApiError
-from simola.api.routers import internal, public
+from simola.api.deps import ApiError, problem_response
+from simola.api.routers import admin, auth, internal, public
 from simola.core.config import get_settings
 from simola.core.db import get_engine, set_engine
 from simola.core.logging import setup_logging
 from simola.migrations.runner import pending
 
 logger = logging.getLogger(__name__)
-PROBLEM = "application/problem+json"
-
-
-def _problem(status: int, code: str, title: str, detail: Any = None) -> JSONResponse:
-    body: dict[str, Any] = {
-        "type": f"urn:simola:error:{code}",
-        "title": title,
-        "status": status,
-        "code": code,
-    }
-    if detail is not None:
-        body["detail"] = detail
-    return JSONResponse(body, status_code=status, media_type=PROBLEM)
+_problem = problem_response
 
 
 @asynccontextmanager
@@ -94,6 +81,8 @@ def create_app() -> FastAPI:
 
     app.include_router(public.router)
     app.include_router(internal.router)
+    app.include_router(auth.router)
+    app.include_router(admin.router)
     return app
 
 
