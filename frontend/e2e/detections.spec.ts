@@ -56,6 +56,57 @@ test.describe('Review queue and rules', () => {
     await expectNoPageScroll(page)
   })
 
+  test('a new version replaces the old one and withdraws its open suspects', async ({ page, t }) => {
+    await page.goto('/login?next=/admin/rules')
+    await signIn(page, t)
+    const temp = page.getByTestId('rule-field').filter({ hasText: 'TEMP' }).first()
+    await temp
+      .getByTestId('rule-chip')
+      .filter({ hasText: t('rules.type.spike') })
+      .click()
+    const dialog = page.getByRole('dialog')
+    const save = dialog.getByRole('button', { name: new RegExp(t('rules.form.saveVersion').split('{')[0]!) })
+    await expect(save).toBeDisabled() // nothing changed yet
+    await dialog.getByLabel(new RegExp(t('rules.form.change'))).fill('7')
+    await expect(save).toBeEnabled()
+    await save.click()
+    await expect(dialog.getByTestId('withdrawn')).toBeVisible()
+    await dialog.getByRole('button', { name: t('flags.form.done') }).click()
+    await temp
+      .getByTestId('rule-chip')
+      .filter({ hasText: t('rules.type.spike') })
+      .click()
+    const versions = page.getByRole('dialog').getByTestId('versions')
+    await expect(versions.getByRole('listitem').first()).toContainText(t('rules.version.inEffect'))
+    await expect(versions.getByRole('listitem').nth(1)).toContainText(
+      t('rules.version.replaced').split('{')[0]!.trim(),
+    )
+  })
+
+  test('a rule that never raised anything can be deleted; overlaps are pointed out', async ({ page, t }) => {
+    await page.goto('/login?next=/admin/rules')
+    await signIn(page, t)
+    const temp = page.getByTestId('rule-field').filter({ hasText: 'TEMP' }).first()
+    await temp
+      .getByTestId('rule-chip')
+      .filter({ hasText: t('rules.type.range') })
+      .first()
+      .click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByTestId('overlap-warning')).toBeVisible() // a site keeps its own range rule
+    await page.keyboard.press('Escape')
+
+    const chips = temp.getByTestId('rule-chip')
+    const before = await chips.count()
+    await chips
+      .filter({ hasText: t('rules.state.proposed') })
+      .first()
+      .click()
+    await dialog.getByRole('button', { name: t('rules.form.delete') }).click()
+    await dialog.getByRole('button', { name: t('rules.form.deleteYes'), exact: true }).click()
+    await expect(chips).toHaveCount(before - 1)
+  })
+
   test('visitors see confirmed detections only; signed-in users also see suspects', async ({ page, t }) => {
     await page.goto(site('04'))
     await expect(page.getByTestId('detection-chip').first()).toBeVisible()

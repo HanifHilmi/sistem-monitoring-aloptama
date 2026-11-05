@@ -41,6 +41,7 @@ export function ruleView(r: StoredRule): Rule {
     changed_at: v.created_at,
     mandatory: (MANDATORY[r.component_type] ?? []).includes(r.field),
     suspects: dqState().detections.filter((d) => d.rule_id === r.id && d.status === 'suspect').length,
+    detections: dqState().detections.filter((d) => d.rule_id === r.id).length,
   }
 }
 export function detectionView(d: StoredDetection, full = true): Detection {
@@ -133,12 +134,15 @@ function dryRun(
   rt: RuleType,
   p: RuleParams,
   now: number,
+  ruleId: number | null = null,
 ): RuleDryRun {
   const to = Math.floor(now / DAY) * DAY
   const from = to - 30 * DAY
   const examples: RuleDryRun['examples'] = []
   let minutes = 0
   const hitSites = new Set<string>()
+  let overlapping = 0
+  const overlapTypes = new Set<RuleType>()
   for (const s of sitesWith(type, site)) {
     if (
       !SYSTEM.sites
@@ -147,7 +151,22 @@ function dryRun(
         ?.fields.includes(field)
     )
       continue
+    const others = dqState().detections.filter(
+      (d) =>
+        d.site === s &&
+        d.component === type &&
+        d.field === field &&
+        d.status !== 'rejected' &&
+        d.rule_id !== ruleId,
+    )
     for (const h of applyRule(rt, p, sampleValues(s, type, field, from, to))) {
+      const a = from + h.a * MIN
+      const b = from + h.b * MIN
+      const hit = others.filter((d) => Date.parse(d.start) < b && a < Date.parse(d.end))
+      if (hit.length) {
+        overlapping++
+        for (const d of hit) overlapTypes.add(d.type)
+      }
       minutes += h.b - h.a
       hitSites.add(s)
       examples.push({
@@ -167,6 +186,8 @@ function dryRun(
     minutes,
     sites: hitSites.size,
     examples: examples.slice(0, 5),
+    overlapping,
+    overlapping_types: [...overlapTypes].sort(),
   }
 }
 
@@ -220,8 +241,11 @@ function history(type: string, field: string, now: number): FieldHistory {
     step_p999: round(pct(steps, 0.999), 1),
     proposed: {
       range: {
-        min: round(Math.max(field === 'RH' || field === 'WS' ? 0 : -Infinity, p001 - margin), digits),
-        max: round(p999 + margin, digits),
+        min: round(
+          Math.max(field === 'RH' || field === 'WS' || unit === '°' ? 0 : -Infinity, p001 - margin),
+          digits,
+        ),
+        max: round(unit === '°' ? Math.min(360, p999 + margin) : p999 + margin, digits),
       },
       stuck: {
         minutes: Math.max(60, Math.ceil(((runs[runs.length - 1] ?? 30) * 1.5) / 30) * 30),
@@ -354,7 +378,10 @@ export function dqRoute(
     }
     const code = checkDraft(draft)
     if (code) return problem(422, code)
-    return json(dryRun(draft.component_type!, draft.field!, draft.site, draft.type as RuleType, params, now))
+    const rid = q.get('rule_id') ? Number(q.get('rule_id')) : null
+    return json(
+      dryRun(draft.component_type!, draft.field!, draft.site, draft.type as RuleType, params, now, rid),
+    )
   }
   const detectJob = () =>
     enqueueJob('detect', SYSTEM.coverage_start.slice(0, 10), iso(now).slice(0, 10), user, now)
@@ -392,13 +419,19 @@ export function dqRoute(
     }
     st.rules.push(r)
     saveDq()
-    return json({ rule: ruleView(r), job: b.enabled ? detectJob() : null }, 201)
+    return json({ rule: ruleView(r), job: b.enabled ? detectJob() : null, withdrawn: 0 }, 201)
   }
   const rv = path.match(/^\/admin\/rules\/(\d+)(\/versions)?$/)
   if (rv) {
     const r = st.rules.find((x) => x.id === Number(rv[1]))
     if (!r) return problem(404, 'rule_not_found')
     if (rv[2] && method === 'GET') return json([...r.versions].reverse())
+    if (!rv[2] && method === 'DELETE') {
+      if (st.detections.some((d) => d.rule_id === r.id)) return problem(409, 'rule_has_detections')
+      st.rules = st.rules.filter((x) => x.id !== r.id)
+      saveDq()
+      return json({ deleted: r.id })
+    }
     if (method === 'PUT') {
       const code = checkDraft({ ...b, component_type: r.component_type, field: r.field, type: r.type })
       if (code) return problem(422, code)
@@ -412,11 +445,15 @@ export function dqRoute(
         JSON.stringify([v.params, v.enabled, v.site]) ===
         JSON.stringify([next.params, next.enabled, next.site])
       )
-        return json({ rule: ruleView(r), job: null })
+        return json({ rule: ruleView(r), job: null, withdrawn: 0 })
       r.versions.push({ version: v.version + 1, ...next, created_by: user, created_at: iso(now) })
       r.proposed = false
+      // The new version replaces the old ones: their open suspects are withdrawn.
+      const before = st.detections.length
+      st.detections = st.detections.filter((d) => !(d.rule_id === r.id && d.status === 'suspect'))
+      const withdrawn = before - st.detections.length
       saveDq()
-      return json({ rule: ruleView(r), job: next.enabled ? detectJob() : null })
+      return json({ rule: ruleView(r), job: next.enabled ? detectJob() : null, withdrawn })
     }
   }
 

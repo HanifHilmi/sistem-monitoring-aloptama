@@ -103,6 +103,7 @@ KNOWN_WRITES = {
     "DELETE /api/v1/admin/flags/{flag_id}",
     "POST /api/v1/admin/rules",
     "PUT /api/v1/admin/rules/{rule_id}",
+    "DELETE /api/v1/admin/rules/{rule_id}",
     "POST /api/v1/admin/detections/decide",
 }
 # Routes that exist inside the containers but are not public API routes.

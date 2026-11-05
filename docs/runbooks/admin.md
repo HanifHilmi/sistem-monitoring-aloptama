@@ -92,8 +92,17 @@ fields (present weather, sky, lightning) and gust events have no rules.
   **off**. The rules page shows them in blue. Open one: the history box shows the usual range, the extremes, the
   longest unchanged run and the largest minute-to-minute change; the dry run shows what it would have raised over
   the last 30 days. Adjust, then tick *Approve and turn on*.
-- **Every save is a new version.** Turning a rule on, or changing one that is on, re-checks the whole history as a
-  job (Admin → Jobs, *Run validity rules*). Detections raised by an older version keep that version (PRD E8).
+- **Every save is a new version, and only the newest is in effect.** The editor lists them newest first: "in
+  effect", then "replaced <time>", each with what it changed (values, scope, turned on or off, approved). Saving
+  stays disabled until something changes.
+- **A new version replaces the old ones.** Their open suspects are withdrawn from the review queue (the editor says
+  how many); confirmed and rejected detections keep the version that raised them, and confirmed ones keep counting.
+  Turning a rule on, or changing one that is on, re-checks the whole history as a job (Admin → Jobs, *Run validity
+  rules*); turning it off withdraws its open suspects too.
+- **Deleting:** a rule that never raised anything (made by mistake) can be deleted; one that did can only be turned
+  off, because its detections name it. Versions are never deleted.
+- **Overlaps:** the editor warns when a site rule replaces the all-sites rule of its kind there (or when sites keep
+  their own), and the dry run counts stretches other rules of the field already raised.
 - **When rules run:** the worker checks the latest minutes every minute; a reprocess checks its days again.
 
 ## Review queue (Admin → Review queue)

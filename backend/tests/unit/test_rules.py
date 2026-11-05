@@ -216,3 +216,7 @@ def test_proposals_from_a_history() -> None:
         "RH", "%", {"p001": 40, "p01": 45, "p999": 100, "min": 30, "max": 100, "run_p999_minutes": 30}
     )
     assert rh["range"]["max"] == 100
+    wd = proposals(
+        "WD", "°", {"p001": 2, "p01": 5, "p999": 360, "min": 1, "max": 360, "run_p999_minutes": 30}
+    )
+    assert wd["range"] == {"min": 0, "max": 360}  # a direction stays within the compass

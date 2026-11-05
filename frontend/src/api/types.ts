@@ -626,6 +626,8 @@ export interface Rule {
   /** the field decides availability: a confirmed detection invalidates the component (FR-DQ-005) */
   mandatory: boolean
   suspects: number
+  /** detections of any status this rule ever raised: a rule with none may be deleted */
+  detections: number
 }
 
 export interface RuleVersion {
@@ -680,6 +682,9 @@ export interface RuleDryRun {
   minutes: number
   sites: number
   examples: { site: string; start: string; end: string; minutes: number; evidence: Evidence }[]
+  /** stretches other rules of the field already raised, and their kinds */
+  overlapping?: number
+  overlapping_types?: RuleType[]
 }
 
 export type DetectionStatus = 'suspect' | 'confirmed' | 'rejected'
@@ -743,6 +748,8 @@ export interface RuleChange {
   rule: Rule
   /** the detection run over the history that the change queued, if any */
   job: JobRow | null
+  /** open suspects of the replaced versions that were withdrawn */
+  withdrawn: number
 }
 
 export interface DecisionResult {

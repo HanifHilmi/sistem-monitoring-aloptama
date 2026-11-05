@@ -524,7 +524,8 @@
       "flag_removed": "Removed flag",
       "rule_created": "Created rule",
       "rule_changed": "Changed rule",
-      "detections_decided": "Decided detections"
+      "detections_decided": "Decided detections",
+      "rule_deleted": "Deleted rule"
     },
     "entity": {
       "user": "user",
@@ -573,7 +574,9 @@
       "params": "Values",
       "enabled": "On",
       "site": "Site",
-      "status": "Status"
+      "status": "Status",
+      "withdrawn_suspects": "Suspects withdrawn",
+      "versions": "Versions"
     },
     "reason": {
       "password": "wrong password",
@@ -838,7 +841,7 @@
       "saved": "Version {v} saved.",
       "rerun": "The whole history is being checked with it:",
       "off": "The rule is off: nothing is checked until it is turned on.",
-      "keepVersion": "Suspects raised earlier keep the version that raised them.",
+      "keepVersion": "Confirmed and rejected detections keep the version that raised them; confirmed ones keep counting.",
       "proposedNote": "Proposed from the history (OPEN-08). Check the values against the dry run, adjust them if needed, then approve.",
       "type": "Rule",
       "scope": "Applies to",
@@ -868,7 +871,16 @@
       "saveVersion": "Save as version {v}",
       "create": "Create rule",
       "versions": "Versions",
-      "noProposal": "No proposal for this kind of rule on this field."
+      "noProposal": "No proposal for this kind of rule on this field.",
+      "withdrawn": "{n} open suspect of the replaced version was withdrawn from the review queue. | {n} open suspects of the replaced versions were withdrawn from the review queue.",
+      "replaces": "At {site} this replaces the all-sites rule of this kind ({rule}).",
+      "keptAt": "Sites with their own rule of this kind keep it: {sites}.",
+      "dryOverlap": "{n} of these stretches is already raised by another rule on this field ({rules}). | {n} of these stretches are already raised by other rules on this field ({rules}).",
+      "delete": "Delete rule",
+      "deleteConfirm": "Delete this rule and its versions? It never raised anything, so nothing else changes. The deletion stays in the audit log.",
+      "deleteYes": "Delete",
+      "noDelete": "{n} detection names this rule: turn it off instead. | {n} detections name this rule: turn it off instead.",
+      "versionsNote": "Only the top version is in effect. Older ones are kept because detections name the version that raised them."
     },
     "error": {
       "range_needs_a_limit": "Give a minimum, a maximum or both.",
@@ -884,7 +896,21 @@
       "invalid_rule_type": "Pick a rule.",
       "text_field": "Rules work on numeric fields only.",
       "rule_not_found": "This rule no longer exists.",
-      "invalid_params": "The rule values are not valid."
+      "invalid_params": "The rule values are not valid.",
+      "rule_has_detections": "This rule raised detections, so it cannot be deleted: turn it off instead."
+    },
+    "version": {
+      "proposed": "proposed from the history",
+      "created": "created",
+      "values": "values: {rule}",
+      "scope": "now applies to {site}",
+      "on": "turned on",
+      "off": "turned off",
+      "approved": "approved",
+      "saved": "saved",
+      "replaced": "replaced {time}",
+      "inEffect": "in effect",
+      "currentOff": "current, off"
     }
   },
   "detections": {

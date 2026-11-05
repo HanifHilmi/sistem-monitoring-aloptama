@@ -59,6 +59,7 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("GET", "/api/v1/admin/rules/{rule_id}/versions"): "admin",
     ("POST", "/api/v1/admin/rules"): "admin",
     ("PUT", "/api/v1/admin/rules/{rule_id}"): "admin",
+    ("DELETE", "/api/v1/admin/rules/{rule_id}"): "admin",
     ("GET", "/api/v1/admin/detections"): "admin",
     ("POST", "/api/v1/admin/detections/decide"): "admin",
 }

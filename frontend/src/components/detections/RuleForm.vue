@@ -24,7 +24,8 @@ import { formatUtc } from '@/utils/time'
 
 // Create or change a validity rule (FR-DQ-001/002). The history box shows what the field's data looks like and the
 // proposed starting values (OPEN-08); the dry run shows what the draft would have raised over the last 30 days.
-// Saving makes a new version; suspects raised by older versions keep theirs (PRD E8).
+// Saving makes a new version that replaces the old one: the old versions' open suspects are withdrawn, decided
+// detections keep their version. A rule that never raised anything may be deleted.
 const props = defineProps<{
   system: string
   info: SystemInfo
@@ -33,6 +34,8 @@ const props = defineProps<{
   rule?: Rule | null
   /** rule types already used for this field and scope (a new rule may not repeat one) */
   taken?: string[]
+  /** the field's other rules, for the overlap warnings */
+  siblings?: Rule[]
 }>()
 const emit = defineEmits<{ done: [change: RuleChange | null]; cancel: [] }>()
 const { t, locale } = useI18n()
@@ -95,13 +98,28 @@ const draft = computed<RuleDraft>(() => ({
   params: params.value,
   enabled: enabled.value,
 }))
+/** Parameters in one key order, so "unchanged" does not depend on how the server ordered them. */
+const canon = (p: RuleParams) =>
+  JSON.stringify(
+    Object.entries(p)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => [k, Array.isArray(v) ? [...v].sort((x, y) => x - y) : v]),
+  )
 const unchanged = computed(
   () =>
     !!props.rule &&
     !props.rule.proposed &&
-    JSON.stringify([props.rule.params, props.rule.enabled, props.rule.site ?? '']) ===
-      JSON.stringify([params.value, enabled.value, site.value]),
+    canon(props.rule.params) === canon(params.value) &&
+    props.rule.enabled === enabled.value &&
+    (props.rule.site ?? '') === site.value,
 )
+
+// ---- overlap warnings ----------------------------------------------------------------------------------
+const sameKind = computed(() => (props.siblings ?? []).filter((r) => r.type === type.value))
+/** A site rule replaces the all-sites rule of the same kind there; an all-sites rule gives way to site rules. */
+const replaces = computed(() => (site.value ? sameKind.value.find((r) => !r.site) : undefined))
+const keptAt = computed(() => (site.value ? [] : sameKind.value.filter((r) => r.site)))
 
 // ---- history and proposed values -----------------------------------------------------------------------
 const history = useLoader<FieldHistory>(() =>
@@ -141,7 +159,7 @@ watch(
     timer = setTimeout(async () => {
       const mine = ++seq
       try {
-        const r = await api.dryRun(draft.value)
+        const r = await api.dryRun(draft.value, props.rule?.id)
         if (mine === seq) dry.value = r
       } catch {
         if (mine === seq) dry.value = 'error'
@@ -172,6 +190,39 @@ async function save() {
     busy.value = false
   }
 }
+const confirmingDelete = ref(false)
+async function remove() {
+  if (!props.rule || busy.value) return
+  busy.value = true
+  error.value = null
+  try {
+    await api.deleteRule(props.rule.id)
+    emit('done', null)
+  } catch (e) {
+    error.value = e instanceof ApiProblem ? e.code : 'network_error'
+  } finally {
+    busy.value = false
+    confirmingDelete.value = false
+  }
+}
+
+/** What each version changed compared with the one before it (versions come newest first). */
+function changes(i: number): string {
+  const list = versions.data.value ?? []
+  const v = list[i]!
+  const prev = list[i + 1]
+  if (!prev) return v.created_by === 'system' ? t('rules.version.proposed') : t('rules.version.created')
+  const out: string[] = []
+  if (canon(v.params) !== canon(prev.params))
+    out.push(
+      t('rules.version.values', { rule: ruleText(props.rule!.type, v.params, unit.value, lc.value, t) }),
+    )
+  if ((v.site ?? '') !== (prev.site ?? '')) out.push(t('rules.version.scope', { site: siteName(v.site) }))
+  if (v.enabled !== prev.enabled) out.push(v.enabled ? t('rules.version.on') : t('rules.version.off'))
+  if (!out.length)
+    out.push(prev.created_by === 'system' ? t('rules.version.approved') : t('rules.version.saved'))
+  return out.join(' · ')
+}
 const errorText = (code: string) =>
   t(`rules.error.${code}`) === `rules.error.${code}` ? t('common.error') : t(`rules.error.${code}`)
 const siteName = (slug: string | null) =>
@@ -191,6 +242,9 @@ const siteName = (slug: string | null) =>
         }}</RouterLink>
       </template>
       <template v-else>{{ t('rules.form.off') }}</template>
+    </p>
+    <p v-if="result.withdrawn" class="text-sm text-ink-2" data-testid="withdrawn">
+      {{ t('rules.form.withdrawn', { n: result.withdrawn }, result.withdrawn) }}
     </p>
     <p class="text-xs text-ink-3">{{ t('rules.form.keepVersion') }}</p>
     <div>
@@ -242,6 +296,25 @@ const siteName = (slug: string | null) =>
       </select>
       <span class="text-xs text-ink-3">{{ t('rules.form.scopeHint') }}</span>
     </label>
+    <p
+      v-if="replaces"
+      class="-mt-2 rounded-md border border-warn/50 bg-warn/10 px-3 py-2 text-xs"
+      data-testid="overlap-warning"
+    >
+      {{
+        t('rules.form.replaces', {
+          site: siteName(site),
+          rule: ruleText(replaces.type, replaces.params, unit, lc, t),
+        })
+      }}
+    </p>
+    <p
+      v-else-if="keptAt.length"
+      class="-mt-2 rounded-md border border-warn/50 bg-warn/10 px-3 py-2 text-xs"
+      data-testid="overlap-warning"
+    >
+      {{ t('rules.form.keptAt', { sites: keptAt.map((r) => siteName(r.site)).join(', ') }) }}
+    </p>
 
     <div v-if="type === 'range'" class="grid grid-cols-2 gap-3">
       <label class="flex flex-col gap-1.5">
@@ -357,6 +430,18 @@ const siteName = (slug: string | null) =>
           }}
         </p>
         <p v-if="dry.intervals > 50" class="mt-1 font-medium text-warn">{{ t('rules.form.dryTooMany') }}</p>
+        <p v-if="dry.overlapping" class="mt-1 font-medium text-warn" data-testid="dry-overlap">
+          {{
+            t(
+              'rules.form.dryOverlap',
+              {
+                n: int(dry.overlapping, lc),
+                rules: (dry.overlapping_types ?? []).map((x) => t(`rules.type.${x}`)).join(', '),
+              },
+              dry.overlapping,
+            )
+          }}
+        </p>
         <ul v-if="dry.examples.length" class="num mt-1.5 flex flex-col gap-0.5 text-ink-2">
           <li v-for="(e, i) in dry.examples" :key="i">
             {{ siteName(e.site) }} · {{ formatRange(e.start, e.end, lc) }} ·
@@ -379,20 +464,65 @@ const siteName = (slug: string | null) =>
         {{ rule ? t('rules.form.saveVersion', { v: rule.version + 1 }) : t('rules.form.create') }}
       </button>
       <button type="button" class="btn" @click="emit('cancel')">{{ t('flags.form.cancel') }}</button>
+      <template v-if="rule">
+        <button
+          v-if="!rule.detections && !confirmingDelete"
+          type="button"
+          class="btn-danger ml-auto"
+          :disabled="busy"
+          @click="confirmingDelete = true"
+        >
+          {{ t('rules.form.delete') }}
+        </button>
+        <span v-else-if="rule.detections" class="ml-auto self-center text-xs text-ink-3">{{
+          t('rules.form.noDelete', { n: int(rule.detections, lc) }, rule.detections)
+        }}</span>
+      </template>
+    </div>
+    <div
+      v-if="rule && confirmingDelete"
+      class="flex flex-col gap-2 rounded-md border border-bad/40 bg-bad/5 p-3 text-sm"
+      role="alertdialog"
+      :aria-label="t('rules.form.delete')"
+    >
+      <p>{{ t('rules.form.deleteConfirm') }}</p>
+      <div class="flex gap-2">
+        <button type="button" class="btn-danger" :disabled="busy" @click="remove">
+          {{ t('rules.form.deleteYes') }}
+        </button>
+        <button type="button" class="btn" @click="confirmingDelete = false">
+          {{ t('flags.form.keep') }}
+        </button>
+      </div>
     </div>
 
     <section v-if="rule && versions.data.value" :aria-label="t('rules.form.versions')">
       <h3 class="eyebrow mb-1.5">{{ t('rules.form.versions') }}</h3>
-      <ol class="flex flex-col text-xs">
-        <li v-for="v in versions.data.value" :key="v.version" class="flex gap-2 border-t border-line py-1.5">
-          <span class="num w-8 shrink-0 font-medium">v{{ v.version }}</span>
-          <span class="min-w-0 flex-1">
-            {{ ruleText(rule.type, v.params, unit, lc, t) }} · {{ siteName(v.site) }} ·
-            {{ v.enabled ? t('rules.state.on') : t('rules.state.off') }}
+      <ol class="flex flex-col text-xs" data-testid="versions">
+        <li
+          v-for="(v, i) in versions.data.value"
+          :key="v.version"
+          class="flex gap-2 border-t border-line py-1.5"
+        >
+          <span class="num w-8 shrink-0 font-medium" :class="i ? 'text-ink-3' : ''">v{{ v.version }}</span>
+          <span class="min-w-0 flex-1" :class="i ? 'text-ink-2' : ''">
+            <span
+              class="mr-1.5 rounded px-1.5 py-px text-[0.625rem] font-medium"
+              :class="i ? 'bg-sunken text-ink-3' : v.enabled ? 'bg-ok/15 text-ok' : 'bg-sunken text-ink-2'"
+              >{{
+                i
+                  ? t('rules.version.replaced', { time: formatUtc(versions.data.value[i - 1]!.created_at) })
+                  : v.enabled
+                    ? t('rules.version.inEffect')
+                    : t('rules.version.currentOff')
+              }}</span
+            >
+            {{ changes(i) }}
             <span class="block text-ink-3">{{ v.created_by }} · {{ formatUtc(v.created_at) }}</span>
           </span>
         </li>
       </ol>
+      <p class="mt-1 text-[0.6875rem] text-ink-3">{{ t('rules.form.versionsNote') }}</p>
     </section>
   </form>
 </template>

@@ -211,7 +211,7 @@ export const api = {
   ruleVersions: (id: number) => get<RuleVersion[]>(`/admin/rules/${id}/versions`),
   fieldHistory: (system: string, componentType: string, field: string) =>
     get<FieldHistory>('/admin/rules/history', { system, component_type: componentType, field }),
-  dryRun: (draft: RuleDraft) =>
+  dryRun: (draft: RuleDraft, ruleId?: number) =>
     get<RuleDryRun>('/admin/rules/dry-run', {
       system: draft.system,
       component_type: draft.component_type,
@@ -219,9 +219,11 @@ export const api = {
       site: draft.site ?? undefined,
       type: draft.type,
       params: JSON.stringify(draft.params),
+      rule_id: ruleId,
     }),
   createRule: (draft: RuleDraft) => send<RuleChange>('POST', '/admin/rules', draft),
   updateRule: (id: number, draft: RuleDraft) => send<RuleChange>('PUT', `/admin/rules/${id}`, draft),
+  deleteRule: (id: number) => send<{ deleted: number }>('DELETE', `/admin/rules/${id}`),
   reviewQueue: (system: string, filter: DetectionFilter, offset = 0) =>
     get<DetectionPage>('/admin/detections', { system, ...filter, offset, limit: 50 }),
   decide: (decision: Decision) => send<DecisionResult>('POST', '/admin/detections/decide', decision),

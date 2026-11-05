@@ -63,6 +63,14 @@ const taken = computed(() =>
     .filter((r) => r.component_type === editing.value?.type && r.field === editing.value?.field)
     .map((r) => `${r.type}|${r.site ?? ''}`),
 )
+const siblings = computed(() =>
+  (loader.data.value ?? []).filter(
+    (r) =>
+      r.component_type === editing.value?.type &&
+      r.field === editing.value?.field &&
+      r.id !== editing.value?.rule?.id,
+  ),
+)
 function done() {
   editing.value = null
   void loader.load({ silent: true })
@@ -199,6 +207,7 @@ function done() {
         :field="editing.field"
         :rule="editing.rule"
         :taken="taken"
+        :siblings="siblings"
         @done="done"
         @cancel="editing = null"
       />

@@ -100,7 +100,7 @@ def proposals(field_code: str, unit: str | None, stats: dict[str, Any]) -> dict[
     """Starting values from the history, for the Product Owner to review before any rule is turned on.
 
     - range: the middle 99.8 % of values widened by a quarter of their spread on each side (never below 0 for a
-      field that never goes below 0, never above 100 for a percentage);
+      field that never goes below 0, never above 100 for a percentage, within 0–360 for a direction);
     - stuck: twice the 99.9th percentile of unchanged runs, at least an hour, in half hours; values seen in more
       than 1 % of minutes at the bottom of the range (0 for rain or night-time sun) may stay unchanged;
     - spike: twice the 99.99th percentile of minute-to-minute changes (slow-changing fields only).
@@ -115,6 +115,8 @@ def proposals(field_code: str, unit: str | None, stats: dict[str, Any]) -> dict[
             low = max(0.0, low)
         if unit == "%":
             high = min(100.0, high)
+        if unit == "°":  # a direction stays within the compass
+            low, high = max(0.0, low), min(360.0, high)
         out["range"] = {"min": _round(low, spread), "max": _round(high, spread)}
     run = max(60, 2 * int(stats.get("run_p999_minutes") or 0))
     stuck: dict[str, Any] = {"minutes": min(1440, int(math.ceil(run / 30) * 30))}

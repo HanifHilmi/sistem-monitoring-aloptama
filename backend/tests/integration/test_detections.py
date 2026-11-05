@@ -296,3 +296,62 @@ async def test_rules_that_are_refused_and_proposals_from_the_history(
             },
         )
         assert approved.status_code == 200 and not approved.json()["rule"]["proposed"]  # reviewed, still off
+
+
+async def test_a_new_version_withdraws_open_suspects_and_unused_rules_can_be_deleted(
+    engine: AsyncEngine, reviewer: str
+) -> None:
+    """R2.4.1: a replaced version's undecided suspects go; a rule that never raised anything may be deleted; the
+    dry run counts stretches other rules already raised."""
+    async with engine.connect() as conn:
+        top = await conn.scalar(
+            text("""
+            SELECT max(temp_c) FROM awos_cat3_minute
+            WHERE site_id = (SELECT id FROM site WHERE slug = '04') AND time >= :a AND time < :b
+        """),
+            {"a": DAY_START, "b": DAY_START + timedelta(days=1)},
+        )
+    limit = float(top) - 0.3
+    body = {
+        "component_type": "ATRH",
+        "field": "TEMP",
+        "site": "04",
+        "type": "range",
+        "params": {"max": limit},
+    }
+    async with Browser() as admin:
+        await admin.login(reviewer)
+        made = await admin.send("POST", "/api/v1/admin/rules", {**body, "enabled": True})
+        assert made.status_code == 201, made.text
+        rule_id = made.json()["rule"]["id"]
+        await run_queued(engine)
+        raised = len(await _snapshot(engine, rule_id))
+        assert raised >= 1
+
+        dry = {**body, "params": json.dumps({"max": limit})}
+        others = (await admin.get("/api/v1/admin/rules/dry-run", params=dry)).json()
+        own = (await admin.get("/api/v1/admin/rules/dry-run", params={**dry, "rule_id": rule_id})).json()
+        assert others["overlapping"] == others["intervals"]  # every stretch is already raised (by this rule)
+        assert own["overlapping"] == 0 and own["overlapping_types"] == []
+
+        listed = next(r for r in (await admin.get("/api/v1/admin/rules")).json() if r["id"] == rule_id)
+        assert listed["suspects"] == raised and listed["detections"] == raised
+        refused = await admin.send("DELETE", f"/api/v1/admin/rules/{rule_id}")
+        assert refused.status_code == 409 and refused.json()["code"] == "rule_has_detections"
+
+        # A version that no longer fires withdraws the old version's open suspects.
+        changed = await admin.send(
+            "PUT",
+            f"/api/v1/admin/rules/{rule_id}",
+            {**body, "params": {"max": float(top) + 5}, "enabled": True},
+        )
+        assert changed.status_code == 200 and changed.json()["withdrawn"] == raised
+        await run_queued(engine)
+        assert await _snapshot(engine, rule_id) == []
+        audit = (await admin.get("/api/v1/admin/audit", params={"action": "rule_changed"})).json()["events"]
+        assert audit[0]["after"]["withdrawn_suspects"] == raised
+
+        deleted = await admin.send("DELETE", f"/api/v1/admin/rules/{rule_id}")
+        assert deleted.status_code == 200 and deleted.json() == {"deleted": rule_id}
+        assert rule_id not in [r["id"] for r in (await admin.get("/api/v1/admin/rules")).json()]
+        assert (await admin.get("/api/v1/admin/audit", params={"action": "rule_deleted"})).json()["events"]

@@ -170,7 +170,7 @@ def _slug(system: System, site_id: int | None) -> str | None:
     return next((s.slug for s in system.sites if s.id == site_id), None) if site_id is not None else None
 
 
-def rule_view(system: System, r: R.RuleRow, suspects: int) -> dict[str, Any]:
+def rule_view(system: System, r: R.RuleRow, counts: tuple[int, int] = (0, 0)) -> dict[str, Any]:
     return {
         "id": r.id,
         "component_type": r.component_type,
@@ -184,15 +184,20 @@ def rule_view(system: System, r: R.RuleRow, suspects: int) -> dict[str, Any]:
         "changed_by": r.created_by,
         "changed_at": r.created_at,
         "mandatory": _mandatory(system, r.component_type, r.field),
-        "suspects": suspects,
+        "suspects": counts[0],
+        # a rule that never raised anything may be deleted; otherwise it can only be turned off
+        "detections": counts[1],
     }
 
 
-async def _suspect_counts(conn: AsyncConnection) -> dict[int, int]:
+async def _counts(conn: AsyncConnection) -> dict[int, tuple[int, int]]:
+    """Per rule: (open suspects, detections of any status ever raised)."""
     rows = await conn.execute(
-        text("SELECT rule_id, count(*) FROM dq_detection WHERE status = 'suspect' GROUP BY rule_id")
+        text("""
+        SELECT rule_id, count(*) FILTER (WHERE status = 'suspect'), count(*) FROM dq_detection GROUP BY rule_id
+    """)
     )
-    return {int(r[0]): int(r[1]) for r in rows}
+    return {int(r[0]): (int(r[1]), int(r[2])) for r in rows}
 
 
 async def _enqueue_detect(
@@ -226,9 +231,9 @@ async def _enqueue_detect(
 async def list_rules(system: str = DEFAULT_SYSTEM) -> list[dict[str, Any]]:
     async with get_engine().connect() as conn:
         sy = await _system(conn, system)
-        counts = await _suspect_counts(conn)
+        counts = await _counts(conn)
         rules = await detect.load_rules(conn, sy)
-    return [rule_view(sy, r, counts.get(r.id, 0)) for r in rules]
+    return [rule_view(sy, r, counts.get(r.id, (0, 0))) for r in rules]
 
 
 @admin_router.get("/rules/history")
@@ -249,9 +254,11 @@ async def dry_run(
     type: str,
     params: str = Query(max_length=1000),
     site: str | None = None,
+    rule_id: int | None = None,
     system: str = DEFAULT_SYSTEM,
 ) -> dict[str, Any]:
-    """What a draft rule would have raised over the last 30 days, before it is saved."""
+    """What a draft rule would have raised over the last 30 days, before it is saved, and how many of those
+    stretches other rules of the field already raised (``rule_id``: the rule being edited, left out)."""
     try:
         draft = json.loads(params)
     except json.JSONDecodeError as exc:
@@ -268,15 +275,35 @@ async def dry_run(
         examples: list[dict[str, Any]] = []
         minutes = 0
         hit_sites: set[str] = set()
+        overlapping = 0
+        overlap_types: set[str] = set()
         for s in sy.sites:
             if site_id is not None and s.id != site_id:
                 continue
-            if not any(c.type_code == component_type and field in c.fields for c in s.components):
+            comp = next(
+                (c for c in s.components if c.type_code == component_type and field in c.fields), None
+            )
+            if comp is None:
                 continue
+            others = (
+                await conn.execute(
+                    text("""
+                SELECT start_at, end_at, type FROM dq_detection
+                WHERE component_id = :c AND field_code = :f AND status <> 'rejected'
+                  AND rule_id IS DISTINCT FROM :rid AND end_at > :a AND start_at < :b
+            """),
+                    {"c": comp.id, "f": field, "rid": rule_id, "a": start, "b": end},
+                )
+            ).all()
             ms, vs = await detect.field_values(conn, sy, s.id, field, start - timedelta(minutes=lb), end)
             for h in R.apply(type, norm, ms, vs):
                 if h.end <= detect.minute_no(start):
                     continue
+                a, b = detect.at(h.start), detect.at(h.end)
+                hit = {str(o[2]) for o in others if o[0] < b and a < o[1]}
+                if hit:
+                    overlapping += 1
+                    overlap_types |= hit
                 minutes += h.end - h.start
                 hit_sites.add(s.slug)
                 examples.append(
@@ -296,6 +323,8 @@ async def dry_run(
         "minutes": minutes,
         "sites": len(hit_sites),
         "examples": examples[:5],
+        "overlapping": overlapping,
+        "overlapping_types": sorted(overlap_types),
     }
 
 
@@ -388,7 +417,7 @@ async def create_rule(
         )
         job = await _enqueue_detect(conn, sy, admin.username, int(rule_id)) if body.enabled else None
         rule = await _rule_or_404(conn, sy, int(rule_id))
-    return {"rule": rule_view(sy, rule, 0), "job": job}
+    return {"rule": rule_view(sy, rule), "job": job, "withdrawn": 0}
 
 
 @admin_router.put("/rules/{rule_id}")
@@ -412,6 +441,7 @@ async def update_rule(
         before = _audit_rule(sy, old.site_id, old.params, old.enabled)
         after = _audit_rule(sy, site_id, params, body.enabled)
         job = None
+        withdrawn = 0
         if before != after or old.proposed:
             await conn.execute(
                 text("""
@@ -428,7 +458,22 @@ async def update_rule(
                 },
             )
             await conn.execute(text("UPDATE dq_rule SET proposed = false WHERE id = :id"), {"id": rule_id})
+            # The new version replaces the old ones: their undecided suspects go (decided ones keep their version
+            # and, when confirmed, keep counting). Turning a rule off withdraws its suspects the same way.
+            withdrawn = len(
+                (
+                    await conn.execute(
+                        text("""
+                    DELETE FROM dq_detection WHERE rule_id = :id AND status = 'suspect' AND rule_version <= :v
+                    RETURNING id
+                """),
+                        {"id": rule_id, "v": old.version},
+                    )
+                ).all()
+            )
             changed_before, changed_after = audit.diff(before, after)
+            if withdrawn:
+                changed_after["withdrawn_suspects"] = withdrawn
             await audit.record(
                 conn,
                 "rule_changed",
@@ -442,8 +487,34 @@ async def update_rule(
             if body.enabled:
                 job = await _enqueue_detect(conn, sy, admin.username, rule_id)
         rule = await _rule_or_404(conn, sy, rule_id)
-        counts = await _suspect_counts(conn)
-    return {"rule": rule_view(sy, rule, counts.get(rule_id, 0)), "job": job}
+        counts = await _counts(conn)
+    return {"rule": rule_view(sy, rule, counts.get(rule_id, (0, 0))), "job": job, "withdrawn": withdrawn}
+
+
+@admin_router.delete("/rules/{rule_id}")
+async def delete_rule(
+    rule_id: int, request: Request, admin: Principal = Depends(require_admin), system: str = DEFAULT_SYSTEM
+) -> dict[str, Any]:
+    """Deletes a rule that never raised anything (made by mistake). One that did can only be turned off: its
+    detections name it."""
+    async with get_engine().begin() as conn:
+        sy = await _system(conn, system)
+        await conn.execute(text("SELECT id FROM dq_rule WHERE id = :id FOR UPDATE"), {"id": rule_id})
+        rule = await _rule_or_404(conn, sy, rule_id)
+        if await conn.scalar(text("SELECT count(*) FROM dq_detection WHERE rule_id = :id"), {"id": rule_id}):
+            raise ApiError(409, "rule_has_detections", "this rule raised detections: turn it off instead")
+        await conn.execute(text("DELETE FROM dq_rule_version WHERE rule_id = :id"), {"id": rule_id})
+        await conn.execute(text("DELETE FROM dq_rule WHERE id = :id"), {"id": rule_id})
+        await audit.record(
+            conn,
+            "rule_deleted",
+            actor=admin.username,
+            entity_type="rule",
+            entity_id=f"{rule_id} {rule.component_type}:{rule.field}:{rule.type}",
+            before={**_audit_rule(sy, rule.site_id, rule.params, rule.enabled), "versions": rule.version},
+            source_ip=client_ip(request),
+        )
+    return {"deleted": rule_id}
 
 
 # ------------------------------------------------------------------------------------------ review queue

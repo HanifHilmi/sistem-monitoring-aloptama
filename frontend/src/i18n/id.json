@@ -524,7 +524,8 @@
       "flag_removed": "Menghapus penanda",
       "rule_created": "Membuat aturan",
       "rule_changed": "Mengubah aturan",
-      "detections_decided": "Memutuskan deteksi"
+      "detections_decided": "Memutuskan deteksi",
+      "rule_deleted": "Menghapus aturan"
     },
     "entity": {
       "user": "pengguna",
@@ -573,7 +574,9 @@
       "params": "Nilai",
       "enabled": "Aktif",
       "site": "Lokasi",
-      "status": "Status"
+      "status": "Status",
+      "withdrawn_suspects": "Suspek ditarik",
+      "versions": "Versi"
     },
     "reason": {
       "password": "kata sandi salah",
@@ -838,7 +841,7 @@
       "saved": "Versi {v} disimpan.",
       "rerun": "Seluruh riwayat sedang diperiksa dengan aturan ini:",
       "off": "Aturan nonaktif: tidak ada yang diperiksa sampai diaktifkan.",
-      "keepVersion": "Suspek yang muncul sebelumnya tetap memakai versi yang memunculkannya.",
+      "keepVersion": "Deteksi yang sudah dikonfirmasi atau ditolak tetap memakai versi yang memunculkannya; yang dikonfirmasi tetap dihitung.",
       "proposedNote": "Diusulkan dari riwayat (OPEN-08). Periksa nilainya dengan uji coba, sesuaikan bila perlu, lalu setujui.",
       "type": "Aturan",
       "scope": "Berlaku untuk",
@@ -868,7 +871,16 @@
       "saveVersion": "Simpan sebagai versi {v}",
       "create": "Buat aturan",
       "versions": "Versi",
-      "noProposal": "Tidak ada usulan untuk jenis aturan ini pada field ini."
+      "noProposal": "Tidak ada usulan untuk jenis aturan ini pada field ini.",
+      "withdrawn": "{n} suspek terbuka dari versi yang diganti ditarik dari antrean tinjauan.",
+      "replaces": "Di {site} aturan ini menggantikan aturan semua lokasi yang sejenis ({rule}).",
+      "keptAt": "Lokasi yang memiliki aturan sejenis sendiri tetap memakainya: {sites}.",
+      "dryOverlap": "{n} dari rentang ini sudah dimunculkan oleh aturan lain pada field ini ({rules}).",
+      "delete": "Hapus aturan",
+      "deleteConfirm": "Hapus aturan ini beserta versinya? Aturan ini tidak pernah memunculkan apa pun, jadi tidak ada yang lain berubah. Penghapusan tercatat di log audit.",
+      "deleteYes": "Hapus",
+      "noDelete": "{n} deteksi merujuk aturan ini: nonaktifkan saja.",
+      "versionsNote": "Hanya versi teratas yang berlaku. Versi lama disimpan karena deteksi merujuk versi yang memunculkannya."
     },
     "error": {
       "range_needs_a_limit": "Isi minimum, maksimum, atau keduanya.",
@@ -884,7 +896,21 @@
       "invalid_rule_type": "Pilih aturan.",
       "text_field": "Aturan hanya untuk field angka.",
       "rule_not_found": "Aturan ini sudah tidak ada.",
-      "invalid_params": "Nilai aturan tidak valid."
+      "invalid_params": "Nilai aturan tidak valid.",
+      "rule_has_detections": "Aturan ini sudah memunculkan deteksi, jadi tidak dapat dihapus: nonaktifkan saja."
+    },
+    "version": {
+      "proposed": "diusulkan dari riwayat",
+      "created": "dibuat",
+      "values": "nilai: {rule}",
+      "scope": "kini berlaku untuk {site}",
+      "on": "diaktifkan",
+      "off": "dinonaktifkan",
+      "approved": "disetujui",
+      "saved": "disimpan",
+      "replaced": "diganti {time}",
+      "inEffect": "berlaku",
+      "currentOff": "terbaru, nonaktif"
     }
   },
   "detections": {
