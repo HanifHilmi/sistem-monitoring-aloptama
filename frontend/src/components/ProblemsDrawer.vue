@@ -22,7 +22,9 @@ function message(p: Problem): string {
   const params: Record<string, string | number> = {}
   for (const [k, v] of Object.entries(p.params))
     if (v !== null && v !== undefined) params[k === 'lag_min' ? 'lag' : k] = v
-  return t(`problems.code.${p.code}`, params)
+  return typeof params.n === 'number'
+    ? t(`problems.code.${p.code}`, params, params.n)
+    : t(`problems.code.${p.code}`, params)
 }
 // The API's links (/systems/{code}, /systems/{code}/sites/{slug}) are the app's own paths.
 const link = (p: Problem) => p.link

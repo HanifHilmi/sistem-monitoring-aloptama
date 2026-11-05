@@ -39,7 +39,18 @@ async function load(more = false) {
 watch(query, () => void load(), { immediate: true })
 
 const actionLabel = (a: string) => (te(`audit.action.${a}`) ? t(`audit.action.${a}`) : a)
-const ENTITIES = ['user', 'session', 'setting', 'job', 'mandatory', 'component', 'flag', 'audit']
+const ENTITIES = [
+  'user',
+  'session',
+  'setting',
+  'job',
+  'mandatory',
+  'component',
+  'flag',
+  'rule',
+  'detection',
+  'audit',
+]
 const fieldLabel = (k: string) => (te(`audit.fieldName.${k}`) ? t(`audit.fieldName.${k}`) : k)
 function showValue(key: string, v: unknown): string {
   if (v === undefined || v === null || v === '') return '—'

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api/client'
-import type { ComponentInfo, FieldInfo, Flag, SeriesField, SeriesResponse } from '@/api/types'
+import type { ComponentInfo, Detection, FieldInfo, Flag, SeriesField, SeriesResponse } from '@/api/types'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -10,6 +10,7 @@ import { useDisplayStore } from '@/stores/display'
 import { formatDuration, formatRange } from '@/utils/flags'
 import { figureLevel, int, LEVEL_TEXT, num, pct } from '@/utils/format'
 import type { ChartWindow } from '@/utils/time'
+import DetectionList from './detections/DetectionList.vue'
 import FieldChart from './FieldChart.vue'
 import FlagList from './flags/FlagList.vue'
 import GustPanel from './sensors/GustPanel.vue'
@@ -69,6 +70,25 @@ watch(
   { immediate: true },
 )
 const flags = computed(() => flagLoader.data.value ?? [])
+
+// ---- detections in the window (R2.4): confirmed for everyone, suspect and rejected for signed-in users ----
+const detLoader = useLoader<Detection[]>(() =>
+  api.detections(
+    props.systemCode,
+    props.window.from,
+    props.window.to,
+    `component:${props.siteSlug}:${props.component.type}`,
+  ),
+)
+watch(
+  () => [props.window.from.getTime(), props.window.to.getTime(), props.refreshKey],
+  () => detLoader.load({ silent: true }),
+  { immediate: true },
+)
+const detections = computed(() => detLoader.data.value ?? [])
+const fieldDetections = (code: string) => detections.value.filter((d) => d.field === code)
+const suspects = computed(() => detections.value.filter((d) => d.status === 'suspect').length)
+const confirmed = computed(() => detections.value.filter((d) => d.status === 'confirmed').length)
 const selecting = ref(false)
 const selection = ref<[number, number] | null>(null)
 watch(open, () => {
@@ -141,6 +161,18 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
         {{ t('flags.chip', { n: flags.length }, flags.length) }}
       </span>
       <span
+        v-if="suspects"
+        class="inline-flex items-center gap-1 rounded-full border border-dashed border-detect px-2 py-px text-[0.6875rem] text-detect"
+        data-testid="suspect-chip"
+        >{{ t('detections.chipSuspect', { n: suspects }, suspects) }}</span
+      >
+      <span
+        v-if="confirmed"
+        class="inline-flex items-center gap-1 rounded-full bg-detect/15 px-2 py-px text-[0.6875rem] text-detect"
+        data-testid="detection-chip"
+        >{{ t('detections.chipConfirmed', { n: confirmed }, confirmed) }}</span
+      >
+      <span
         v-if="avail"
         class="num ml-auto text-xs"
         :class="LEVEL_TEXT[figureLevel(avail, display.thresholds)]"
@@ -194,6 +226,16 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
               <span class="num text-[0.625rem] text-ink-3"
                 >{{ f.code }}<span v-if="f.mandatory" :title="t('sensor.mandatory')">*</span></span
               >
+              <span
+                v-if="fieldDetections(f.code).some((d) => d.status !== 'rejected')"
+                class="ml-1 inline-block h-2 w-2 rounded-full align-middle"
+                :class="
+                  fieldDetections(f.code).some((d) => d.status === 'confirmed')
+                    ? 'bg-detect'
+                    : 'border border-dashed border-detect'
+                "
+                :title="t('detections.inWindow')"
+              />
             </td>
             <td class="num text-right">
               <span v-if="noCloud(f)" class="font-medium">{{ t('sensor.noCloud') }}</span>
@@ -275,6 +317,7 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
                   :name="name(f.code)"
                   :window="window"
                   :flags="flags"
+                  :detections="fieldDetections(f.code)"
                   :selecting="selecting"
                 />
                 <div v-if="loader.data.value.wind && (f.code === 'WS' || f.code === 'WD')">
@@ -288,6 +331,18 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
               >
                 <h4 class="eyebrow mb-1.5">{{ t('flags.inWindow') }}</h4>
                 <FlagList :flags="flags" :can-edit="auth.isAdmin" @edit="(id) => emit('editFlag', id)" />
+              </section>
+              <section
+                v-if="fieldDetections(f.code).length"
+                class="mt-2 border-t border-line pt-2"
+                :aria-label="t('detections.inWindow')"
+              >
+                <h4 class="eyebrow mb-1.5">{{ t('detections.inWindow') }}</h4>
+                <DetectionList
+                  :detections="fieldDetections(f.code)"
+                  :fields="fields"
+                  :can-review="auth.isAdmin"
+                />
               </section>
             </td>
           </tr>

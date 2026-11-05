@@ -150,13 +150,18 @@ function advance(j: Job, now: number) {
   }).join('\n')
   if (f >= 1) {
     j.finished_at = iso(start + j.span)
-    j.message = j.type === 'reprocess' ? `reprocessed ${days} day(s)` : `recomputed ${days} day(s)`
+    j.message =
+      j.type === 'reprocess'
+        ? `reprocessed ${days} day(s)`
+        : j.type === 'detect'
+          ? `checked ${days} day(s)`
+          : `recomputed ${days} day(s)`
   }
 }
 
 function enqueue(
   s: State,
-  type: 'reprocess' | 'recompute',
+  type: 'reprocess' | 'recompute' | 'detect',
   from: string,
   to: string,
   by: string,
@@ -175,7 +180,7 @@ function enqueue(
     started_at: null,
     finished_at: null,
     log: '',
-    span: Math.min(90_000, 4_000 + days * (type === 'reprocess' ? 300 : 80)),
+    span: Math.min(90_000, 4_000 + days * (type === 'reprocess' ? 300 : type === 'detect' ? 40 : 80)),
   }
   s.jobs.push(j)
   return j
@@ -203,9 +208,20 @@ function availability(pct: number): Availability {
 
 /** Queues a recompute of the given UTC days, as a flag change does (R2.3). */
 export function enqueueRecompute(from: string, to: string, user: string, now: number): JobRow {
+  return enqueueJob('recompute', from, to, user, now)
+}
+
+/** Queues a job: a recompute after a flag or decision, a detection run after a rule change (R2.4). */
+export function enqueueJob(
+  type: 'recompute' | 'detect',
+  from: string,
+  to: string,
+  user: string,
+  now: number,
+): JobRow {
   const s = load(now)
   s.jobs.forEach((j) => advance(j, now))
-  const j = enqueue(s, 'recompute', from, to, user, now)
+  const j = enqueue(s, type, from, to, user, now)
   save(s)
   return row(j)
 }

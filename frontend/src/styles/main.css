@@ -24,6 +24,8 @@
   --s-ok: #138a46;
   /* manual flags (R2.3): data marked as bad by an Admin */
   --s-flag: #7048c8;
+  /* validity rules (R2.4): confirmed detections solid, suspects as a dashed outline */
+  --s-detect: #c2367a;
   color-scheme: light;
 }
 
@@ -46,6 +48,7 @@
     --s-empty: #1a212b;
     --s-ok: #34b46a;
     --s-flag: #a389f4;
+    --s-detect: #ec6fa9;
     color-scheme: dark;
   }
 }
@@ -68,6 +71,7 @@
   --s-empty: #1a212b;
   --s-ok: #34b46a;
   --s-flag: #a389f4;
+  --s-detect: #ec6fa9;
   color-scheme: dark;
 }
 
@@ -89,6 +93,7 @@
   --color-empty: var(--s-empty);
   --color-ok: var(--s-ok);
   --color-flag: var(--s-flag);
+  --color-detect: var(--s-detect);
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
 }
@@ -163,6 +168,10 @@
       color-mix(in srgb, var(--s-flag) 38%, transparent) 0 2px,
       color-mix(in srgb, var(--s-flag) 12%, transparent) 2px 6px
     );
+  }
+  /* Minute map: a valid minute under a suspect detection (signed-in users only): green with a rose foot. */
+  .cell-suspect {
+    background: linear-gradient(to bottom, var(--s-full) 55%, var(--s-detect) 55%);
   }
   .btn-danger {
     @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-bad/50 bg-surface px-3 py-1.5 text-sm text-bad hover:bg-bad/10 disabled:cursor-not-allowed disabled:opacity-50;

@@ -28,6 +28,7 @@ export function formatDuration(minutes: number, t: T): string {
   const h = Math.floor((minutes % 1440) / 60)
   const m = minutes % 60
   if (d) return t('outages.durDays', { d, h })
+  if (h && !m) return t('outages.durHoursOnly', { h })
   if (h) return t('outages.durHours', { h, m })
   return t('outages.durMinutes', { m })
 }

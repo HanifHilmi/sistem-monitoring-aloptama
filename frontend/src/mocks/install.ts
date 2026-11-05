@@ -3,6 +3,7 @@ import type { MatrixBucket } from '@/api/types'
 import { accountsRoute, currentUser, signedIn } from './accounts'
 import { adminRoute, recalculating } from './admin'
 import * as data from './data'
+import { dqRoute, isAdmin, pendingSuspects, publicDetections } from './dq'
 import { flagsRoute, publicFlags } from './flags'
 
 function json(body: unknown, status = 200): Response {
@@ -20,6 +21,8 @@ function route(url: URL, method: string, body: unknown): Response {
     if (me.role !== 'admin') return json({ code: 'forbidden', title: 'Admins only', status: 403 }, 403)
     const flags = flagsRoute(p, url, method, body, me.username)
     if (flags) return flags
+    const dq = dqRoute(p, url, method, body, me.username)
+    if (dq) return dq
     const admin = adminRoute(p, url, method, body, me.username)
     if (admin) return admin
   }
@@ -39,7 +42,9 @@ function route(url: URL, method: string, body: unknown): Response {
     return json(busy.length ? { ...m, period: { ...m.period, recalculating: busy } } : m)
   }
   if (p.endsWith('/flags')) return publicFlags(url)
-  if (p.endsWith('/minutes')) return json(data.minutes(q.get('day') ?? '', q.get('scope') ?? 'sla', now))
+  if (p.endsWith('/detections')) return publicDetections(url)
+  if (p.endsWith('/minutes'))
+    return json(data.minutes(q.get('day') ?? '', q.get('scope') ?? 'sla', now, signedIn()))
   if (p.endsWith('/outages')) {
     if (to - from > data.MAX_OUTAGE_SPAN)
       return json({ code: 'period_too_long', title: 'period longer than 93 days', status: 422 }, 422)
@@ -56,6 +61,17 @@ function route(url: URL, method: string, body: unknown): Response {
           link: '/systems/WIDN-CAT3/sites/04',
           params: { site: 'RWY04', component: 'PWX', since: new Date(now - 3_600_000).toISOString() },
         },
+        // Pending suspect detections are for signed-in users only (PRD FR-DSH-010, OPEN-13).
+        ...(signedIn() && pendingSuspects()
+          ? [
+              {
+                code: 'suspects_pending',
+                severity: 'info',
+                link: isAdmin() ? '/admin/review' : '/systems/WIDN-CAT3',
+                params: { n: pendingSuspects() },
+              },
+            ]
+          : []),
       ],
     })
   const m = p.match(/^\/systems\/[^/]+\/sites\/([^/]+)\/components\/([^/]+)\/series$/)

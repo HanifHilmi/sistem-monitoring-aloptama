@@ -94,7 +94,9 @@ test.describe('U2 explain a dip', () => {
     // The causes add up to the minutes lost.
     const causes = await section.getByTestId('outage-cause').allInnerTexts()
     expect(causes.reduce((n, c) => n + firstNumber(c), 0)).toBe(await lostInSummary(section))
-    const known = ['cdp_no_data', 'no_record', 'field_missing', 'flagged'].map((c) => t(`outages.cause.${c}`))
+    const known = ['cdp_no_data', 'no_record', 'field_missing', 'flagged', 'detection'].map((c) =>
+      t(`outages.cause.${c}`),
+    )
     for (const c of causes) expect(known.some((k) => c.includes(k))).toBe(true)
 
     await expectNoPageScroll(page)

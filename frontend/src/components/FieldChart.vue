@@ -2,7 +2,7 @@
 import type { EChartsCoreOption } from 'echarts/core'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { Flag, SeriesField } from '@/api/types'
+import type { Detection, Flag, SeriesField } from '@/api/types'
 import type { Locale } from '@/i18n'
 import { int, num } from '@/utils/format'
 import { chartBase, SERIES, token } from '@/utils/theme'
@@ -11,12 +11,15 @@ import EChart from './EChart.vue'
 import RangeSelect from './flags/RangeSelect.vue'
 
 // Full view of one field: a line chart for numbers; for text fields a state ribbon over time plus minutes per state.
-// Flagged ranges are shaded with their reason (FR-DQ-007); while `selecting`, a drag picks a range to flag.
+// Flagged ranges are shaded with their reason, confirmed detections in solid rose and suspect ones (signed-in users
+// only) as a dashed outline (FR-DQ-007); while `selecting`, a drag picks a range to flag.
 const props = defineProps<{
   field: SeriesField
   name: string
   window: ChartWindow
   flags?: Flag[]
+  /** this field's detections in the window; rejected ones are not drawn */
+  detections?: Detection[]
   selecting?: boolean
 }>()
 const selection = defineModel<[number, number] | null>('selection', { default: null })
@@ -36,16 +39,39 @@ const option = computed<EChartsCoreOption | null>(() => {
   const dots = props.field.chart === 'dots'
   const direction = props.field.unit === '°'
   const flag = token('flag')
-  const markArea = props.flags?.length
-    ? {
-        silent: true,
+  const det = token('detect')
+  const areas = [
+    ...(props.flags ?? []).map((f) => [
+      {
+        name: t(`flags.reason.${f.reason}`),
+        xAxis: Date.parse(f.start),
         itemStyle: { color: `${flag}24`, borderColor: `${flag}80`, borderWidth: 1 },
-        label: { color: flag, fontSize: 10, position: 'insideTopLeft' as const },
-        data: props.flags.map((f) => [
-          { name: t(`flags.reason.${f.reason}`), xAxis: Date.parse(f.start) },
-          { xAxis: Date.parse(f.end) },
-        ]),
-      }
+        label: { color: flag },
+      },
+      { xAxis: Date.parse(f.end) },
+    ]),
+    ...(props.detections ?? [])
+      .filter((d) => d.status !== 'rejected')
+      .map((d) => [
+        {
+          name: `${t(`rules.type.${d.type}`)} · ${t(`detections.status.${d.status}`)}`,
+          xAxis: Date.parse(d.start),
+          itemStyle:
+            d.status === 'confirmed'
+              ? { color: `${det}30`, borderColor: `${det}a0`, borderWidth: 1 }
+              : { color: `${det}10`, borderColor: det, borderWidth: 1, borderType: 'dashed' as const },
+          // A short detection's name would sit on its neighbour's: the list under the chart names it.
+          label: {
+            color: det,
+            position: 'insideBottomLeft' as const,
+            show: (Date.parse(d.end) - Date.parse(d.start)) / span.value > 0.08,
+          },
+        },
+        { xAxis: Math.max(Date.parse(d.end), Date.parse(d.start) + 60_000) },
+      ]),
+  ]
+  const markArea = areas.length
+    ? { silent: true, label: { fontSize: 10, position: 'insideTopLeft' as const }, data: areas }
     : undefined
   return {
     ...base,
@@ -55,7 +81,7 @@ const option = computed<EChartsCoreOption | null>(() => {
       type: 'time',
       min: props.window.from.getTime(),
       max: props.window.to.getTime(),
-      axisLabel: base.axisLabel,
+      axisLabel: { ...base.axisLabel, hideOverlap: true },
       axisLine: base.axisLine,
       splitLine: { show: false },
     },

@@ -313,15 +313,20 @@ export interface MinuteInterval {
   start: string
   end: string
   minutes: number
-  cause: 'field_missing' | 'no_data' | 'flagged'
+  cause: 'field_missing' | 'no_data' | 'flagged' | 'detection'
   /** flagged only: the flags that cover the interval */
   flags?: FlagRef[]
+  /** detection only: the confirmed detection behind the interval */
+  detections?: DetectionRef[]
 }
 
 export interface MinutesResponse {
   scope: string
   day: string
-  /** one letter per minute: v valid, f mandatory field missing, n no data, g flagged, u not counted */
+  /**
+   * One letter per minute: v valid, f mandatory field missing, n no data, g flagged, d confirmed detection,
+   * s valid but a suspect detection covers it (signed-in users only), u not counted.
+   */
   codes: string
   valid: number
   expected: number
@@ -351,6 +356,8 @@ export interface Outage {
   components?: OutageComponent[]
   /** flagged only: the flags that cover the interval */
   flags?: FlagRef[]
+  /** detection only: the confirmed detection behind the interval */
+  detections?: DetectionRef[]
 }
 
 export interface OutagesResponse {
@@ -443,7 +450,7 @@ export interface AuditFilter {
 
 // ---------------------------------------------------------------- admin operations (R2.2, FR-ADM-002/003, FR-REG-003/006)
 
-export type JobType = 'reprocess' | 'recompute' | 'import_legacy'
+export type JobType = 'reprocess' | 'recompute' | 'import_legacy' | 'detect'
 export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'interrupted'
 
 export interface JobRow {
@@ -584,5 +591,161 @@ export interface FlagPreview {
 
 export interface FlagChange {
   flag: FlagRow
+  job: JobRow | null
+}
+
+// ---------------------------------------------------------------- rules and detections (R2.4, FR-DQ-001..005)
+
+export const RULE_TYPES = ['range', 'stuck', 'spike'] as const
+export type RuleType = (typeof RULE_TYPES)[number]
+
+/** range: min/max · stuck: minutes (+ values to ignore) · spike: max_change (+ window in minutes) */
+export interface RuleParams {
+  min?: number | null
+  max?: number | null
+  minutes?: number
+  ignore?: number[]
+  max_change?: number
+  window?: number
+}
+
+export interface Rule {
+  id: number
+  component_type: string
+  field: string
+  /** null: every site with this component type; a slug: only there, replacing the type-wide rule of this type */
+  site: string | null
+  type: RuleType
+  params: RuleParams
+  enabled: boolean
+  /** proposed from history and never approved: stays off until an Admin turns it on (OPEN-08) */
+  proposed: boolean
+  version: number
+  changed_by: string
+  changed_at: string
+  /** the field decides availability: a confirmed detection invalidates the component (FR-DQ-005) */
+  mandatory: boolean
+  suspects: number
+}
+
+export interface RuleVersion {
+  version: number
+  params: RuleParams
+  enabled: boolean
+  site: string | null
+  created_by: string
+  created_at: string
+}
+
+export interface RuleDraft {
+  system: string
+  component_type: string
+  field: string
+  site: string | null
+  type: RuleType
+  params: RuleParams
+  enabled: boolean
+}
+
+/** What the history says about a field (OPEN-08), and the starting values proposed from it. */
+export interface FieldHistory {
+  component_type: string
+  field: string
+  unit: string | null
+  from: string | null
+  to: string | null
+  /** when the statistics were worked out (stored; refreshed weekly) */
+  computed_at?: string
+  minutes: number
+  /** 0.1 % and 99.9 % of the values, and the extremes */
+  p001: number
+  p999: number
+  min: number
+  max: number
+  /** longest run of one unchanged value, and the 99th percentile of runs */
+  longest_run_minutes: number
+  run_p99_minutes: number
+  /** largest change between consecutive minutes, and its 99.9th percentile */
+  largest_step: number
+  step_p999: number
+  /** no spike proposal for fields that jump by nature (direction, rain, light) */
+  proposed: Partial<Record<RuleType, RuleParams>>
+}
+
+/** What a rule would have raised over a recent period, before saving it. */
+export interface RuleDryRun {
+  from: string
+  to: string
+  intervals: number
+  minutes: number
+  sites: number
+  examples: { site: string; start: string; end: string; minutes: number; evidence: Evidence }[]
+}
+
+export type DetectionStatus = 'suspect' | 'confirmed' | 'rejected'
+
+/** Why a rule fired, in numbers: the value (range, stuck) or the jump (spike). */
+export interface Evidence {
+  value?: number
+  low?: number
+  high?: number
+  change?: number
+}
+
+export interface DetectionRef {
+  id: number
+  field: string
+  type: RuleType
+}
+
+export interface Detection extends DetectionRef {
+  site: string
+  component: string
+  rule_id: number
+  rule_version: number
+  /** the rule's parameters when it fired (FR-DQ-003): later edits do not change them */
+  params: RuleParams
+  start: string
+  /** exclusive */
+  end: string
+  minutes: number
+  status: DetectionStatus
+  mandatory: boolean
+  evidence: Evidence
+  decided_by?: string | null
+  decided_at?: string | null
+  note?: string | null
+}
+
+export interface DetectionFilter {
+  status: DetectionStatus
+  site?: string
+  component?: string
+  field?: string
+  type?: RuleType | ''
+  from?: string
+  to?: string
+}
+
+export interface DetectionPage {
+  total: number
+  counts: Record<DetectionStatus, number>
+  detections: Detection[]
+}
+
+export interface Decision {
+  ids: number[]
+  decision: 'confirm' | 'reject'
+  note?: string
+}
+
+export interface RuleChange {
+  rule: Rule
+  /** the detection run over the history that the change queued, if any */
+  job: JobRow | null
+}
+
+export interface DecisionResult {
+  decided: Detection[]
   job: JobRow | null
 }

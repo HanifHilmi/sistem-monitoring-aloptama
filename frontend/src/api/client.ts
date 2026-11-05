@@ -3,12 +3,23 @@ import type {
   AuditFilter,
   AuditPage,
   ComponentRow,
+  Decision,
+  DecisionResult,
+  Detection,
+  DetectionFilter,
+  DetectionPage,
+  FieldHistory,
   Flag,
   FlagChange,
   FlagDraft,
   FlagPreview,
   FlagRow,
   JobDetail,
+  Rule,
+  RuleChange,
+  RuleDraft,
+  RuleDryRun,
+  RuleVersion,
   JobRow,
   MandatoryPreview,
   MandatoryType,
@@ -136,6 +147,9 @@ export const api = {
   /** Flags touching a scope (`component:<site>:<type>`, `site:<site>` or all) in a period (FR-DQ-007). */
   flags: (code: string, from: Date, to: Date, scope?: string) =>
     get<Flag[]>(`/systems/${encodeURIComponent(code)}/flags`, { ...period(from, to), scope }),
+  /** Detections touching a scope in a period: confirmed for everyone, suspect and rejected for signed-in users. */
+  detections: (code: string, from: Date, to: Date, scope?: string) =>
+    get<Detection[]>(`/systems/${encodeURIComponent(code)}/detections`, { ...period(from, to), scope }),
   internalHealth: () => get<Record<string, unknown>>('/internal/health'),
 
   // Accounts (R2.1)
@@ -191,4 +205,24 @@ export const api = {
   createFlag: (draft: FlagDraft) => send<FlagChange>('POST', '/admin/flags', draft),
   updateFlag: (id: number, draft: FlagDraft) => send<FlagChange>('PATCH', `/admin/flags/${id}`, draft),
   removeFlag: (id: number) => send<FlagChange>('DELETE', `/admin/flags/${id}`),
+
+  // Rules and detections (R2.4)
+  rules: (system: string) => get<Rule[]>('/admin/rules', { system }),
+  ruleVersions: (id: number) => get<RuleVersion[]>(`/admin/rules/${id}/versions`),
+  fieldHistory: (system: string, componentType: string, field: string) =>
+    get<FieldHistory>('/admin/rules/history', { system, component_type: componentType, field }),
+  dryRun: (draft: RuleDraft) =>
+    get<RuleDryRun>('/admin/rules/dry-run', {
+      system: draft.system,
+      component_type: draft.component_type,
+      field: draft.field,
+      site: draft.site ?? undefined,
+      type: draft.type,
+      params: JSON.stringify(draft.params),
+    }),
+  createRule: (draft: RuleDraft) => send<RuleChange>('POST', '/admin/rules', draft),
+  updateRule: (id: number, draft: RuleDraft) => send<RuleChange>('PUT', `/admin/rules/${id}`, draft),
+  reviewQueue: (system: string, filter: DetectionFilter, offset = 0) =>
+    get<DetectionPage>('/admin/detections', { system, ...filter, offset, limit: 50 }),
+  decide: (decision: Decision) => send<DecisionResult>('POST', '/admin/detections/decide', decision),
 }

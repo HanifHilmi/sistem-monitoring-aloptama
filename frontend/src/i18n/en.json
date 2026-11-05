@@ -92,7 +92,9 @@
       "f": "Mandatory field missing",
       "n": "No data",
       "u": "Not counted",
-      "g": "Flagged"
+      "g": "Flagged",
+      "d": "Confirmed detection",
+      "s": "Valid, suspect"
     },
     "intervals": "Lost intervals, longest first",
     "noIntervals": "No minute lost on this day.",
@@ -103,14 +105,16 @@
     "causeName": {
       "field_missing": "Mandatory field missing",
       "no_data": "No data",
-      "flagged": "Flagged"
+      "flagged": "Flagged",
+      "detection": "Confirmed detection"
     },
     "more": "{n} more intervals",
     "openCharts": "Open this day's sensor charts",
     "flagsTitle": "Flags on this day",
     "selectMinutes": "Flag minutes",
     "selectHint": "Click the first and the last bad minute, or drag across them.",
-    "backToMinutes": "Back to the minutes"
+    "backToMinutes": "Back to the minutes",
+    "detectionsTitle": "Detections on this day"
   },
   "outages": {
     "title": "Outages, longest first",
@@ -142,7 +146,8 @@
       "day": "By day",
       "week": "By week",
       "month": "By month"
-    }
+    },
+    "durHoursOnly": "{h} h"
   },
   "live": {
     "componentsTitle": "Components with valid data right now",
@@ -184,7 +189,8 @@
       "component_field_missing": "{site} · {component}: mandatory field missing",
       "source_unavailable": "{cdp}: log share unavailable",
       "ingest_stale": "{cdp}: ingestion is {lag} min behind",
-      "backup_overdue": "Backup overdue"
+      "backup_overdue": "Backup overdue",
+      "suspects_pending": "{n} suspect detection waiting for review | {n} suspect detections waiting for review"
     }
   },
   "status": {
@@ -515,7 +521,10 @@
       "in_service_changed": "Changed in-service period",
       "flag_created": "Flagged data",
       "flag_updated": "Changed flag",
-      "flag_removed": "Removed flag"
+      "flag_removed": "Removed flag",
+      "rule_created": "Created rule",
+      "rule_changed": "Changed rule",
+      "detections_decided": "Decided detections"
     },
     "entity": {
       "user": "user",
@@ -525,7 +534,9 @@
       "job": "job",
       "mandatory": "mandatory fields",
       "component": "component",
-      "flag": "flag"
+      "flag": "flag",
+      "rule": "rule",
+      "detection": "detection"
     },
     "yes": "yes",
     "no": "no",
@@ -558,7 +569,11 @@
       "start": "Start",
       "end": "End",
       "note": "Note",
-      "components": "Components"
+      "components": "Components",
+      "params": "Values",
+      "enabled": "On",
+      "site": "Site",
+      "status": "Status"
     },
     "reason": {
       "password": "wrong password",
@@ -571,7 +586,8 @@
     "type": {
       "reprocess": "Reprocess from CDP files",
       "recompute": "Recompute figures",
-      "import_legacy": "Import v2 probes"
+      "import_legacy": "Import v2 probes",
+      "detect": "Run validity rules"
     },
     "hint": {
       "reprocess": "Reads both CDPs' 1-minute files again for these days, replaces the stored minutes and recomputes the figures. Use it after a share outage or a corrected file. Only one at a time.",
@@ -782,5 +798,165 @@
       "flag_removed": "This flag was removed in the meantime.",
       "flag_not_found": "This flag no longer exists."
     }
+  },
+  "rules": {
+    "title": "Validity rules",
+    "subtitle": "Rules check every field minute by minute and raise suspect stretches. A suspect changes nothing: the figures only follow once an Admin confirms it in the review queue. A confirmed detection on a mandatory field makes the component unavailable for that time; on an optional field it marks the field only.",
+    "proposedBanner": "{n} rule proposed from the history is waiting for your approval. Proposed rules stay off until you approve them. | {n} rules proposed from the history are waiting for your approval. Proposed rules stay off until you approve them.",
+    "onlyProposed": "Proposed only",
+    "mandatory": "mandatory: decides availability",
+    "optional": "optional: marks the field only",
+    "add": "Rule",
+    "newTitle": "New rule · {field}",
+    "allSites": "All sites",
+    "onlySite": "{site} only",
+    "type": {
+      "range": "Range",
+      "stuck": "Stuck",
+      "spike": "Spike"
+    },
+    "typeHint": {
+      "range": "Values below the minimum or above the maximum are suspect.",
+      "stuck": "The same value for this many minutes or more is suspect. A missing minute ends the run.",
+      "spike": "A change larger than this between consecutive valid minutes is suspect. A missing minute is never compared."
+    },
+    "state": {
+      "on": "On",
+      "off": "Off",
+      "proposed": "Proposed, waiting for approval"
+    },
+    "text": {
+      "range": "{min} to {max}",
+      "rangeMin": "at least {min}",
+      "rangeMax": "at most {max}",
+      "stuck": "unchanged for {d} or more",
+      "ignore": "(except {values})",
+      "spike": "change over {change} per minute",
+      "spikeWindow": "change over {change} within {n} minutes"
+    },
+    "form": {
+      "saved": "Version {v} saved.",
+      "rerun": "The whole history is being checked with it:",
+      "off": "The rule is off: nothing is checked until it is turned on.",
+      "keepVersion": "Suspects raised earlier keep the version that raised them.",
+      "proposedNote": "Proposed from the history (OPEN-08). Check the values against the dry run, adjust them if needed, then approve.",
+      "type": "Rule",
+      "scope": "Applies to",
+      "scopeHint": "A rule for one site replaces the all-sites rule of the same kind there.",
+      "min": "Minimum",
+      "max": "Maximum",
+      "minutes": "Unchanged for at least (minutes)",
+      "ignore": "Values that may stay unchanged",
+      "ignoreHint": "For example 0 for rain or night-time sun. Separate several with commas.",
+      "change": "Largest normal change",
+      "window": "Within (minutes)",
+      "windowHint": "1 compares each minute with the one before.",
+      "history": "What the history shows",
+      "histUsual": "99.8 % of values between",
+      "histExtremes": "Lowest and highest",
+      "histRun": "Longest unchanged",
+      "histStep": "Change per minute (99.9 % / largest)",
+      "proposal": "Proposed: {rule}",
+      "useProposal": "Use these values",
+      "histBasis": "From {n} minutes of data, {from} to {to}.",
+      "dryRun": "Dry run: the last 30 days",
+      "dryResult": "Nothing would have been raised. | 1 stretch would have been raised ({minutes} min, {sites} site). | {n} stretches would have been raised ({minutes} min at {sites} site(s)).",
+      "dryTooMany": "That is a lot to review: check the values.",
+      "approve": "Approve and turn on",
+      "enabled": "On",
+      "enabledHint": "Checks new data as it arrives and the whole history once, as a job.",
+      "saveVersion": "Save as version {v}",
+      "create": "Create rule",
+      "versions": "Versions",
+      "noProposal": "No proposal for this kind of rule on this field."
+    },
+    "error": {
+      "range_needs_a_limit": "Give a minimum, a maximum or both.",
+      "invalid_range": "The minimum must be below the maximum.",
+      "invalid_minutes": "Use 5 to 1440 whole minutes.",
+      "invalid_ignore": "Values to ignore must be numbers, separated by commas.",
+      "invalid_change": "The change must be above 0.",
+      "invalid_window": "Use 1 to 60 whole minutes.",
+      "rule_exists": "This field already has a rule of this kind for this scope: edit that one.",
+      "component_type_not_found": "Unknown component type.",
+      "unknown_field": "This component does not report this field.",
+      "site_has_no_field": "That site does not report this field.",
+      "invalid_rule_type": "Pick a rule.",
+      "text_field": "Rules work on numeric fields only.",
+      "rule_not_found": "This rule no longer exists.",
+      "invalid_params": "The rule values are not valid."
+    }
+  },
+  "detections": {
+    "status": {
+      "suspect": "Suspect",
+      "confirmed": "Confirmed",
+      "rejected": "Rejected"
+    },
+    "rule": "Rule: {rule} (v{v})",
+    "optional": "optional field: no effect on the figures",
+    "decidedBy": {
+      "confirmed": "Confirmed by {name} · {time}",
+      "rejected": "Rejected by {name} · {time}",
+      "suspect": "Reopened by {name} · {time}"
+    },
+    "review": "Review",
+    "open": "Open",
+    "chipSuspect": "{n} suspect | {n} suspects",
+    "chipConfirmed": "{n} detection | {n} detections",
+    "inWindow": "Detections in this window",
+    "evidence": {
+      "range": "value {value}",
+      "stuck": "stayed at {value}",
+      "values": "values {low} to {high}",
+      "spike": "jumped {change}"
+    },
+    "prev": "Previous",
+    "next": "Next",
+    "chartWindow": "Chart: {from} to {to}",
+    "where": "Where",
+    "when": "When",
+    "saw": "What the rule saw",
+    "ruleLabel": "Rule",
+    "snapshot": "Version {v}, as it was when it fired; later edits do not change it.",
+    "effectMandatory": "Confirming makes {component} unavailable for these {n} minutes (mandatory field); minutes already lost are not counted twice. Figures for {days} are recalculated.",
+    "effectOptional": "Optional field: confirming marks the field as bad for this time; the figures do not change.",
+    "note": "Note (optional)",
+    "notePlaceholder": "Why: what you saw or did",
+    "confirm": "Confirm: bad data",
+    "reject": "Reject: data is fine",
+    "reverseConfirm": "Change to confirmed",
+    "reverseReject": "Change to rejected"
+  },
+  "review": {
+    "title": "Review queue",
+    "subtitle": "Stretches the validity rules found suspect. A suspect has no effect on any figure until you confirm it. Open one to see its chart, or select several to decide them together.",
+    "statusLabel": "Status",
+    "tab": {
+      "suspect": "Suspect",
+      "confirmed": "Confirmed",
+      "rejected": "Rejected"
+    },
+    "component": "Component",
+    "allComponents": "All components",
+    "rule": "Rule",
+    "allRules": "All rules",
+    "done": {
+      "confirm": "{n} detection confirmed. | {n} detections confirmed.",
+      "reject": "{n} detection rejected. | {n} detections rejected."
+    },
+    "recalc": "The figures are being recalculated:",
+    "selected": "{n} selected",
+    "confirmSelected": "Confirm selected",
+    "rejectSelected": "Reject selected",
+    "empty": {
+      "suspect": "Nothing waiting for review.",
+      "confirmed": "No confirmed detections.",
+      "rejected": "No rejected detections."
+    },
+    "selectAll": "Select all {n}",
+    "affects": "Mandatory field: confirming changes the figures",
+    "fieldOnly": "Optional field: marks the field only",
+    "more": "Showing {shown} of {total}; narrow the filters to see the rest."
   }
 }

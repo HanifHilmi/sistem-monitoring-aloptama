@@ -416,6 +416,7 @@ const levelsLegend = computed(() => {
           :scope="scopeOf(panel.row)"
           :day="panel.day"
           :site-link="siteLink"
+          :fields="info?.fields"
           @changed="loadAll(true)"
         />
         <div v-else class="flex flex-col gap-5">

@@ -92,7 +92,9 @@
       "f": "Field wajib hilang",
       "n": "Tidak ada data",
       "u": "Tidak dihitung",
-      "g": "Ditandai"
+      "g": "Ditandai",
+      "d": "Deteksi terkonfirmasi",
+      "s": "Valid, suspek"
     },
     "intervals": "Rentang yang hilang, terpanjang dulu",
     "noIntervals": "Tidak ada menit yang hilang pada hari ini.",
@@ -103,14 +105,16 @@
     "causeName": {
       "field_missing": "Field wajib hilang",
       "no_data": "Tidak ada data",
-      "flagged": "Ditandai"
+      "flagged": "Ditandai",
+      "detection": "Deteksi terkonfirmasi"
     },
     "more": "{n} rentang lainnya",
     "openCharts": "Buka grafik sensor hari ini",
     "flagsTitle": "Penanda pada hari ini",
     "selectMinutes": "Tandai menit",
     "selectHint": "Klik menit buruk pertama dan terakhir, atau seret di atasnya.",
-    "backToMinutes": "Kembali ke peta menit"
+    "backToMinutes": "Kembali ke peta menit",
+    "detectionsTitle": "Deteksi pada hari ini"
   },
   "outages": {
     "title": "Gangguan, terlama dulu",
@@ -142,7 +146,8 @@
       "day": "Per hari",
       "week": "Per minggu",
       "month": "Per bulan"
-    }
+    },
+    "durHoursOnly": "{h} j"
   },
   "live": {
     "componentsTitle": "Komponen dengan data valid saat ini",
@@ -184,7 +189,8 @@
       "component_field_missing": "{site} · {component}: field wajib hilang",
       "source_unavailable": "{cdp}: share log tidak tersedia",
       "ingest_stale": "{cdp}: pengambilan data tertinggal {lag} menit",
-      "backup_overdue": "Cadangan terlambat"
+      "backup_overdue": "Cadangan terlambat",
+      "suspects_pending": "{n} deteksi suspek menunggu tinjauan"
     }
   },
   "status": {
@@ -515,7 +521,10 @@
       "in_service_changed": "Mengubah periode operasi",
       "flag_created": "Menandai data",
       "flag_updated": "Mengubah penanda",
-      "flag_removed": "Menghapus penanda"
+      "flag_removed": "Menghapus penanda",
+      "rule_created": "Membuat aturan",
+      "rule_changed": "Mengubah aturan",
+      "detections_decided": "Memutuskan deteksi"
     },
     "entity": {
       "user": "pengguna",
@@ -525,7 +534,9 @@
       "job": "pekerjaan",
       "mandatory": "field wajib",
       "component": "komponen",
-      "flag": "penanda"
+      "flag": "penanda",
+      "rule": "aturan",
+      "detection": "deteksi"
     },
     "yes": "ya",
     "no": "tidak",
@@ -558,7 +569,11 @@
       "start": "Mulai",
       "end": "Selesai",
       "note": "Catatan",
-      "components": "Komponen"
+      "components": "Komponen",
+      "params": "Nilai",
+      "enabled": "Aktif",
+      "site": "Lokasi",
+      "status": "Status"
     },
     "reason": {
       "password": "kata sandi salah",
@@ -571,7 +586,8 @@
     "type": {
       "reprocess": "Proses ulang dari file CDP",
       "recompute": "Hitung ulang angka",
-      "import_legacy": "Impor probe v2"
+      "import_legacy": "Impor probe v2",
+      "detect": "Jalankan aturan validitas"
     },
     "hint": {
       "reprocess": "Membaca ulang file 1-menit kedua CDP untuk hari-hari ini, mengganti menit yang tersimpan, lalu menghitung ulang angka. Gunakan setelah share terputus atau file diperbaiki. Hanya satu dalam satu waktu.",
@@ -782,5 +798,165 @@
       "flag_removed": "Penanda ini sudah dihapus.",
       "flag_not_found": "Penanda ini sudah tidak ada."
     }
+  },
+  "rules": {
+    "title": "Aturan validitas",
+    "subtitle": "Aturan memeriksa setiap field menit demi menit dan memunculkan rentang suspek. Suspek tidak mengubah apa pun: angka baru mengikuti setelah Admin mengonfirmasinya di antrean tinjauan. Deteksi terkonfirmasi pada field wajib membuat komponen tidak tersedia selama waktu itu; pada field opsional hanya menandai field-nya.",
+    "proposedBanner": "{n} aturan yang diusulkan dari riwayat menunggu persetujuan Anda. Aturan usulan tetap nonaktif sampai Anda menyetujuinya.",
+    "onlyProposed": "Hanya usulan",
+    "mandatory": "wajib: menentukan ketersediaan",
+    "optional": "opsional: hanya menandai field",
+    "add": "Aturan",
+    "newTitle": "Aturan baru · {field}",
+    "allSites": "Semua lokasi",
+    "onlySite": "Hanya {site}",
+    "type": {
+      "range": "Rentang",
+      "stuck": "Macet",
+      "spike": "Lonjakan"
+    },
+    "typeHint": {
+      "range": "Nilai di bawah minimum atau di atas maksimum dianggap suspek.",
+      "stuck": "Nilai yang sama selama sekian menit atau lebih dianggap suspek. Menit yang hilang memutus rangkaian.",
+      "spike": "Perubahan lebih besar dari ini antara menit valid yang berurutan dianggap suspek. Menit yang hilang tidak pernah dibandingkan."
+    },
+    "state": {
+      "on": "Aktif",
+      "off": "Nonaktif",
+      "proposed": "Usulan, menunggu persetujuan"
+    },
+    "text": {
+      "range": "{min} sampai {max}",
+      "rangeMin": "minimal {min}",
+      "rangeMax": "maksimal {max}",
+      "stuck": "tidak berubah selama {d} atau lebih",
+      "ignore": "(kecuali {values})",
+      "spike": "perubahan lebih dari {change} per menit",
+      "spikeWindow": "perubahan lebih dari {change} dalam {n} menit"
+    },
+    "form": {
+      "saved": "Versi {v} disimpan.",
+      "rerun": "Seluruh riwayat sedang diperiksa dengan aturan ini:",
+      "off": "Aturan nonaktif: tidak ada yang diperiksa sampai diaktifkan.",
+      "keepVersion": "Suspek yang muncul sebelumnya tetap memakai versi yang memunculkannya.",
+      "proposedNote": "Diusulkan dari riwayat (OPEN-08). Periksa nilainya dengan uji coba, sesuaikan bila perlu, lalu setujui.",
+      "type": "Aturan",
+      "scope": "Berlaku untuk",
+      "scopeHint": "Aturan untuk satu lokasi menggantikan aturan semua lokasi yang sejenis di lokasi itu.",
+      "min": "Minimum",
+      "max": "Maksimum",
+      "minutes": "Tidak berubah selama minimal (menit)",
+      "ignore": "Nilai yang boleh tidak berubah",
+      "ignoreHint": "Misalnya 0 untuk hujan atau radiasi malam hari. Pisahkan dengan koma.",
+      "change": "Perubahan normal terbesar",
+      "window": "Dalam (menit)",
+      "windowHint": "1 membandingkan setiap menit dengan menit sebelumnya.",
+      "history": "Yang ditunjukkan riwayat",
+      "histUsual": "99,8 % nilai di antara",
+      "histExtremes": "Terendah dan tertinggi",
+      "histRun": "Terlama tidak berubah",
+      "histStep": "Perubahan per menit (99,9 % / terbesar)",
+      "proposal": "Usulan: {rule}",
+      "useProposal": "Pakai nilai ini",
+      "histBasis": "Dari {n} menit data, {from} sampai {to}.",
+      "dryRun": "Uji coba: 30 hari terakhir",
+      "dryResult": "Tidak ada yang akan dimunculkan. | 1 rentang akan dimunculkan ({minutes} mnt, {sites} lokasi). | {n} rentang akan dimunculkan ({minutes} mnt di {sites} lokasi).",
+      "dryTooMany": "Itu terlalu banyak untuk ditinjau: periksa nilainya.",
+      "approve": "Setujui dan aktifkan",
+      "enabled": "Aktif",
+      "enabledHint": "Memeriksa data baru saat masuk dan seluruh riwayat sekali, sebagai pekerjaan.",
+      "saveVersion": "Simpan sebagai versi {v}",
+      "create": "Buat aturan",
+      "versions": "Versi",
+      "noProposal": "Tidak ada usulan untuk jenis aturan ini pada field ini."
+    },
+    "error": {
+      "range_needs_a_limit": "Isi minimum, maksimum, atau keduanya.",
+      "invalid_range": "Minimum harus di bawah maksimum.",
+      "invalid_minutes": "Gunakan 5 sampai 1440 menit bulat.",
+      "invalid_ignore": "Nilai yang diabaikan harus angka, dipisahkan koma.",
+      "invalid_change": "Perubahan harus di atas 0.",
+      "invalid_window": "Gunakan 1 sampai 60 menit bulat.",
+      "rule_exists": "Field ini sudah memiliki aturan sejenis untuk cakupan ini: ubah yang itu.",
+      "component_type_not_found": "Jenis komponen tidak dikenal.",
+      "unknown_field": "Komponen ini tidak melaporkan field ini.",
+      "site_has_no_field": "Lokasi itu tidak melaporkan field ini.",
+      "invalid_rule_type": "Pilih aturan.",
+      "text_field": "Aturan hanya untuk field angka.",
+      "rule_not_found": "Aturan ini sudah tidak ada.",
+      "invalid_params": "Nilai aturan tidak valid."
+    }
+  },
+  "detections": {
+    "status": {
+      "suspect": "Suspek",
+      "confirmed": "Terkonfirmasi",
+      "rejected": "Ditolak"
+    },
+    "rule": "Aturan: {rule} (v{v})",
+    "optional": "field opsional: tidak memengaruhi angka",
+    "decidedBy": {
+      "confirmed": "Dikonfirmasi oleh {name} · {time}",
+      "rejected": "Ditolak oleh {name} · {time}",
+      "suspect": "Dibuka kembali oleh {name} · {time}"
+    },
+    "review": "Tinjau",
+    "open": "Buka",
+    "chipSuspect": "{n} suspek",
+    "chipConfirmed": "{n} deteksi",
+    "inWindow": "Deteksi dalam jendela ini",
+    "evidence": {
+      "range": "nilai {value}",
+      "stuck": "tetap di {value}",
+      "values": "nilai {low} sampai {high}",
+      "spike": "melompat {change}"
+    },
+    "prev": "Sebelumnya",
+    "next": "Berikutnya",
+    "chartWindow": "Grafik: {from} sampai {to}",
+    "where": "Di mana",
+    "when": "Kapan",
+    "saw": "Yang dilihat aturan",
+    "ruleLabel": "Aturan",
+    "snapshot": "Versi {v}, seperti saat terdeteksi; perubahan kemudian tidak mengubahnya.",
+    "effectMandatory": "Mengonfirmasi membuat {component} tidak tersedia selama {n} menit ini (field wajib); menit yang sudah hilang tidak dihitung dua kali. Angka untuk {days} dihitung ulang.",
+    "effectOptional": "Field opsional: mengonfirmasi menandai field ini buruk selama waktu ini; angka tidak berubah.",
+    "note": "Catatan (opsional)",
+    "notePlaceholder": "Alasan: apa yang Anda lihat atau lakukan",
+    "confirm": "Konfirmasi: data buruk",
+    "reject": "Tolak: data benar",
+    "reverseConfirm": "Ubah menjadi terkonfirmasi",
+    "reverseReject": "Ubah menjadi ditolak"
+  },
+  "review": {
+    "title": "Antrean tinjauan",
+    "subtitle": "Rentang yang dianggap suspek oleh aturan validitas. Suspek tidak memengaruhi angka apa pun sampai Anda mengonfirmasinya. Buka satu untuk melihat grafiknya, atau pilih beberapa untuk diputuskan bersama.",
+    "statusLabel": "Status",
+    "tab": {
+      "suspect": "Suspek",
+      "confirmed": "Terkonfirmasi",
+      "rejected": "Ditolak"
+    },
+    "component": "Komponen",
+    "allComponents": "Semua komponen",
+    "rule": "Aturan",
+    "allRules": "Semua aturan",
+    "done": {
+      "confirm": "{n} deteksi dikonfirmasi.",
+      "reject": "{n} deteksi ditolak."
+    },
+    "recalc": "Angka sedang dihitung ulang:",
+    "selected": "{n} dipilih",
+    "confirmSelected": "Konfirmasi yang dipilih",
+    "rejectSelected": "Tolak yang dipilih",
+    "empty": {
+      "suspect": "Tidak ada yang menunggu tinjauan.",
+      "confirmed": "Belum ada deteksi terkonfirmasi.",
+      "rejected": "Belum ada deteksi yang ditolak."
+    },
+    "selectAll": "Pilih semua ({n})",
+    "affects": "Field wajib: konfirmasi mengubah angka",
+    "fieldOnly": "Field opsional: hanya menandai field",
+    "more": "Menampilkan {shown} dari {total}; persempit filter untuk melihat sisanya."
   }
 }

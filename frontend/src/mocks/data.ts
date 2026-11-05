@@ -15,6 +15,7 @@ import type {
   SystemInfo,
   SystemSummary,
 } from '@/api/types'
+import { confirmedSpans, detectedValue, dqState, suspectSpans } from './dqStore'
 import { activeSpans, reasonOf } from './flagStore'
 import * as sensors from './sensors'
 
@@ -186,11 +187,11 @@ function baseCounts(scope: Scope, dayStart: number, now: number): [number, numbe
   return [e - lost, e]
 }
 
-/** Flagged minutes that were otherwise valid count as lost, so a flag lowers a component by exactly those. */
+/** Flagged or confirmed-bad minutes that were otherwise valid count as lost, exactly those and nothing more. */
 function dayCounts(scope: Scope, dayStart: number, now: number): [number, number] {
   const [v, e] = baseCounts(scope, dayStart, now)
-  const flagged = flagPieces(scope, dayStart, now).reduce((n, p) => n + p.len, 0)
-  return [v - flagged, e]
+  const invalid = invalidPieces(scope, dayStart, now).reduce((n, p) => n + p.len, 0)
+  return [v - invalid, e]
 }
 
 const avail = (v: number, e: number): Availability => ({
@@ -378,8 +379,9 @@ function parseScope(scope: string): Scope {
 interface Piece {
   at: number // minute of the day
   len: number
-  cause: 'cdp_no_data' | 'field_missing' | 'flagged'
-  flag?: number
+  cause: 'cdp_no_data' | 'field_missing' | 'flagged' | 'detection'
+  /** flagged: the flag; detection: the confirmed detection */
+  ref?: number
 }
 
 /**
@@ -416,66 +418,87 @@ function basePieces(s: Scope, dayStart: number, now: number): Piece[] {
 }
 
 /**
- * Minutes of a component's day under an active flag that would otherwise be valid. Minutes already lost for
- * another reason keep that cause; a minute under two flags belongs to the older one.
+ * Minutes of a component's day under an active flag or a confirmed detection on a mandatory field that would
+ * otherwise be valid. Minutes already lost for another reason keep that cause; flags come before detections and
+ * older before newer, so a minute is never counted twice (PRD E9).
  */
-function flagPieces(s: Scope, dayStart: number, now: number): Piece[] {
+function invalidPieces(s: Scope, dayStart: number, now: number): Piece[] {
   if (s.kind !== 'component' || s.type === 'DCP') return []
-  const spans = activeSpans(s.site, s.type, dayStart, dayStart + DAY)
+  const spans = [
+    ...activeSpans(s.site, s.type, dayStart, dayStart + DAY).map((x) => ({ ...x, key: x.id })),
+    ...confirmedSpans(s.site, s.type, dayStart, dayStart + DAY).map((x) => ({ ...x, key: -x.id })),
+  ]
   if (!spans.length) return []
   const e = expectedFor(dayStart, now)
-  const taken = new Int32Array(e) // 0 valid, -1 lost for another reason, otherwise the flag's id
-  for (const p of basePieces(s, dayStart, now)) taken.fill(-1, p.at, Math.min(e, p.at + p.len))
+  const LOST = 1 << 30 // lost for another reason; otherwise 0 = valid, > 0 a flag, < 0 a detection
+  const taken = new Int32Array(e)
+  for (const p of basePieces(s, dayStart, now)) taken.fill(LOST, p.at, Math.min(e, p.at + p.len))
   for (const sp of spans) {
     const a = Math.max(0, Math.floor((sp.start - dayStart) / 60_000))
     const b = Math.min(e, Math.ceil((sp.end - dayStart) / 60_000))
-    for (let i = a; i < b; i++) if (taken[i] === 0) taken[i] = sp.id
+    for (let i = a; i < b; i++) if (taken[i] === 0) taken[i] = sp.key
   }
   const pieces: Piece[] = []
   for (let i = 0; i < e;) {
-    const id = taken[i]!
+    const k = taken[i]!
     let j = i + 1
-    while (j < e && taken[j] === id) j++
-    if (id > 0) pieces.push({ at: i, len: j - i, cause: 'flagged', flag: id })
+    while (j < e && taken[j] === k) j++
+    if (k !== 0 && k !== LOST)
+      pieces.push({ at: i, len: j - i, cause: k > 0 ? 'flagged' : 'detection', ref: Math.abs(k) })
     i = j
   }
   return pieces
 }
 
 function dayPieces(s: Scope, dayStart: number, now: number): Piece[] {
-  return [...basePieces(s, dayStart, now), ...flagPieces(s, dayStart, now)].sort((a, b) => a.at - b.at)
+  return [...basePieces(s, dayStart, now), ...invalidPieces(s, dayStart, now)].sort((a, b) => a.at - b.at)
 }
 
-export function minutes(day: string, scope: string, now: number): MinutesResponse {
+const detectionRef = (id: number) => {
+  const d = dqState().detections.find((x) => x.id === id)
+  return { id, field: d?.field ?? '?', type: d?.type ?? 'range' }
+}
+
+/** One day of a scope, minute by minute. Suspect minutes ('s') are for signed-in users only (`viewer`). */
+export function minutes(day: string, scope: string, now: number, viewer = false): MinutesResponse {
   const start = Date.parse(`${day}T00:00:00Z`)
   const e = expectedFor(start, now)
   const codes: string[] = Array.from({ length: 1440 }, (_, i) => (i < e ? 'v' : 'u'))
   const ids = new Int32Array(1440)
-  const CODE = { field_missing: 'f', flagged: 'g', cdp_no_data: 'n' } as const
-  for (const p of dayPieces(parseScope(scope), start, now))
+  const CODE = { field_missing: 'f', flagged: 'g', detection: 'd', cdp_no_data: 'n' } as const
+  const sc = parseScope(scope)
+  for (const p of dayPieces(sc, start, now))
     for (let i = p.at; i < p.at + p.len; i++) {
       codes[i] = CODE[p.cause]
-      ids[i] = p.flag ?? 0
+      ids[i] = p.ref ?? 0
+    }
+  if (viewer && sc.kind === 'component')
+    for (const d of suspectSpans(sc.site, sc.type, start, start + DAY)) {
+      const a = Math.max(0, (Date.parse(d.start) - start) / 60_000)
+      const b = Math.min(1440, (Date.parse(d.end) - start) / 60_000)
+      for (let i = a; i < b; i++) if (codes[i] === 'v') codes[i] = 's'
     }
   const str = codes.join('')
   const intervals: MinutesResponse['intervals'] = []
   for (let i = 0; i < str.length;) {
     const c = str[i]!
-    if (c === 'f' || c === 'n' || c === 'g') {
+    if (c === 'f' || c === 'n' || c === 'g' || c === 'd') {
       let j = i
       while (str[j] === c && ids[j] === ids[i]) j++
       intervals.push({
         start: new Date(start + i * 60_000).toISOString(),
         end: new Date(start + j * 60_000).toISOString(),
         minutes: j - i,
-        cause: c === 'f' ? 'field_missing' : c === 'g' ? 'flagged' : 'no_data',
+        cause: c === 'f' ? 'field_missing' : c === 'g' ? 'flagged' : c === 'd' ? 'detection' : 'no_data',
         ...(c === 'g' ? { flags: [{ id: ids[i]!, reason: reasonOf(ids[i]!) }] } : {}),
+        ...(c === 'd' ? { detections: [detectionRef(ids[i]!)] } : {}),
       })
       i = j
     } else i++
   }
   intervals.sort((a, b) => b.minutes - a.minutes)
-  return { scope, day, codes: str, valid: str.split('v').length - 1, expected: e, intervals }
+  const valid = [...str].filter((c) => c === 'v' || c === 's').length
+  return { scope, day, codes: str, valid, expected: e, intervals }
 }
 
 export const MAX_OUTAGE_SPAN = 93 * DAY
@@ -507,7 +530,7 @@ export function outages(
   const sitesInfo = SYSTEM.sites
   const groups = new Map<
     string,
-    { start: number; end: number; cause: OutageCause; flag?: number; members: Member[] }
+    { start: number; end: number; cause: OutageCause; ref?: number; members: Member[] }
   >()
   const byCause: Record<OutageCause, number> = {
     cdp_no_data: 0,
@@ -527,8 +550,8 @@ export function outages(
       for (const p of dayPieces(s, d, now)) {
         const start = d + p.at * 60_000
         const end = start + p.len * 60_000
-        const key = `${start}|${end}|${p.cause}|${p.flag ?? ''}`
-        const g = groups.get(key) ?? { start, end, cause: p.cause, flag: p.flag, members: [] }
+        const key = `${start}|${end}|${p.cause}|${p.ref ?? ''}`
+        const g = groups.get(key) ?? { start, end, cause: p.cause, ref: p.ref, members: [] }
         if (member && s.kind === 'component') {
           const fields =
             sitesInfo.find((x) => x.slug === s.site)?.components.find((c) => c.type === s.type)?.mandatory ??
@@ -575,7 +598,8 @@ export function outages(
         lost_minutes: minutes * Math.max(1, g.members.length),
         ongoing: to > evalEnd && g.end >= evalEnd,
         ...(g.members.length ? { components: g.members } : {}),
-        ...(g.flag ? { flags: [{ id: g.flag, reason: reasonOf(g.flag) }] } : {}),
+        ...(g.ref && g.cause === 'flagged' ? { flags: [{ id: g.ref, reason: reasonOf(g.ref) }] } : {}),
+        ...(g.ref && g.cause === 'detection' ? { detections: [detectionRef(g.ref)] } : {}),
       }
     }),
   }
@@ -671,6 +695,19 @@ function numeric(code: string, t: number): number | null {
   }
   return null
 }
+/** A sample sensor's minute values over [from, to), as the rules see them (R2.4 history and dry runs). */
+export function sampleValues(
+  site: string,
+  type: string,
+  code: string,
+  from: number,
+  to: number,
+): (number | null)[] {
+  const out: (number | null)[] = []
+  for (let t = from; t < to; t += 60_000) out.push(detectedValue(site, type, code, t, numeric(code, t)))
+  return out
+}
+
 function textVal(code: string, t: number): string | null {
   const h = (new Date(t).getUTCHours() + LOCAL) % 24
   const block = Math.floor(t / 2_700_000)
@@ -719,7 +756,8 @@ export function series(slug: string, type: string, from: number, to: number, now
     let last: { time: string; value: number | string } | null = null
     for (let i = 0; i < total; i++) {
       const t = from + i * 60_000
-      let v: number | string | null = info.type === 'numeric' ? numeric(code, t) : textVal(code, t)
+      let v: number | string | null =
+        info.type === 'numeric' ? detectedValue(slug, type, code, t, numeric(code, t)) : textVal(code, t)
       if (pwBroken && code === 'PW' && end - t < 3_600_000) v = null
       all.push(v)
       if (v !== null) last = { time: new Date(t).toISOString(), value: v }

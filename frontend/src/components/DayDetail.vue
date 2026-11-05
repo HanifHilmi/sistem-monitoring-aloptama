@@ -3,18 +3,26 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api/client'
-import type { Flag, FlagRow, MinutesResponse } from '@/api/types'
+import type { Detection, FieldInfo, Flag, FlagRow, MinutesResponse } from '@/api/types'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { formatDuration, formatRange } from '@/utils/flags'
 import { int, pct } from '@/utils/format'
+import DetectionList from './detections/DetectionList.vue'
 import FlagForm from './flags/FlagForm.vue'
 import FlagList from './flags/FlagList.vue'
 
 // Minute-by-minute explanation of one day for one scope (FR-DSH-009): every lost minute and its cause. For a
 // component, flagged minutes and the day's flags are shown (FR-DQ-007), and Admins can flag minutes right here.
-const props = defineProps<{ systemCode: string; scope: string; day: string; siteLink?: string | null }>()
+const props = defineProps<{
+  systemCode: string
+  scope: string
+  day: string
+  siteLink?: string | null
+  /** the system's fields (units for detections) */
+  fields?: Record<string, FieldInfo>
+}>()
 /** a flag was saved or removed here: the figures around it change */
 const emit = defineEmits<{ changed: [] }>()
 const { t, locale } = useI18n()
@@ -30,9 +38,21 @@ const flagLoader = useLoader<Flag[]>(() =>
   api.flags(props.systemCode, new Date(dayStart.value), new Date(dayStart.value + 86_400_000), props.scope),
 )
 const flags = computed(() => (flaggable.value ? (flagLoader.data.value ?? []) : []))
+const detLoader = useLoader<Detection[]>(() =>
+  api.detections(
+    props.systemCode,
+    new Date(dayStart.value),
+    new Date(dayStart.value + 86_400_000),
+    props.scope,
+  ),
+)
+const detections = computed(() => (flaggable.value ? (detLoader.data.value ?? []) : []))
 function reload() {
   void loader.load()
-  if (flaggable.value) void flagLoader.load()
+  if (flaggable.value) {
+    void flagLoader.load()
+    void detLoader.load()
+  }
 }
 watch(
   () => `${props.scope}|${props.day}`,
@@ -49,12 +69,17 @@ const CODE_CLASS: Record<string, string> = {
   f: 'bg-warn',
   n: 'bg-bad',
   g: 'bg-flag',
+  d: 'bg-detect',
+  s: 'cell-suspect',
   u: 'bg-empty',
 }
-const LEGEND = ['v', 'f', 'n', 'g', 'u']
+const LEGEND = ['v', 's', 'f', 'n', 'g', 'd', 'u']
 const codes = computed(() => loader.data.value?.codes ?? '')
 const hours = computed(() => Array.from({ length: 24 }, (_, h) => codes.value.slice(h * 60, h * 60 + 60)))
-const legend = computed(() => LEGEND.filter((c) => c !== 'g' || flaggable.value))
+// Flags and detections only exist for components; suspects only reach signed-in users.
+const legend = computed(() =>
+  LEGEND.filter((c) => !'gds'.includes(c) || (flaggable.value && (c !== 's' || auth.canView))),
+)
 const p = computed(() => {
   const d = loader.data.value
   return d && d.expected > 0 ? Math.round((d.valid / d.expected) * 10000) / 100 : null
@@ -75,11 +100,24 @@ const minuteFlag = computed(() => {
   }
   return out
 })
+/** The detection behind each confirmed-bad or suspect minute. */
+const minuteDetection = computed(() => {
+  const out = new Map<number, Detection>()
+  for (const d of detections.value) {
+    if (d.status === 'rejected') continue
+    const a = Math.max(0, (Date.parse(d.start) - dayStart.value) / 60_000)
+    const b = Math.min(1440, (Date.parse(d.end) - dayStart.value) / 60_000)
+    for (let i = a; i < b; i++) if (!out.has(i) || d.status === 'confirmed') out.set(i, d)
+  }
+  return out
+})
 function minuteTitle(h: number, m: number, c: string) {
   const i = h * 60 + m
   const base = `${pad(h)}:${pad(m)} · ${t(`day.code.${c}`)}`
   const f = c === 'g' ? minuteFlag.value.get(i) : undefined
-  return f ? `${base}: ${t(`flags.reason.${f.reason}`)} (#${f.id})` : base
+  if (f) return `${base}: ${t(`flags.reason.${f.reason}`)} (#${f.id})`
+  const d = c === 'd' || c === 's' ? minuteDetection.value.get(i) : undefined
+  return d ? `${base}: ${t(`rules.type.${d.type}`)} · ${d.field} (#${d.id})` : base
 }
 
 // ---- flagging minutes (Admins) ----------------------------------------------------------------------
@@ -255,6 +293,11 @@ reload()
         <FlagList :flags="flags" :can-edit="auth.isAdmin" @edit="editFlag" />
       </section>
 
+      <section v-if="detections.length" :aria-label="t('day.detectionsTitle')">
+        <h3 class="eyebrow mb-1.5">{{ t('day.detectionsTitle') }}</h3>
+        <DetectionList :detections="detections" :fields="fields ?? {}" :can-review="auth.isAdmin" />
+      </section>
+
       <section>
         <h3 class="eyebrow mb-1.5">{{ t('day.intervals') }}</h3>
         <p v-if="!loader.data.value.intervals.length" class="text-xs text-ok">{{ t('day.noIntervals') }}</p>
@@ -280,10 +323,25 @@ reload()
                 <span
                   class="mr-1 inline-block h-2 w-2 rounded-[1px]"
                   :class="
-                    iv.cause === 'field_missing' ? 'bg-warn' : iv.cause === 'flagged' ? 'bg-flag' : 'bg-bad'
+                    iv.cause === 'field_missing'
+                      ? 'bg-warn'
+                      : iv.cause === 'flagged'
+                        ? 'bg-flag'
+                        : iv.cause === 'detection'
+                          ? 'bg-detect'
+                          : 'bg-bad'
                   "
                 />
                 {{ t(`day.causeName.${iv.cause}`) }}
+                <template v-for="d in iv.detections ?? []" :key="d.id">
+                  · {{ t(`rules.type.${d.type}`) }} {{ d.field }}
+                  <RouterLink
+                    v-if="auth.isAdmin"
+                    :to="`/admin/review?status=confirmed&id=${d.id}`"
+                    class="num text-accent hover:underline"
+                    >#{{ d.id }}</RouterLink
+                  >
+                </template>
                 <template v-for="f in iv.flags ?? []" :key="f.id">
                   · {{ t(`flags.reason.${f.reason}`) }}
                   <RouterLink
