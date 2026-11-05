@@ -16,7 +16,14 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 
 from simola.core.timeutil import floor_minute, intersect, minutes_between
 from simola.kpi import sensors
-from simola.kpi.engine import MINUTE_TABLE, clip_period, component_condition, grace_minutes, pct
+from simola.kpi.engine import (
+    MINUTE_TABLE,
+    clip_period,
+    component_condition,
+    grace_minutes,
+    invalid_intervals,
+    pct,
+)
 from simola.registry import Component, MetricField, Site, System
 
 MAX_POINTS = 1000
@@ -199,7 +206,8 @@ async def component_window_availability(
     if expected <= 0:
         return {"valid": 0, "expected": 0, "missing": 0, "pct": None}
     params: dict[str, Any] = {"a": wa, "b": wb}
-    cond = component_condition(system, comp, params)
+    invalid = await invalid_intervals(conn, [] if comp.is_dcp else [comp.id], wa, wb)
+    cond = component_condition(system, comp, params, invalid)
     valid = (
         await conn.execute(
             text(

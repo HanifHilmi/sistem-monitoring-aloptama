@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from simola.api.deps import ApiError, parse_period, system_or_404, systems
@@ -261,9 +262,34 @@ async def get_matrix(
     first, last = start.date(), (end - timedelta(minutes=1)).date()
     return {
         "system": system.code,
-        "period": {"from": start, "to": end, "evaluated_to": max(a, b), "as_of": now, "open": end > b},
+        "period": {
+            "from": start,
+            "to": end,
+            "evaluated_to": max(a, b),
+            "as_of": now,
+            "open": end > b,
+            "recalculating": await recalculating(conn, system, first, last),
+        },
         **matrix.build_matrix(system, days, first, last, bucket),
     }
+
+
+async def recalculating(
+    conn: AsyncConnection, system: System, first: date, last: date
+) -> list[dict[str, str]]:
+    """Days of the period whose figures a queued or running recompute will still change (FR-KPI-008)."""
+    rows = (
+        await conn.execute(
+            text("""
+        SELECT DISTINCT params->>'from', params->>'to' FROM job
+        WHERE type = 'recompute' AND status IN ('queued', 'running') AND params->>'system' = :code
+          AND params->>'from' <= :last AND params->>'to' >= :first
+        ORDER BY 1, 2
+    """),
+            {"code": system.code, "first": first.isoformat(), "last": last.isoformat()},
+        )
+    ).all()
+    return [{"from": max(f, first.isoformat()), "to": min(t, last.isoformat())} for f, t in rows]
 
 
 @router.get("/systems/{code}/outages")

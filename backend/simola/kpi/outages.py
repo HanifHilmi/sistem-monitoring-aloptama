@@ -8,8 +8,11 @@ Causes:
                    no CDP produced data in that minute.
     no_record      component: a CDP produced data, but the site has no merged record for that minute.
     field_missing  component: the record exists but a mandatory field is missing (DCP: every field).
-    flagged        R2: a manual flag (FR-KPI-006). Reserved, never returned in R1.
-    detection      R2: a confirmed detection. Reserved, never returned in R1.
+    flagged        component: the minute would be valid, but an active manual flag covers it (R2.3, FR-DQ-006).
+    detection      R2.4: a confirmed detection. Reserved, never returned yet.
+
+A minute already lost for another reason keeps that reason, so a flag only adds the minutes it really cost and
+no minute is counted twice. A minute under two flags belongs to the older one.
 
 The intervals cover exactly the minutes the KPI engine counts as missing: the same clipped window (coverage
 start, in-service period, now - grace) and the same validity SQL (``engine.component_valid_sql``). For any scope
@@ -29,7 +32,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from simola.core.timeutil import intersect, minutes_between
+from simola.core.timeutil import intersect, merge_spans, minutes_between
 from simola.kpi import engine
 from simola.kpi.minutes import parse_scope as parse_minute_scope
 from simola.registry import Component, Site, System
@@ -49,6 +52,8 @@ class Outage:
     site: str | None = None
     component: str | None = None
     fields: tuple[str, ...] = ()  # field_missing: the mandatory fields missing during the interval
+    flag: int | None = None  # flagged: the flag behind the interval
+    reason: str | None = None  # flagged: that flag's reason category
 
     @property
     def minutes(self) -> int:
@@ -66,19 +71,6 @@ class Run:
 
 
 # ---------------------------------------------------------------------------- spans (pure)
-def merge_spans(spans: Iterable[Span]) -> list[Span]:
-    """Sorted, disjoint union of spans; touching spans are joined."""
-    out: list[Span] = []
-    for s, e in sorted(spans):
-        if e <= s:
-            continue
-        if out and s <= out[-1][1]:
-            out[-1] = (out[-1][0], max(out[-1][1], e))
-        else:
-            out.append((s, e))
-    return out
-
-
 def complement(spans: Sequence[Span], window: Span) -> list[Span]:
     """The parts of ``window`` that the sorted, disjoint ``spans`` do not cover."""
     a, b = window
@@ -120,7 +112,7 @@ def join_adjacent(pieces: Iterable[Outage]) -> list[Outage]:
         if (
             last is not None
             and last.end == p.start
-            and (last.cause, last.site, last.component) == (p.cause, p.site, p.component)
+            and (last.cause, last.site, last.component, last.flag) == (p.cause, p.site, p.component, p.flag)
         ):
             out[-1] = replace(last, end=p.end, fields=tuple(dict.fromkeys(last.fields + p.fields)))
         else:
@@ -174,6 +166,35 @@ def component_outages(
     ]
 
 
+def flagged_outages(
+    *,
+    window: Span,
+    lost: Sequence[Outage],
+    invalid: Sequence[engine.Invalid],
+    site: str,
+    component: str,
+) -> list[Outage]:
+    """The minutes flags cost a component: inside its window, under a flag, and not already ``lost``.
+
+    ``invalid`` comes flags first, oldest first; each minute goes to the first flag that covers it.
+    """
+    a, b = window
+    if b <= a or not invalid:
+        return []
+    taken = merge_spans((o.start, o.end) for o in lost)
+    out: list[Outage] = []
+    for iv in invalid:
+        if iv.source != "flag":
+            continue
+        span = (max(iv.start, a), min(iv.end, b))
+        if span[1] <= span[0]:
+            continue
+        for s, e in intersect_spans([span], complement(taken, window)):
+            out.append(Outage(s, e, "flagged", site, component, flag=iv.source_id, reason=iv.reason))
+        taken = merge_spans([*taken, span])
+    return join_adjacent(out)
+
+
 @dataclass(frozen=True)
 class Group:
     """Identical intervals (same start, end and cause) of several components, e.g. both CDPs stopping at once."""
@@ -182,6 +203,8 @@ class Group:
     end: datetime
     cause: str
     members: tuple[Outage, ...]
+    flag: int | None = None
+    reason: str | None = None
 
     @property
     def minutes(self) -> int:
@@ -198,10 +221,10 @@ def group(outages: Iterable[Outage]) -> list[Group]:
 
     Members keep the order they came in (registry order), and so do ties (the sort is stable).
     """
-    groups: dict[tuple[datetime, datetime, str], list[Outage]] = {}
+    groups: dict[tuple[datetime, datetime, str, int | None], list[Outage]] = {}
     for o in outages:
-        groups.setdefault((o.start, o.end, o.cause), []).append(o)
-    out = [Group(s, e, c, tuple(m)) for (s, e, c), m in groups.items()]
+        groups.setdefault((o.start, o.end, o.cause, o.flag), []).append(o)
+    out = [Group(s, e, c, tuple(m), f, m[0].reason) for (s, e, c, f), m in groups.items()]
     return sorted(out, key=lambda g: (-g.minutes, -len(g.members), g.start))
 
 
@@ -353,14 +376,16 @@ async def scope_outages(
         up = await cdp_up_spans(conn, all_cdps, a, b)
         down = complement(merge_spans(s for spans in up.values() for s in spans), (a, b))
 
+    invalid = await engine.invalid_intervals(conn, (c.id for c in scope.components if not c.is_dcp), a, b)
     out: list[Outage] = []
     for site, present, runs in per_site:
         field_bit = {f: j for j, f in enumerate(site_mandatory_fields(site))}
         for i, comp in enumerate(site.components):
             if comp.id not in wanted:
                 continue
-            out += component_outages(
-                window=intersect((a, b), (comp.in_service_from, comp.in_service_to)),
+            window = intersect((a, b), (comp.in_service_from, comp.in_service_to))
+            lost = component_outages(
+                window=window,
                 present=present,
                 runs=runs,
                 cdp_down=down,
@@ -369,6 +394,14 @@ async def scope_outages(
                 site=slugs[site.id],
                 component=comp.type_code,
             )
+            flagged = flagged_outages(
+                window=window,
+                lost=lost,
+                invalid=[] if comp.is_dcp else invalid.get(comp.id, []),
+                site=slugs[site.id],
+                component=comp.type_code,
+            )
+            out += sorted([*lost, *flagged], key=lambda o: o.start)
     return out
 
 
@@ -381,6 +414,8 @@ def outage_view(g: Group, ongoing: bool) -> dict[str, Any]:
         "lost_minutes": g.lost,
         "ongoing": ongoing,
     }
+    if g.flag is not None:
+        view["flags"] = [{"id": g.flag, "reason": g.reason}]
     members = [m for m in g.members if m.component is not None]
     if members:
         view["components"] = [

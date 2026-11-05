@@ -391,12 +391,15 @@ async def preview_mandatory(
             counts = {"current": 0, "proposed": 0}
             if expected:
                 params: dict[str, Any] = {"a": wa, "b": wb}
+                flags = await engine.invalid_intervals(conn, [] if c.is_dcp else [c.id], wa, wb)
+                current = engine.component_condition(sy, c, params, flags)
+                changed = engine.component_condition(sy, new, params, flags)
                 row = (
                     (
                         await conn.execute(
                             text(
-                                f"SELECT count(*) FILTER (WHERE {engine.component_condition(sy, c, params)}) AS current, "
-                                f"count(*) FILTER (WHERE {engine.component_condition(sy, new, params)}) AS proposed "
+                                f"SELECT count(*) FILTER (WHERE {current}) AS current, "
+                                f"count(*) FILTER (WHERE {changed}) AS proposed "
                                 f"FROM {engine.MINUTE_TABLE[sy.type_code]} "
                                 f"WHERE site_id = {int(c.site_id)} AND time >= :a AND time < :b"
                             ),

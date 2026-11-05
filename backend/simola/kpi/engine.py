@@ -4,7 +4,8 @@ All figures come from minute counts:
 - SLA (system availability): minutes where at least one CDP produced data (data flow).
 - Per-node uptime: minutes where that CDP produced data.
 - Reachability: minutes with a successful probe / minutes with any probe (informational).
-- Component availability: minutes where all mandatory fields are valid (DCP: any sensor field valid).
+- Component availability: minutes where all mandatory fields are valid (DCP: any sensor field valid), inside
+  the in-service period, and not covered by an invalidating interval (an active flag; R2.3).
 
 Periods are half-open [start, end), clipped to the system's coverage start and to ``now - grace``.
 Complete UTC days come from ``availability_daily`` (maintained by recompute); everything else is computed
@@ -14,6 +15,7 @@ live with the same SQL, so both paths give identical numbers.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -22,7 +24,7 @@ from typing import Any, Literal
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from simola.core.timeutil import DAY, day_start, floor_minute, intersect, minutes_between
+from simola.core.timeutil import DAY, day_start, floor_minute, intersect, merge_spans, minutes_between
 from simola.registry import Component, System, get_setting
 
 MINUTE_TABLE = {"AWOS_CAT3": "awos_cat3_minute"}
@@ -104,8 +106,69 @@ def component_valid_sql(system: System, comp: Component) -> str:
     return "(" + " AND ".join(f"{system.column(f)} IS NOT NULL" for f in comp.mandatory) + ")"
 
 
-def component_condition(system: System, comp: Component, params: dict[str, Any]) -> str:
-    """SQL condition for 'component valid': its site, a valid record, and inside its in-service period."""
+# ---------------------------------------------------------------------------- invalidating intervals (R2.3)
+@dataclass(frozen=True)
+class Invalid:
+    """A stretch of time that does not count for a component: an active flag (R2.4 adds confirmed detections)."""
+
+    start: datetime
+    end: datetime
+    source: str  # 'flag' | 'detection'
+    source_id: int
+    reason: str | None = None  # a flag's reason category
+
+
+InvalidMap = dict[int, list[Invalid]]  # component id -> its intervals, flags first, oldest first
+
+
+async def invalid_intervals(
+    conn: AsyncConnection,
+    component_ids: Iterable[int],
+    a: datetime,
+    b: datetime,
+    *,
+    exclude_flag: int | None = None,
+) -> InvalidMap:
+    """The invalidating intervals overlapping [a, b) of the given components (docs/design/r2.md §4.3).
+
+    ``exclude_flag`` leaves one flag out: the effect of editing it is shown against the figures without it.
+    """
+    ids = sorted(set(component_ids))
+    if not ids or b <= a:
+        return {}
+    params: dict[str, Any] = {"ids": ids, "a": a, "b": b}
+    skip = ""
+    if exclude_flag is not None:
+        params["ex"] = exclude_flag
+        skip = "AND NOT (i.source = 'flag' AND i.source_id = :ex)"
+    rows = (
+        await conn.execute(
+            text(f"""
+        SELECT i.component_id, lower(i.during), upper(i.during), i.source, i.source_id, f.reason
+        FROM invalid_interval i LEFT JOIN flag f ON i.source = 'flag' AND f.id = i.source_id
+        WHERE i.component_id = ANY(:ids) AND i.during && tstzrange(:a, :b) {skip}
+        ORDER BY i.component_id, i.source DESC, i.source_id
+    """),
+            params,
+        )
+    ).all()
+    out: InvalidMap = {}
+    for cid, start, end, source, source_id, reason in rows:
+        out.setdefault(int(cid), []).append(Invalid(start, end, str(source), int(source_id), reason))
+    return out
+
+
+def invalid_spans(invalid: Sequence[Invalid]) -> list[tuple[datetime, datetime]]:
+    return merge_spans((iv.start, iv.end) for iv in invalid)
+
+
+def component_condition(
+    system: System, comp: Component, params: dict[str, Any], invalid: InvalidMap | None = None
+) -> str:
+    """SQL condition for 'component valid': its site, a valid record, inside its in-service period, and (when
+    ``invalid`` is given) outside every invalidating interval. A component without such intervals gets exactly
+    R1's condition, so figures without flags cannot change (docs/design/r2.md §4.3, safety net).
+    """
     parts = [f"site_id = {int(comp.site_id)}", component_valid_sql(system, comp)]
     if comp.in_service_from is not None:
         params[f"isf_{comp.id}"] = comp.in_service_from
@@ -113,6 +176,13 @@ def component_condition(system: System, comp: Component, params: dict[str, Any])
     if comp.in_service_to is not None:
         params[f"ist_{comp.id}"] = comp.in_service_to
         parts.append(f"time < :ist_{comp.id}")
+    spans = [] if comp.is_dcp or not invalid else invalid_spans(invalid.get(comp.id, ()))
+    if spans:
+        terms = []
+        for k, (s, e) in enumerate(spans):
+            params[f"iv{comp.id}_{k}a"], params[f"iv{comp.id}_{k}b"] = s, e
+            terms.append(f"(time >= :iv{comp.id}_{k}a AND time < :iv{comp.id}_{k}b)")
+        parts.append(f"NOT ({' OR '.join(terms)})")
     return " AND ".join(parts)
 
 
@@ -165,8 +235,10 @@ async def live_counts(conn: AsyncConnection, system: System, a: datetime, b: dat
     comps = [c for s in system.sites for c in s.components]
     if comps:
         params: dict[str, Any] = {"a": a, "b": b, "sites": [s.id for s in system.sites]}
+        invalid = await invalid_intervals(conn, (c.id for c in comps if not c.is_dcp), a, b)
         selects = [
-            f"count(*) FILTER (WHERE {component_condition(system, c, params)}) AS c{c.id}" for c in comps
+            f"count(*) FILTER (WHERE {component_condition(system, c, params, invalid)}) AS c{c.id}"
+            for c in comps
         ]
         table = MINUTE_TABLE[system.type_code]
         row = (

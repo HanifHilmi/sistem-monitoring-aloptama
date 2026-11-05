@@ -4,11 +4,14 @@ Status codes per minute:
     v  valid (counts as available)
     f  record present but a mandatory field missing (components only)
     n  no record / no data flow
+    g  flagged: the minute would be valid, but an active flag covers it (components only, R2.3). A minute
+       already lost for another reason keeps that reason, so it is never counted twice.
     u  not evaluated: before coverage start, outside the component's in-service period, or not yet due (grace)
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -16,10 +19,17 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from simola.core.timeutil import DAY, MINUTE, day_start, floor_minute
-from simola.kpi.engine import MINUTE_TABLE, component_condition, evaluation_end, grace_minutes
+from simola.kpi.engine import (
+    MINUTE_TABLE,
+    Invalid,
+    component_condition,
+    evaluation_end,
+    grace_minutes,
+    invalid_intervals,
+)
 from simola.registry import Component, System
 
-CAUSE = {"f": "field_missing", "n": "no_data"}
+CAUSE = {"f": "field_missing", "n": "no_data", "g": "flagged"}
 
 
 def statuses(
@@ -42,24 +52,48 @@ def statuses(
     return "".join(out)
 
 
-def intervals(start: datetime, codes: str) -> list[dict[str, Any]]:
-    """Contiguous runs of unavailable minutes (f/n), longest first."""
+def apply_invalid(start: datetime, codes: str, invalid: Sequence[Invalid]) -> tuple[str, list[int]]:
+    """Valid minutes under an invalidating interval become ``g``; ``owners[i]`` is the flag behind minute i.
+
+    Intervals come flags first, oldest first, so a minute under two flags belongs to the older one.
+    """
+    out = list(codes)
+    owners = [0] * len(codes)
+    for iv in invalid:
+        i0 = max(0, int((iv.start - start).total_seconds()) // 60)
+        i1 = min(len(out), -(-int((iv.end - start).total_seconds()) // 60))
+        for i in range(i0, i1):
+            if out[i] == "v":
+                out[i] = "g"
+                owners[i] = iv.source_id
+    return "".join(out), owners
+
+
+def intervals(
+    start: datetime,
+    codes: str,
+    owners: Sequence[int] | None = None,
+    reasons: dict[int, str | None] | None = None,
+) -> list[dict[str, Any]]:
+    """Contiguous runs of unavailable minutes (f/n/g), longest first. Flagged runs name their flag."""
     runs: list[dict[str, Any]] = []
+    own = owners or [0] * len(codes)
     i = 0
     while i < len(codes):
         c = codes[i]
         if c in CAUSE:
             j = i
-            while j < len(codes) and codes[j] == c:
+            while j < len(codes) and codes[j] == c and own[j] == own[i]:
                 j += 1
-            runs.append(
-                {
-                    "start": start + timedelta(minutes=i),
-                    "end": start + timedelta(minutes=j),
-                    "minutes": j - i,
-                    "cause": CAUSE[c],
-                }
-            )
+            run: dict[str, Any] = {
+                "start": start + timedelta(minutes=i),
+                "end": start + timedelta(minutes=j),
+                "minutes": j - i,
+                "cause": CAUSE[c],
+            }
+            if c == "g":
+                run["flags"] = [{"id": own[i], "reason": (reasons or {}).get(own[i])}]
+            runs.append(run)
             i = j
         else:
             i += 1
@@ -104,6 +138,7 @@ async def minute_status(
     params: dict[str, Any] = {"a": start, "b": end}
     present: set[datetime] = set()
     valid: set[datetime] = set()
+    invalid: list[Invalid] = []
     if kind in ("sla", "cdp"):
         ids = [c.id for c in system.cdps] if kind == "sla" else [target.id]
         rows = (
@@ -131,8 +166,10 @@ async def minute_status(
         ).all()
         present = {r[0] for r in rows}
         valid = {r[0] for r in rows if r[1]}
+        if not comp.is_dcp:
+            invalid = (await invalid_intervals(conn, [comp.id], start, end)).get(comp.id, [])
 
-    codes = statuses(start, evaluable, present, valid)
+    codes, owners = apply_invalid(start, statuses(start, evaluable, present, valid), invalid)
     expected = sum(1 for c in codes if c != "u")
     valid_minutes = codes.count("v")
     return {
@@ -141,5 +178,5 @@ async def minute_status(
         "codes": codes,
         "valid": valid_minutes,
         "expected": expected,
-        "intervals": intervals(start, codes),
+        "intervals": intervals(start, codes, owners, {iv.source_id: iv.reason for iv in invalid}),
     }

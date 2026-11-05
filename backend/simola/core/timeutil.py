@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from datetime import UTC, date, datetime, timedelta
 
 MINUTE = timedelta(minutes=1)
@@ -53,3 +53,19 @@ def intersect(
     lo = a[0] if b[0] is None else max(a[0], b[0])
     hi = a[1] if b[1] is None else min(a[1], b[1])
     return lo, hi
+
+
+Span = tuple[datetime, datetime]  # half-open [start, end)
+
+
+def merge_spans(spans: Iterable[Span]) -> list[Span]:
+    """Sorted, disjoint union of spans; touching spans are joined."""
+    out: list[Span] = []
+    for s, e in sorted(spans):
+        if e <= s:
+            continue
+        if out and s <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], e))
+        else:
+            out.append((s, e))
+    return out

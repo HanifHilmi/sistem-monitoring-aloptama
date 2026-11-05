@@ -13,6 +13,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from simola.core.timeutil import merge_spans
 from simola.kpi.outages import (
     CAUSES,
     Outage,
@@ -24,7 +25,6 @@ from simola.kpi.outages import (
     group,
     intersect_spans,
     join_adjacent,
-    merge_spans,
     parse_scope,
     scope_counts,
 )

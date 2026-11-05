@@ -73,6 +73,9 @@ ADMIN_ROUTES = (
     "/api/v1/admin/mandatory-fields/{component_type}/preview",
     "/api/v1/admin/components",
     "/api/v1/admin/components/{component_id}",
+    "/api/v1/admin/flags",
+    "/api/v1/admin/flags/preview",
+    "/api/v1/admin/flags/{flag_id}",
 )
 AUTH_ROUTES = ("/api/v1/auth/me", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password")
 # Every state-changing route the API may publish; a new one fails the check until it is reviewed here.
@@ -88,6 +91,9 @@ KNOWN_WRITES = {
     "PUT /api/v1/admin/settings/{key}",
     "PUT /api/v1/admin/mandatory-fields/{component_type}",
     "PATCH /api/v1/admin/components/{component_id}",
+    "POST /api/v1/admin/flags",
+    "PATCH /api/v1/admin/flags/{flag_id}",
+    "DELETE /api/v1/admin/flags/{flag_id}",
 }
 # Routes that exist inside the containers but are not public API routes.
 NON_PUBLIC = {"/health", "/ready"}
@@ -138,7 +144,7 @@ def iso(d: datetime) -> str:
 
 
 def public_routes(web: str) -> list[tuple[str, str, dict[str, Any]]]:
-    """(template, concrete path, query) for every public R1 route, with real identifiers from the API."""
+    """(template, concrete path, query) for every public route, with real identifiers from the API."""
     code = get_json(web, "/api/v1/systems")[0]["code"]
     system = get_json(web, f"/api/v1/systems/{code}")
     site = system["sites"][0]
@@ -178,6 +184,10 @@ def public_routes(web: str) -> list[tuple[str, str, dict[str, Any]]]:
         f"component:{site['slug']}:{component}",
     ]
     templates += [("/api/v1/systems/{code}/outages", {**month_q, "scope": s}) for s in outage_scopes]
+    templates += [
+        ("/api/v1/systems/{code}/flags", month_q),
+        ("/api/v1/systems/{code}/flags", {**month_q, "scope": f"component:{site['slug']}:{component}"}),
+    ]
     return [(t, t.format(**ids), q) for t, q in templates]
 
 
@@ -272,6 +282,7 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
         "{key}": "grace_minutes",
         "{component_type}": "ATRH",
         "{component_id}": "2",
+        "{flag_id}": "1",
     }
     extra = []
     for p in (*INTERNAL_ROUTES, *ADMIN_ROUTES, *AUTH_ROUTES):

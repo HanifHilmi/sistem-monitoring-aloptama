@@ -31,6 +31,9 @@ Against a deployed site, tests that need a session sign in with `SIMOLA_E2E_USER
 Viewer account made for testing; they are skipped without it). The session cookie is Secure, so the test browser
 treats the container's plain-http address as secure (`playwright.config.ts`).
 
+The flag tests (`e2e/flags.spec.ts`) create flags, so they run on sample data only and are skipped against a
+deployed site: staging must not get test flags from a test run (see [admin.md](admin.md), manual flags).
+
 Against a deployed site this also measures NFR-PERF-003 (largest contentful paint ≤ 2.5 s, initial JS ≤ 400 KB
 gzip). It is measured from the host, so it leaves out the Cloudflare leg.
 
