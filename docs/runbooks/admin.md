@@ -1,7 +1,7 @@
-# Runbook: Admin operations (R2.2, R2.3)
+# Runbook: Admin operations (R2.2–R2.4)
 
-PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-006/007; design in [../design/r2.md](../design/r2.md)
-§3 and §4.3. All of this is in
+PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-001..007; design in [../design/r2.md](../design/r2.md)
+§3, §4.3 and §4.4. All of this is in
 **Admin** (Admins only), every change is in the audit log with before and after, and rule changes recompute the
 figures in the background. Accounts and the audit log: [accounts.md](accounts.md).
 
@@ -72,6 +72,45 @@ components only: SLA, the CDPs' uptime and the DCPs are never affected.
 **Staging until R1 is accepted:** no flags in December 2026 or in the two reference months. The acceptance recount
 (`tools/recount.py --daily`) counts the raw files and knows nothing about flags. Test flags (UAT U4) go on another
 month and are removed after the test; the recount then matches again.
+
+## Validity rules (Admin → Validity rules)
+
+A rule checks one measured field of a component type, at every site or at one site (a site's rule replaces the
+all-sites rule of the same kind there, even when it is off):
+
+| Rule | Suspect when | Parameters |
+|---|---|---|
+| Range | a value is below the minimum or above the maximum | min and/or max |
+| Stuck | the same value lasts this many minutes or more | minutes (5–1440); values allowed to stay (0 for rain) |
+| Spike | the change between valid minutes is larger than this | largest normal change; within N minutes (1–60) |
+
+Missing values never fire a rule; a missing minute ends a stuck run and is never compared by a spike rule. Text
+fields (present weather, sky, lightning) and gust events have no rules.
+
+- **Proposed rules (OPEN-08):** `simola propose-rules` (in the worker container) works out each field's history
+  and creates a range, a stuck and (for temperature, dew point, humidity, QNH, density altitude) a spike rule, all
+  **off**. The rules page shows them in blue. Open one: the history box shows the usual range, the extremes, the
+  longest unchanged run and the largest minute-to-minute change; the dry run shows what it would have raised over
+  the last 30 days. Adjust, then tick *Approve and turn on*.
+- **Every save is a new version.** Turning a rule on, or changing one that is on, re-checks the whole history as a
+  job (Admin → Jobs, *Run validity rules*). Detections raised by an older version keep that version (PRD E8).
+- **When rules run:** the worker checks the latest minutes every minute; a reprocess checks its days again.
+
+## Review queue (Admin → Review queue)
+
+A rule's hit is a **suspect**: it changes nothing. Open one to see the field's chart around it, what the rule saw
+and what confirming would change; confirm (bad data) or reject (data is fine) with an optional note, or tick
+several and decide them together. Decisions can be reversed later; each is in the audit log.
+
+- **Confirmed on a mandatory field:** the component is unavailable for that stretch; the days are recalculated.
+  Minutes already lost (no data, a missing field, a flag) are not counted twice; flags come first.
+- **Confirmed on an optional field:** the field is marked bad; the figures do not change.
+- **Rejected:** not raised again by the same rule version, even when the stretch grows.
+- **Who sees what:** confirmed detections are shown to everyone (time and rule); suspects, rejected ones, notes and
+  who decided are for signed-in users. Signed-in users also get a Problems item while suspects wait.
+
+**Staging until R1 is accepted:** do not confirm detections in December 2026 or in the two reference months (the
+acceptance recount counts the raw files). Rejecting is harmless.
 
 ## How the rest of SIMOLA follows
 

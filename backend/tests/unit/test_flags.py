@@ -221,3 +221,31 @@ def test_flags_cost_exactly_their_otherwise_valid_minutes(day: dict[str, Any]) -
         if c == "g":
             assert owners[i] == under[0]  # the older flag
     assert codes.count("v") == base.count("v") - sum(o.minutes for o in got)
+
+
+# ---------------------------------------------------------------------------- confirmed detections and suspects (R2.4)
+def det(did: int, a: int, b: int) -> Invalid:
+    return Invalid(m(a), m(b), "detection", did, None, "RH", "stuck")
+
+
+def test_flags_come_before_confirmed_detections_and_suspects_stay_valid() -> None:
+    from simola.kpi.minutes import apply_suspects
+
+    codes, owners = apply_invalid(T0, "vvvvvvnv", [flag(3, 0, 2), det(9, 1, 5)])
+    assert codes == "ggdddvnv"  # minute 1 is under both: the flag owns it
+    assert owners[:5] == [3, 3, -9, -9, -9]
+    runs = intervals(T0, codes, owners, {3: "maintenance"}, {9: {"id": 9, "field": "RH", "type": "stuck"}})
+    d = next(r for r in runs if r["cause"] == "detection")
+    assert (d["minutes"], d["detections"]) == (3, [{"id": 9, "field": "RH", "type": "stuck"}])
+    shown = apply_suspects(T0, codes, [(m(3), m(8))])
+    assert shown == "ggdddsns"  # only valid minutes become suspect; lost ones keep their cause
+
+
+def test_detection_outages_name_their_detection() -> None:
+    got = flagged_outages(
+        window=(m(0), m(60)), lost=[], invalid=[flag(1, 0, 10), det(4, 5, 20)], site="04", component="ATRH"
+    )
+    assert [(o.start, o.end, o.cause, o.flag, o.detection, o.field) for o in got] == [
+        (m(0), m(10), "flagged", 1, None, None),
+        (m(10), m(20), "detection", None, 4, "RH"),
+    ]

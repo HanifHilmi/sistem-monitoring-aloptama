@@ -8,6 +8,7 @@ simola jobs | simola cancel <id>
 simola import-legacy-probes --csv v2_probes.csv       # one-off at cutover (FR-ING-014)
 simola create-admin --username <name> [--display-name "<Full name>"]   # first Admin (FR-AUTH-001)
 simola create-admin --username <name> --reset          # new password for an Admin who is locked out
+simola propose-rules [--refresh]                       # proposed validity rules from the history, all off
 simola dev-reset                                       # development only
 """
 
@@ -309,6 +310,20 @@ async def _cmd_create_admin(a: argparse.Namespace) -> int:
         await engine.dispose()
 
 
+async def _cmd_propose_rules(a: argparse.Namespace) -> int:
+    """Proposed validity rules from each field's history (OPEN-08). They stay off until an Admin approves them."""
+    from simola.dq.history import propose_rules
+
+    engine, system = await _with_system(a.system)
+    try:
+        async with engine.begin() as conn:
+            made = await propose_rules(conn, system, refresh=a.refresh)
+        print(json.dumps({"proposed": made}, default=str))
+        return 0
+    finally:
+        await engine.dispose()
+
+
 async def _cmd_dev_reset(_a: argparse.Namespace) -> int:
     settings = get_settings()
     if settings.environment != "development":
@@ -350,6 +365,9 @@ def build_parser() -> argparse.ArgumentParser:
     ca.add_argument("--display-name")
     ca.add_argument("--reset", action="store_true", help="new password for an existing Admin")
     ca.add_argument("--password-stdin", action="store_true", help="read the password from standard input")
+    pr = sub.add_parser("propose-rules", help="proposed validity rules from the history, all off (OPEN-08)")
+    pr.add_argument("--system", default=DEFAULT_SYSTEM)
+    pr.add_argument("--refresh", action="store_true", help="work the field statistics out again")
     sub.add_parser("dev-reset", help="drop and recreate the schema (development only)")
     return p
 
@@ -363,6 +381,7 @@ COMMANDS = {
     "cancel": _cmd_cancel,
     "import-legacy-probes": _cmd_import_legacy,
     "create-admin": _cmd_create_admin,
+    "propose-rules": _cmd_propose_rules,
     "dev-reset": _cmd_dev_reset,
 }
 

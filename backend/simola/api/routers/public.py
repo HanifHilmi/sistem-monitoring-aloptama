@@ -6,11 +6,12 @@ from collections import OrderedDict
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from simola.api.deps import ApiError, parse_period, system_or_404, systems
+from simola.api.security import principal
 from simola.core.db import connection
 from simola.core.timeutil import day_start
 from simola.kpi import engine, matrix, minutes, outages, series, status
@@ -141,11 +142,29 @@ async def get_status(code: str, conn: AsyncConnection = Depends(connection)) -> 
 
 
 @router.get("/systems/{code}/problems")
-async def get_problems(code: str, conn: AsyncConnection = Depends(connection)) -> dict[str, Any]:
+async def get_problems(
+    request: Request, code: str, conn: AsyncConnection = Depends(connection)
+) -> dict[str, Any]:
     system = await system_or_404(conn, code)
     now = _now()
     st = await status.system_status(conn, system, now)
-    return {"generated_at": now, "problems": status.problems_from_status(system, st, now)}
+    problems = status.problems_from_status(system, st, now)
+    # Suspect detections waiting for review are for signed-in users only (FR-DSH-010, OPEN-13).
+    user = await principal(request)
+    if user is not None and not user.must_change_password:
+        from simola.api.routers.dq import pending_suspects
+
+        n = await pending_suspects(conn, system)
+        if n:
+            problems.append(
+                {
+                    "code": "suspects_pending",
+                    "severity": "info",
+                    "link": "/admin/review" if user.is_admin else f"/systems/{system.code}",
+                    "params": {"n": n},
+                }
+            )
+    return {"generated_at": now, "problems": problems}
 
 
 def _bucket_start(d: date, bucket: str) -> date:
@@ -318,6 +337,7 @@ async def get_outages(
 
 @router.get("/systems/{code}/minutes")
 async def get_minutes(
+    request: Request,
     code: str,
     day: date,
     scope: str = Query(pattern=r"^(sla|cdp:[A-Za-z0-9_-]+|component:[a-z0-9-]+:[A-Z0-9]+)$"),
@@ -326,6 +346,8 @@ async def get_minutes(
     """Minute-by-minute status of one scope for one UTC day, with its unavailable intervals (FR-DSH-009)."""
     system = await system_or_404(conn, code)
     try:
-        return await minutes.minute_status(conn, system, scope, day, _now())
+        user = await principal(request)
+        viewer = user is not None and not user.must_change_password
+        return await minutes.minute_status(conn, system, scope, day, _now(), viewer=viewer)
     except ValueError as exc:
         raise ApiError(404, "scope_not_found", str(exc)) from exc

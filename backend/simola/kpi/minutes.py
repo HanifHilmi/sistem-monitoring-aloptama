@@ -6,6 +6,9 @@ Status codes per minute:
     n  no record / no data flow
     g  flagged: the minute would be valid, but an active flag covers it (components only, R2.3). A minute
        already lost for another reason keeps that reason, so it is never counted twice.
+    d  confirmed detection: the minute would be valid, but a confirmed detection on a mandatory field covers it
+       (R2.4); flags come first.
+    s  valid, but a suspect detection covers it: shown to signed-in users only, still counted as valid.
     u  not evaluated: before coverage start, outside the component's in-service period, or not yet due (grace)
 """
 
@@ -29,7 +32,7 @@ from simola.kpi.engine import (
 )
 from simola.registry import Component, System
 
-CAUSE = {"f": "field_missing", "n": "no_data", "g": "flagged"}
+CAUSE = {"f": "field_missing", "n": "no_data", "g": "flagged", "d": "detection"}
 
 
 def statuses(
@@ -52,21 +55,37 @@ def statuses(
     return "".join(out)
 
 
-def apply_invalid(start: datetime, codes: str, invalid: Sequence[Invalid]) -> tuple[str, list[int]]:
-    """Valid minutes under an invalidating interval become ``g``; ``owners[i]`` is the flag behind minute i.
+def _span(start: datetime, a: datetime, b: datetime, n: int) -> range:
+    return range(
+        max(0, int((a - start).total_seconds()) // 60), min(n, -(-int((b - start).total_seconds()) // 60))
+    )
 
-    Intervals come flags first, oldest first, so a minute under two flags belongs to the older one.
+
+def apply_invalid(start: datetime, codes: str, invalid: Sequence[Invalid]) -> tuple[str, list[int]]:
+    """Valid minutes under an invalidating interval become ``g`` (flag) or ``d`` (confirmed detection).
+
+    ``owners[i]`` names what is behind minute i: a flag's id, or minus a detection's id. Intervals come flags
+    first, oldest first, so a minute under two of them belongs to the first.
     """
     out = list(codes)
     owners = [0] * len(codes)
     for iv in invalid:
-        i0 = max(0, int((iv.start - start).total_seconds()) // 60)
-        i1 = min(len(out), -(-int((iv.end - start).total_seconds()) // 60))
-        for i in range(i0, i1):
+        code, owner = ("g", iv.source_id) if iv.source == "flag" else ("d", -iv.source_id)
+        for i in _span(start, iv.start, iv.end, len(out)):
             if out[i] == "v":
-                out[i] = "g"
-                owners[i] = iv.source_id
+                out[i] = code
+                owners[i] = owner
     return "".join(out), owners
+
+
+def apply_suspects(start: datetime, codes: str, suspects: Sequence[tuple[datetime, datetime]]) -> str:
+    """Valid minutes under a suspect detection become ``s`` (for signed-in users; still valid)."""
+    out = list(codes)
+    for a, b in suspects:
+        for i in _span(start, a, b, len(out)):
+            if out[i] == "v":
+                out[i] = "s"
+    return "".join(out)
 
 
 def intervals(
@@ -74,8 +93,10 @@ def intervals(
     codes: str,
     owners: Sequence[int] | None = None,
     reasons: dict[int, str | None] | None = None,
+    detections: dict[int, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Contiguous runs of unavailable minutes (f/n/g), longest first. Flagged runs name their flag."""
+    """Contiguous runs of unavailable minutes (f/n/g/d), longest first. Flagged runs name their flag, confirmed
+    detection runs their detection."""
     runs: list[dict[str, Any]] = []
     own = owners or [0] * len(codes)
     i = 0
@@ -93,6 +114,8 @@ def intervals(
             }
             if c == "g":
                 run["flags"] = [{"id": own[i], "reason": (reasons or {}).get(own[i])}]
+            if c == "d":
+                run["detections"] = [(detections or {}).get(-own[i], {"id": -own[i]})]
             runs.append(run)
             i = j
         else:
@@ -118,8 +141,9 @@ def parse_scope(system: System, scope: str) -> tuple[str, Any]:
 
 
 async def minute_status(
-    conn: AsyncConnection, system: System, scope: str, day: date, now: datetime
+    conn: AsyncConnection, system: System, scope: str, day: date, now: datetime, *, viewer: bool = False
 ) -> dict[str, Any]:
+    """``viewer``: a signed-in user, who also sees minutes under a suspect detection (``s``)."""
     kind, target = parse_scope(system, scope)
     start, end = day_start(day), day_start(day) + DAY
     eval_end = evaluation_end(now, await grace_minutes(conn))
@@ -170,13 +194,32 @@ async def minute_status(
             invalid = (await invalid_intervals(conn, [comp.id], start, end)).get(comp.id, [])
 
     codes, owners = apply_invalid(start, statuses(start, evaluable, present, valid), invalid)
+    if viewer and kind == "component" and not target.is_dcp:
+        suspects = await conn.execute(
+            text("""
+            SELECT start_at, end_at FROM dq_detection
+            WHERE component_id = :c AND status = 'suspect' AND end_at > :a AND start_at < :b
+        """),
+            {"c": target.id, "a": start, "b": end},
+        )
+        codes = apply_suspects(start, codes, [(r[0], r[1]) for r in suspects])
     expected = sum(1 for c in codes if c != "u")
-    valid_minutes = codes.count("v")
+    valid_minutes = codes.count("v") + codes.count("s")
     return {
         "scope": scope,
         "day": day,
         "codes": codes,
         "valid": valid_minutes,
         "expected": expected,
-        "intervals": intervals(start, codes, owners, {iv.source_id: iv.reason for iv in invalid}),
+        "intervals": intervals(
+            start,
+            codes,
+            owners,
+            {iv.source_id: iv.reason for iv in invalid if iv.source == "flag"},
+            {
+                iv.source_id: {"id": iv.source_id, "field": iv.field, "type": iv.rule_type}
+                for iv in invalid
+                if iv.source == "detection"
+            },
+        ),
     }

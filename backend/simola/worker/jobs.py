@@ -11,7 +11,8 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from simola.core.timeutil import iter_days
+from simola.core.timeutil import DAY, day_start, iter_days
+from simola.dq import detect
 from simola.ingestion.cat3 import Cat3Ingestor
 from simola.kpi.engine import recompute_days
 from simola.registry import System, load_system
@@ -121,13 +122,61 @@ async def run_reprocess(ctx: JobContext, ingestor: Cat3Ingestor, params: dict[st
                 f"{k}={'no-file' if not v.get('file') else v['minutes']}" for k, v in summary["cdps"].items()
             ),
         )
+    # The minutes changed: the rules look at them again (FR-DQ-003), before the figures are recomputed.
+    async with ingestor.engine.connect() as conn:
+        system = await load_system(conn, ingestor.system.code) or ingestor.system
+    found = await detect_range(ingestor.engine, system, days[0], days[-1])
     async with ingestor.engine.begin() as conn:
-        stored = await recompute_days(conn, ingestor.system, days, datetime.now(UTC))
+        stored = await recompute_days(conn, system, days, datetime.now(UTC))
         await conn.execute(
             text("DELETE FROM rollup_dirty WHERE system_id = :s AND day = ANY(:d)"),
             {"s": ingestor.system.id, "d": days},
         )
-    return f"reprocessed {len(days)} day(s), {total_minutes} CDP-minutes; {stored} daily rollup(s) stored"
+    return f"reprocessed {len(days)} day(s), {total_minutes} CDP-minutes; {stored} daily rollup(s) stored; {found}"
+
+
+def month_chunks(first: date, last: date) -> list[tuple[date, date]]:
+    """[first, last] cut at month ends, oldest first (a later chunk extends stretches the earlier one found)."""
+    out: list[tuple[date, date]] = []
+    a = first
+    while a <= last:
+        nxt = (a.replace(day=1) + timedelta(days=32)).replace(day=1)
+        b = min(last, nxt - timedelta(days=1))
+        out.append((a, b))
+        a = b + timedelta(days=1)
+    return out
+
+
+async def detect_range(
+    engine: AsyncEngine,
+    system: System,
+    first: date,
+    last: date,
+    *,
+    rule_ids: list[int] | None = None,
+    ctx: JobContext | None = None,
+) -> str:
+    """Runs the rules over whole UTC days, a month per transaction, and queues the days whose figures move."""
+    raised = changed = dropped = 0
+    chunks = month_chunks(first, last)
+    for i, (a, b) in enumerate(chunks, start=1):
+        async with engine.begin() as conn:
+            res = await detect.run(conn, system, day_start(a), day_start(b) + DAY, rule_ids=rule_ids)
+            if res.days:
+                await detect.mark_days(conn, system, res.days, datetime.now(UTC).date())
+        raised, changed, dropped = raised + res.raised, changed + res.changed, dropped + res.dropped
+        if ctx is not None:
+            await ctx.progress(
+                i / len(chunks), f"{a}..{b} new {res.raised}, extended {res.changed}, gone {res.dropped}"
+            )
+    return f"rules: {raised} new suspect(s), {changed} extended, {dropped} no longer hold"
+
+
+async def run_detect(ctx: JobContext, engine: AsyncEngine, system: System, params: dict[str, Any]) -> str:
+    days = _days(params)
+    rule_ids = [int(params["rule_id"])] if params.get("rule_id") else None
+    found = await detect_range(engine, system, days[0], days[-1], rule_ids=rule_ids, ctx=ctx)
+    return f"checked {len(days)} day(s); {found}"
 
 
 async def run_recompute(ctx: JobContext, engine: AsyncEngine, system: System, params: dict[str, Any]) -> str:
@@ -156,6 +205,10 @@ async def execute(
             async with engine.connect() as conn:
                 system = await load_system(conn, params["system"]) or ingestor.system
             message = await run_recompute(ctx, engine, system, params)
+        elif job["type"] == "detect":
+            async with engine.connect() as conn:
+                system = await load_system(conn, params["system"]) or ingestor.system
+            message = await run_detect(ctx, engine, system, params)
         else:
             raise ValueError(f"unsupported job type {job['type']}")
         await ctx.finish("done", message)

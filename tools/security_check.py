@@ -76,6 +76,13 @@ ADMIN_ROUTES = (
     "/api/v1/admin/flags",
     "/api/v1/admin/flags/preview",
     "/api/v1/admin/flags/{flag_id}",
+    "/api/v1/admin/rules",
+    "/api/v1/admin/rules/history",
+    "/api/v1/admin/rules/dry-run",
+    "/api/v1/admin/rules/{rule_id}",
+    "/api/v1/admin/rules/{rule_id}/versions",
+    "/api/v1/admin/detections",
+    "/api/v1/admin/detections/decide",
 )
 AUTH_ROUTES = ("/api/v1/auth/me", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password")
 # Every state-changing route the API may publish; a new one fails the check until it is reviewed here.
@@ -94,6 +101,9 @@ KNOWN_WRITES = {
     "POST /api/v1/admin/flags",
     "PATCH /api/v1/admin/flags/{flag_id}",
     "DELETE /api/v1/admin/flags/{flag_id}",
+    "POST /api/v1/admin/rules",
+    "PUT /api/v1/admin/rules/{rule_id}",
+    "POST /api/v1/admin/detections/decide",
 }
 # Routes that exist inside the containers but are not public API routes.
 NON_PUBLIC = {"/health", "/ready"}
@@ -187,6 +197,8 @@ def public_routes(web: str) -> list[tuple[str, str, dict[str, Any]]]:
     templates += [
         ("/api/v1/systems/{code}/flags", month_q),
         ("/api/v1/systems/{code}/flags", {**month_q, "scope": f"component:{site['slug']}:{component}"}),
+        ("/api/v1/systems/{code}/detections", month_q),
+        ("/api/v1/systems/{code}/detections", {**month_q, "scope": f"component:{site['slug']}:{component}"}),
     ]
     return [(t, t.format(**ids), q) for t, q in templates]
 
@@ -283,6 +295,7 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
         "{component_type}": "ATRH",
         "{component_id}": "2",
         "{flag_id}": "1",
+        "{rule_id}": "1",
     }
     extra = []
     for p in (*INTERNAL_ROUTES, *ADMIN_ROUTES, *AUTH_ROUTES):

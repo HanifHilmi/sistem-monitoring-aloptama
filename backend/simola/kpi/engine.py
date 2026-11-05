@@ -109,13 +109,16 @@ def component_valid_sql(system: System, comp: Component) -> str:
 # ---------------------------------------------------------------------------- invalidating intervals (R2.3)
 @dataclass(frozen=True)
 class Invalid:
-    """A stretch of time that does not count for a component: an active flag (R2.4 adds confirmed detections)."""
+    """A stretch of time that does not count for a component: an active flag, or a confirmed detection on a
+    mandatory field (R2.4)."""
 
     start: datetime
     end: datetime
     source: str  # 'flag' | 'detection'
     source_id: int
     reason: str | None = None  # a flag's reason category
+    field: str | None = None  # a detection's field
+    rule_type: str | None = None  # a detection's rule type
 
 
 InvalidMap = dict[int, list[Invalid]]  # component id -> its intervals, flags first, oldest first
@@ -144,8 +147,11 @@ async def invalid_intervals(
     rows = (
         await conn.execute(
             text(f"""
-        SELECT i.component_id, lower(i.during), upper(i.during), i.source, i.source_id, f.reason
-        FROM invalid_interval i LEFT JOIN flag f ON i.source = 'flag' AND f.id = i.source_id
+        SELECT i.component_id, lower(i.during), upper(i.during), i.source, i.source_id, f.reason,
+               d.field_code, d.type
+        FROM invalid_interval i
+        LEFT JOIN flag f ON i.source = 'flag' AND f.id = i.source_id
+        LEFT JOIN dq_detection d ON i.source = 'detection' AND d.id = i.source_id
         WHERE i.component_id = ANY(:ids) AND i.during && tstzrange(:a, :b) {skip}
         ORDER BY i.component_id, i.source DESC, i.source_id
     """),
@@ -153,8 +159,10 @@ async def invalid_intervals(
         )
     ).all()
     out: InvalidMap = {}
-    for cid, start, end, source, source_id, reason in rows:
-        out.setdefault(int(cid), []).append(Invalid(start, end, str(source), int(source_id), reason))
+    for cid, start, end, source, source_id, reason, field_code, rule_type in rows:
+        out.setdefault(int(cid), []).append(
+            Invalid(start, end, str(source), int(source_id), reason, field_code, rule_type)
+        )
     return out
 
 

@@ -9,10 +9,11 @@ Causes:
     no_record      component: a CDP produced data, but the site has no merged record for that minute.
     field_missing  component: the record exists but a mandatory field is missing (DCP: every field).
     flagged        component: the minute would be valid, but an active manual flag covers it (R2.3, FR-DQ-006).
-    detection      R2.4: a confirmed detection. Reserved, never returned yet.
+    detection      component: the minute would be valid, but a confirmed detection on a mandatory field covers it
+                   (R2.4, FR-DQ-005).
 
-A minute already lost for another reason keeps that reason, so a flag only adds the minutes it really cost and
-no minute is counted twice. A minute under two flags belongs to the older one.
+A minute already lost for another reason keeps that reason, so a flag or detection only adds the minutes it really
+cost and no minute is counted twice. Flags come before detections, older before newer (PRD E9).
 
 The intervals cover exactly the minutes the KPI engine counts as missing: the same clipped window (coverage
 start, in-service period, now - grace) and the same validity SQL (``engine.component_valid_sql``). For any scope
@@ -54,6 +55,9 @@ class Outage:
     fields: tuple[str, ...] = ()  # field_missing: the mandatory fields missing during the interval
     flag: int | None = None  # flagged: the flag behind the interval
     reason: str | None = None  # flagged: that flag's reason category
+    detection: int | None = None  # detection: the confirmed detection behind the interval
+    field: str | None = None  # detection: its field
+    rule_type: str | None = None  # detection: its rule type
 
     @property
     def minutes(self) -> int:
@@ -112,7 +116,8 @@ def join_adjacent(pieces: Iterable[Outage]) -> list[Outage]:
         if (
             last is not None
             and last.end == p.start
-            and (last.cause, last.site, last.component, last.flag) == (p.cause, p.site, p.component, p.flag)
+            and (last.cause, last.site, last.component, last.flag, last.detection)
+            == (p.cause, p.site, p.component, p.flag, p.detection)
         ):
             out[-1] = replace(last, end=p.end, fields=tuple(dict.fromkeys(last.fields + p.fields)))
         else:
@@ -174,9 +179,10 @@ def flagged_outages(
     site: str,
     component: str,
 ) -> list[Outage]:
-    """The minutes flags cost a component: inside its window, under a flag, and not already ``lost``.
+    """The minutes flags and confirmed detections cost a component: inside its window, under one of them, and not
+    already ``lost``.
 
-    ``invalid`` comes flags first, oldest first; each minute goes to the first flag that covers it.
+    ``invalid`` comes flags first, oldest first; each minute goes to the first interval that covers it.
     """
     a, b = window
     if b <= a or not invalid:
@@ -184,13 +190,25 @@ def flagged_outages(
     taken = merge_spans((o.start, o.end) for o in lost)
     out: list[Outage] = []
     for iv in invalid:
-        if iv.source != "flag":
-            continue
         span = (max(iv.start, a), min(iv.end, b))
         if span[1] <= span[0]:
             continue
         for s, e in intersect_spans([span], complement(taken, window)):
-            out.append(Outage(s, e, "flagged", site, component, flag=iv.source_id, reason=iv.reason))
+            if iv.source == "flag":
+                out.append(Outage(s, e, "flagged", site, component, flag=iv.source_id, reason=iv.reason))
+            else:
+                out.append(
+                    Outage(
+                        s,
+                        e,
+                        "detection",
+                        site,
+                        component,
+                        detection=iv.source_id,
+                        field=iv.field,
+                        rule_type=iv.rule_type,
+                    )
+                )
         taken = merge_spans([*taken, span])
     return join_adjacent(out)
 
@@ -205,6 +223,7 @@ class Group:
     members: tuple[Outage, ...]
     flag: int | None = None
     reason: str | None = None
+    detection: int | None = None
 
     @property
     def minutes(self) -> int:
@@ -221,10 +240,10 @@ def group(outages: Iterable[Outage]) -> list[Group]:
 
     Members keep the order they came in (registry order), and so do ties (the sort is stable).
     """
-    groups: dict[tuple[datetime, datetime, str, int | None], list[Outage]] = {}
+    groups: dict[tuple[datetime, datetime, str, int | None, int | None], list[Outage]] = {}
     for o in outages:
-        groups.setdefault((o.start, o.end, o.cause, o.flag), []).append(o)
-    out = [Group(s, e, c, tuple(m), f, m[0].reason) for (s, e, c, f), m in groups.items()]
+        groups.setdefault((o.start, o.end, o.cause, o.flag, o.detection), []).append(o)
+    out = [Group(s, e, c, tuple(m), f, m[0].reason, d) for (s, e, c, f, d), m in groups.items()]
     return sorted(out, key=lambda g: (-g.minutes, -len(g.members), g.start))
 
 
@@ -416,6 +435,9 @@ def outage_view(g: Group, ongoing: bool) -> dict[str, Any]:
     }
     if g.flag is not None:
         view["flags"] = [{"id": g.flag, "reason": g.reason}]
+    if g.detection is not None:
+        first = g.members[0]
+        view["detections"] = [{"id": g.detection, "field": first.field, "type": first.rule_type}]
     members = [m for m in g.members if m.component is not None]
     if members:
         view["components"] = [

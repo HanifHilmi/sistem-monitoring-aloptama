@@ -7,7 +7,7 @@
 # It passes when the restore reports no error, every live table is in the backup, the reference tables
 # (registry, settings) are equal, and the minute and daily tables are equal for everything older than two
 # days before the backup was written (newer rows may have changed since). Tables that change by themselves
-# (jobs, heartbeats, backup runs, ingest status, rollup marks, sessions, accounts, flags) only need to be present. A reprocess of old
+# (jobs, heartbeats, backup runs, ingest status, rollup marks, sessions, accounts, flags, rules and detections) only need to be present. A reprocess of old
 # days after the backup also shows up as a difference. The server needs free disk for one more copy of the
 # database while this runs.
 set -eu
@@ -15,7 +15,7 @@ set -eu
 export PGTZ=UTC
 
 SCRATCH=simola_verify
-CHANGING=" backup_run job rollup_dirty worker_heartbeat ingest_status user_session app_user flag flag_component invalid_interval "
+CHANGING=" backup_run job rollup_dirty worker_heartbeat ingest_status user_session app_user flag flag_component invalid_interval dq_rule dq_rule_version dq_detection dq_field_history "
 
 take_lock
 if [ $# -gt 0 ]; then

@@ -464,6 +464,10 @@ async def put_mandatory(
             source_ip=client_ip(request),
         )
         await _bump_registry(conn)
+        # A confirmed detection only counts against a field that is mandatory now (FR-DQ-005).
+        from simola.dq.detect import sync_invalid
+
+        await sync_invalid(conn, await _system(conn, sy.code))
         job = await _enqueue(conn, "recompute", sy.code, sy.coverage_start.date(), _today(), admin.username)
     clear_registry_cache()
     return {"job": job}

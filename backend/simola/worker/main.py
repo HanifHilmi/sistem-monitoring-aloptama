@@ -23,6 +23,8 @@ from simola.core.config import Settings, get_settings
 from simola.core.db import make_engine
 from simola.core.logging import setup_logging
 from simola.core.timeutil import day_start
+from simola.dq import detect as dq_detect
+from simola.dq import rules as dq_rules
 from simola.ingestion.cat3 import Cat3Ingestor
 from simola.ingestion.probe import Prober
 from simola.kpi.engine import recompute_days
@@ -147,6 +149,27 @@ class Worker:
                     )
         self._finalised = {k for k in self._finalised if k[0] >= today - timedelta(days=2)}
 
+    async def detect_recent(self) -> None:
+        """Runs the enabled rules over the latest minutes (FR-DQ-003, incremental): enough before them to see a
+        stuck run or a spike whole, plus two hours for data that arrived late."""
+        now = datetime.now(UTC)
+        for s in self.systems:
+            async with self.engine.begin() as conn:
+                rules = await dq_detect.load_rules(conn, s)
+                enabled = [r for r in rules if r.enabled]
+                if not enabled:
+                    continue
+                lb = max(dq_rules.lookback(r.type, r.params) for r in enabled)
+                b = now.replace(second=0, microsecond=0)
+                res = await dq_detect.run(conn, s, b - timedelta(minutes=lb + 120), b, rules=rules)
+                if res.days:
+                    await dq_detect.mark_days(conn, s, res.days, now.date())
+            if res.raised or res.changed or res.dropped:
+                logger.info(
+                    "rules checked",
+                    extra={"system": s.code, "new": res.raised, "extended": res.changed, "gone": res.dropped},
+                )
+
     async def run_jobs(self) -> None:
         job = await jobs.claim(self.engine)
         if job is not None:
@@ -191,6 +214,7 @@ class Worker:
                         asyncio.create_task(_every(self.settings.probe_interval_s, self.probe, "probe")),
                         asyncio.create_task(_every(30, self.rollups, "rollups")),
                         asyncio.create_task(_every(5, self.run_jobs, "jobs")),
+                        asyncio.create_task(_every(60, self.detect_recent, "detect")),
                     ]
                     try:
                         while not lock_conn.is_closed():

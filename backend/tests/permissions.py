@@ -26,6 +26,7 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("GET", "/api/v1/systems/{code}/outages"): "public",
     ("GET", "/api/v1/systems/{code}/minutes"): "public",
     ("GET", "/api/v1/systems/{code}/flags"): "public",  # note and author only for signed-in users
+    ("GET", "/api/v1/systems/{code}/detections"): "public",  # suspect and rejected only for signed-in users
     ("GET", "/api/v1/auth/me"): "public",  # null when nobody is signed in
     ("POST", "/api/v1/auth/login"): "public",
     ("POST", "/api/v1/auth/logout"): "public",
@@ -52,6 +53,14 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("POST", "/api/v1/admin/flags"): "admin",
     ("PATCH", "/api/v1/admin/flags/{flag_id}"): "admin",
     ("DELETE", "/api/v1/admin/flags/{flag_id}"): "admin",
+    ("GET", "/api/v1/admin/rules"): "admin",
+    ("GET", "/api/v1/admin/rules/history"): "admin",
+    ("GET", "/api/v1/admin/rules/dry-run"): "admin",
+    ("GET", "/api/v1/admin/rules/{rule_id}/versions"): "admin",
+    ("POST", "/api/v1/admin/rules"): "admin",
+    ("PUT", "/api/v1/admin/rules/{rule_id}"): "admin",
+    ("GET", "/api/v1/admin/detections"): "admin",
+    ("POST", "/api/v1/admin/detections/decide"): "admin",
 }
 
 # Sample values for path parameters. The matrix test sends {} as every write's body, which is invalid or
@@ -65,4 +74,5 @@ PATH_VALUES = {
     "component_type": "ATRH",
     "component_id": "2",
     "flag_id": "999999",  # no such flag: the Admin call answers 404 and removes nothing
+    "rule_id": "999999",  # no such rule: nothing changes
 }
