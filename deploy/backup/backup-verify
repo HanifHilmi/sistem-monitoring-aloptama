@@ -1,0 +1,92 @@
+#!/bin/sh
+# Check that a backup restores, without touching the live database (PRD NFR-BAK-002 restore drill):
+# restore it into a scratch database on the same server, compare it with the live data, then drop the
+# scratch database again.
+#   backup-verify                          the newest backup
+#   backup-verify simola-<time>.dump       a given backup in $BACKUP_DIR (or a full path)
+# It passes when the restore reports no error, every live table is in the backup, the reference tables
+# (registry, settings) are equal, and the minute and daily tables are equal for everything older than two
+# days before the backup was written (newer rows may have changed since). Tables that change by themselves
+# (jobs, heartbeats, backup runs, ingest status, rollup marks) only need to be present. A reprocess of old
+# days after the backup also shows up as a difference. The server needs free disk for one more copy of the
+# database while this runs.
+set -eu
+. "${SIMOLA_BACKUP_LIB:-/opt/simola/lib.sh}"
+export PGTZ=UTC
+
+SCRATCH=simola_verify
+CHANGING=" backup_run job rollup_dirty worker_heartbeat ingest_status "
+
+take_lock
+if [ $# -gt 0 ]; then
+  case $1 in
+    /*) file=$1 ;;
+    *) file="$BACKUP_DIR/$1" ;;
+  esac
+else
+  file=$(find "$BACKUP_DIR" -name 'simola-*.dump' | sort | tail -n 1)
+fi
+[ -n "$file" ] && [ -f "$file" ] || fail "no backup found (run backup-now first)"
+name=$(basename "$file")
+if [ -f "$file.sha256" ]; then
+  (cd "$(dirname "$file")" && sha256sum -c "$name.sha256" >/dev/null 2>&1) || fail "$name does not match its checksum"
+fi
+cutoff=$(($(stat -c %Y "$file") - 2 * 86400))
+errlog=$(mktemp)
+
+cleanup() {
+  rm -f "$errlog"
+  psql -X -q -d postgres -c "DROP DATABASE IF EXISTS $SCRATCH WITH (FORCE)" >/dev/null 2>&1 \
+    || log "warning: could not drop the scratch database $SCRATCH"
+}
+trap cleanup EXIT
+t0=$(date +%s)
+
+log "restoring $name into the scratch database $SCRATCH (the live database $PGDATABASE is not touched)"
+psql -X -q -v ON_ERROR_STOP=1 -d postgres \
+  -c "DROP DATABASE IF EXISTS $SCRATCH WITH (FORCE)" -c "CREATE DATABASE $SCRATCH" >/dev/null
+psql -X -q -v ON_ERROR_STOP=1 -d "$SCRATCH" \
+  -c "CREATE EXTENSION IF NOT EXISTS timescaledb" -c "SELECT timescaledb_pre_restore()" >/dev/null
+pg_restore -d "$SCRATCH" --no-owner --no-privileges "$file" 2>"$errlog" || true
+psql -X -q -v ON_ERROR_STOP=1 -d "$SCRATCH" -c "SELECT timescaledb_post_restore()" >/dev/null
+restore_s=$(($(date +%s) - t0))
+errors=$(grep -c 'pg_restore: error' "$errlog" || true)
+if [ "$errors" -gt 0 ]; then
+  log "pg_restore reported $errors error(s):"
+  grep 'pg_restore: error' "$errlog" | head -n 20
+fi
+
+count() { # database table where -> number, or "missing"
+  psql -X -At -v ON_ERROR_STOP=1 -d "$1" -c "SELECT count(*) FROM public.\"$2\" $3" 2>/dev/null || echo missing
+}
+
+log "comparing with the live database (rows older than $(date -u -d "@$cutoff" +%Y-%m-%dT%H:%MZ) for minute and daily tables)"
+printf '%-28s %14s %14s  %s\n' table live backup result
+tables=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY 1")
+[ -n "$tables" ] || fail "could not list the live database's tables"
+failed=0
+for t in $tables; do
+  col=$(psql -X -At -v ON_ERROR_STOP=1 -c "SELECT column_name FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = '$t' AND column_name IN ('time', 'day')
+    ORDER BY column_name DESC LIMIT 1")
+  where=""
+  [ -n "$col" ] && where="WHERE \"$col\" < to_timestamp($cutoff)"
+  live=$(count "$PGDATABASE" "$t" "$where")
+  restored=$(count "$SCRATCH" "$t" "$where")
+  if [ "$restored" = missing ]; then
+    result="FAIL: not in the backup"
+  else
+    case $CHANGING in
+      *" $t "*) result="ok (changes by itself)" ;;
+      *) if [ "$live" = "$restored" ]; then result="ok"; else result="FAIL: differs"; fi ;;
+    esac
+  fi
+  case $result in FAIL*) failed=$((failed + 1)) ;; esac
+  printf '%-28s %14s %14s  %s\n' "$t${col:+ (<cutoff)}" "$live" "$restored" "$result"
+done
+
+total_s=$(($(date +%s) - t0))
+if [ "$errors" -gt 0 ] || [ "$failed" -gt 0 ]; then
+  fail "$name: $errors restore error(s), $failed table(s) not matching (restore ${restore_s} s, ${total_s} s in all)"
+fi
+log "PASSED: $name restores completely (restore ${restore_s} s, ${total_s} s in all); scratch database dropped"

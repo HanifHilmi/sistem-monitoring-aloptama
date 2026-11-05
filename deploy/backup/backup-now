@@ -1,0 +1,54 @@
+#!/bin/sh
+# Back up the SIMOLA database now (PRD NFR-BAK; backups run only when someone asks, never on a schedule).
+#   Coolify: the app's Terminal -> container "backup" -> backup-now
+#   Host:    docker exec <backup-container> backup-now
+# Writes $BACKUP_DIR/simola-<UTC time>.dump (pg_dump custom format) and its .sha256, checks the dump reads
+# back, and records the run in backup_run (shown on /internal/health). Nothing is ever deleted: the folder
+# keeps every backup until someone removes it. If BACKUP_UPLOAD_CMD is set, it is run with the dump's path
+# as $1 to copy it off the host (destination: OPEN-01).
+set -eu
+. "${SIMOLA_BACKUP_LIB:-/opt/simola/lib.sh}"
+
+take_lock
+started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+name="simola-$(date -u +%Y%m%dT%H%M%SZ).dump"
+tmp="$BACKUP_DIR/.$name.partial"
+trap 'rm -f "$tmp" "$tmp.list"' EXIT
+t0=$(date +%s)
+
+record() { # ok size message
+  psql -X -q -v ON_ERROR_STOP=1 -c "INSERT INTO backup_run (started_at, finished_at, ok, size_bytes, file_name, message)
+    VALUES ('$started', now(), $1, $2, $(sql_literal "$name"), $(sql_literal "$3"))" \
+    || log "warning: could not record the result in backup_run"
+}
+
+log "backing up database $PGDATABASE to $BACKUP_DIR/$name"
+if ! pg_dump -Fc -Z 6 -f "$tmp"; then
+  record false NULL "pg_dump failed"
+  fail "pg_dump failed"
+fi
+if ! pg_restore --list "$tmp" >"$tmp.list"; then
+  record false NULL "the dump cannot be read back"
+  fail "the dump cannot be read back"
+fi
+entries=$(grep -c -v '^;' "$tmp.list" || true)
+mv "$tmp" "$BACKUP_DIR/$name"
+size=$(stat -c %s "$BACKUP_DIR/$name")
+(cd "$BACKUP_DIR" && sha256sum "$name" >"$name.sha256")
+
+msg="local copy only (off-host destination not configured)"
+if [ -n "${BACKUP_UPLOAD_CMD:-}" ]; then
+  if sh -c "$BACKUP_UPLOAD_CMD \"\$1\"" upload "$BACKUP_DIR/$name"; then
+    msg="copied off-host"
+  else
+    record false "$size" "dump ok, off-host copy FAILED"
+    fail "the off-host copy failed (the local file $name is complete)"
+  fi
+fi
+record true "$size" "$msg"
+
+count=$(find "$BACKUP_DIR" -name 'simola-*.dump' | wc -l)
+total=$(du -sk "$BACKUP_DIR" | cut -f1)
+log "done in $(($(date +%s) - t0)) s: $name, $(human "$size"), $entries objects; $msg"
+log "the folder holds $count backup(s), $(human $((total * 1024))) in all; no backup was deleted"
+log "to check it restores (the live database is not touched): backup-verify $name"

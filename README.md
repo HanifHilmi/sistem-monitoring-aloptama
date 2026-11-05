@@ -23,7 +23,7 @@ Requirements: [`PRD.md`](PRD.md) (approved v1.0). Decisions: [`QUESTIONS.md`](QU
 |---|---|
 | `backend/` | Python 3.13: FastAPI API (`simola.api`), worker (`simola.worker`), CLI (`simola`), SQL migrations |
 | `frontend/` | Vue 3 + TypeScript + Tailwind + ECharts single-page app, served by unprivileged nginx |
-| `deploy/backup/` | Nightly `pg_dump` script used by the `backup` service |
+| `deploy/backup/` | On-request backup commands (`backup-now`, `backup-verify`) in the `backup` service |
 | `tools/recount.py` | Independent recount of monthly figures from the CDP files (acceptance check SM-1) |
 | `docs/runbooks/` | Operator procedures: deploy, history load, backups and restore, cutover |
 | `docker-compose.yml` | Services: `db`, `migrate`, `api`, `worker`, `web`, `backup` |

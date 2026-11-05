@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     probe_timeout_s: float = 3.0
     probe_ports: list[int] = Field(default_factory=lambda: [445])
 
-    # Backups (NFR-BAK-004): only raise "backup overdue" problems where backups are expected
+    # Backups (NFR-BAK-004): "backup overdue" problems. Off: backups run only on request, so compose does not set it.
     backup_expected: bool = False
 
     # Migrate step only: least-privilege application role to create/update (PRD DB-06)

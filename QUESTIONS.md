@@ -40,7 +40,7 @@ Companion to the existing-system assessment (`ASSESSMENT.md`, private and not pu
 | E2 | Existing data | CDP files are **kept indefinitely**, so SIMOLA **re-ingests from source files**. v2's database is not the source of record. v2's live probe samples (from 2026-08-14) are imported as legacy reachability (PRD review) | ✅ |
 | E3 | Exports | **Monthly SLA/OLA report as PDF**, plus **CSV export** of availability and raw data for a chosen period | ✅ |
 | F1 | Hosting | **This single shared host** under Coolify. Keep the footprint small, with resource limits | ✅ |
-| F2 | Backup destination | **Not decided.** Must be free or already owned (PRD review). Design for a pluggable off-host target; nightly schedule | ❓ |
+| F2 | Backup destination | **Not decided.** Must be free or already owned (PRD review). Design for a pluggable off-host target; backups only on request (Product Owner, 2026-11-04) | ❓ |
 | F3 | Staging | **Yes, on this host:** a second Coolify app on its own subdomain, from a staging branch, with its own small DB and read-only CDP mounts | ✅ |
 | F4a | AWS/ARG source | BMKG MQTT broker availability **not confirmed** | ❓ |
 | F4b | Tambelan source | **Tailscale/VPN to its CDP** (mount or sync its share) | ✅ |

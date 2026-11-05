@@ -107,8 +107,9 @@ jobs:
           retention-days: 7
 
   zap:
-    # OWASP ZAP baseline (passive) scan, PRD §15.4. The whole stack runs on GitHub's runner with throwaway
-    # passwords: this job never reaches staging or production. It fails on any High-risk alert.
+    # OWASP ZAP baseline (passive) scan, PRD §15.4, then a backup and restore check (NFR-BAK). The whole stack
+    # runs on GitHub's runner with throwaway passwords: this job never reaches staging or production. It fails
+    # on any High-risk alert, or if a backup does not restore.
     runs-on: ubuntu-latest
     env:
       SIMOLA_ENVIRONMENT: staging
@@ -118,6 +119,8 @@ jobs:
       SIMOLA_CDP_ADDRESSES: '{}'
     steps:
       - uses: actions/checkout@v7
+      - name: Backup commands with stand-in database tools
+        run: sh deploy/backup/test.sh
       - name: Start database, API and web on the runner
         run: docker compose up -d --build --wait web
       - name: ZAP baseline scan
@@ -136,6 +139,11 @@ jobs:
           high = [a for a in alerts if int(a["riskcode"]) >= 3]
           sys.exit(f"{len(high)} High-risk alert(s)" if high else 0)
           PY
+      - name: Back up and check the restore on the runner (deploy/backup)
+        run: |
+          docker compose up -d --wait backup
+          docker compose exec -T backup backup-now
+          docker compose exec -T backup backup-verify
       - uses: actions/upload-artifact@v7
         if: always()
         with:

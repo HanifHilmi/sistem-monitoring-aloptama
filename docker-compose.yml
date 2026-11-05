@@ -14,7 +14,6 @@ x-backend-env: &backend-env
   SIMOLA_VERSION: ${SOURCE_COMMIT:-dev}
   SIMOLA_LOG_LEVEL: ${SIMOLA_LOG_LEVEL:-INFO}
   SIMOLA_DATABASE_URL: postgresql+asyncpg://${SIMOLA_APP_DB_USER:?}:${SIMOLA_APP_DB_PASSWORD:?}@db:5432/${POSTGRES_DB:-simola}
-  SIMOLA_BACKUP_EXPECTED: ${SIMOLA_BACKUP_EXPECTED:-false}
 
 services:
   db:
@@ -125,13 +124,8 @@ services:
       PGUSER: ${POSTGRES_USER:-simola_owner}
       PGPASSWORD: ${POSTGRES_PASSWORD:?}
       PGDATABASE: ${POSTGRES_DB:-simola}
-      BACKUP_ENABLED: ${SIMOLA_BACKUP_ENABLED:-false}
-      BACKUP_HOUR_UTC: ${SIMOLA_BACKUP_HOUR_UTC:-18}
-      BACKUP_KEEP_DAILY: "7"
-      BACKUP_KEEP_WEEKLY: "4"
-      BACKUP_KEEP_MONTHLY: "12"
+      # Backups run only on request (backup-now, backup-verify; docs/runbooks/backup-restore.md).
       BACKUP_UPLOAD_CMD: ${SIMOLA_BACKUP_UPLOAD_CMD:-}
-      BACKUP_RUN_ON_START: ${SIMOLA_BACKUP_RUN_ON_START:-false}
     volumes:
       - type: bind
         source: ${SIMOLA_BACKUP_DIR:-./data/backups}

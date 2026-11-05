@@ -31,7 +31,8 @@ SIMOLA's own probe minutes are never overwritten. Affected days are recomputed a
 
 ## 3. Switch
 
-1. Confirm the latest backup and restore drill.
+1. Back up production and check that the backup restores ([backup-restore.md](backup-restore.md)): in the
+   production `backup` container run `backup-now`, then `backup-verify`; it must end with `PASSED`.
 2. In Cloudflare Access, remove the policy covering all of `simola.hilmihanif.my.id`. Keep the `/internal/*` policies until R2.
 3. Add a Cloudflare redirect rule: `rhf-monitoring.hilmihanif.my.id/*` → `https://simola.hilmihanif.my.id/$1` (301). Old v2 paths such as `/cat3/runway/04` are mapped by the SPA router.
 4. Announce the change to users.
