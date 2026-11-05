@@ -3,6 +3,7 @@ import type {
   MatrixBucket,
   MatrixResponse,
   MinutesResponse,
+  OutagesResponse,
   DisplaySettings,
   HistoryResponse,
   KpiResponse,
@@ -46,6 +47,10 @@ async function get<T>(path: string, params: Record<string, string | number> = {}
 
 const period = (from: Date, to: Date) => ({ from: from.toISOString(), to: to.toISOString() })
 
+/** The API lists outages for up to 93 days at a time (FR-KPI-009); longer periods go month by month. */
+export const MAX_OUTAGE_DAYS = 93
+const OUTAGE_LIMIT = 200
+
 export const api = {
   displaySettings: () => get<DisplaySettings>('/settings/display'),
   systems: () => get<SystemSummary[]>('/systems'),
@@ -67,5 +72,11 @@ export const api = {
     get<MatrixResponse>(`/systems/${encodeURIComponent(code)}/matrix`, { ...period(from, to), bucket }),
   minutes: (code: string, day: string, scope: string) =>
     get<MinutesResponse>(`/systems/${encodeURIComponent(code)}/minutes`, { day, scope }),
+  outages: (code: string, from: Date, to: Date, scope: string, limit = OUTAGE_LIMIT) =>
+    get<OutagesResponse>(`/systems/${encodeURIComponent(code)}/outages`, {
+      ...period(from, to),
+      scope,
+      limit,
+    }),
   internalHealth: () => get<Record<string, unknown>>('/internal/health'),
 }

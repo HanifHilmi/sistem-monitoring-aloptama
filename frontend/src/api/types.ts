@@ -250,3 +250,45 @@ export interface MinutesResponse {
   expected: number
   intervals: MinuteInterval[]
 }
+
+/** Why minutes were lost (FR-KPI-009). `flagged` and `detection` arrive with data quality in R2. */
+export type OutageCause = 'cdp_no_data' | 'no_record' | 'field_missing' | 'flagged' | 'detection'
+
+export interface OutageComponent {
+  site: string
+  component: string
+  /** field_missing only: the mandatory fields missing during the interval (empty for a DCP: every field). */
+  fields?: string[]
+}
+
+export interface Outage {
+  start: string
+  end: string
+  minutes: number
+  cause: OutageCause
+  /** minutes × components hit: this interval's share of the scope's lost minutes */
+  lost_minutes: number
+  /** the interval reaches the end of the evaluated part of an open period */
+  ongoing: boolean
+  /** component scopes (component, site, ola) only; identical intervals of several components are listed once */
+  components?: OutageComponent[]
+}
+
+export interface OutagesResponse {
+  system: string
+  scope: string
+  period: {
+    from: string
+    to: string
+    evaluated_from: string
+    evaluated_to: string
+    as_of: string
+    open: boolean
+  }
+  availability: Availability
+  /** over every interval, also past the list's limit: adds up to availability.missing */
+  by_cause: Record<OutageCause, number>
+  intervals_total: number
+  truncated: boolean
+  intervals: Outage[]
+}

@@ -87,15 +87,21 @@ def _component_window(comp: Component, a: datetime, b: datetime) -> tuple[dateti
     return intersect((a, b), (comp.in_service_from, comp.in_service_to))
 
 
-def component_condition(system: System, comp: Component, params: dict[str, Any]) -> str:
-    """SQL condition for 'component valid' on the merged minute table (PRD §7.3.1)."""
+def component_valid_sql(system: System, comp: Component) -> str:
+    """SQL condition for 'record valid for this component' on a merged minute row (PRD §7.3.1).
+
+    Non-DCP: every mandatory field present. DCP: some field of the site's sensor components present.
+    """
     site = next(s for s in system.sites if s.id == comp.site_id)
     if comp.is_dcp:
         cols = system.site_field_columns(site)
-        cond = "(" + " OR ".join(f"{c} IS NOT NULL" for c in cols) + ")" if cols else "false"
-    else:
-        cond = "(" + " AND ".join(f"{system.column(f)} IS NOT NULL" for f in comp.mandatory) + ")"
-    parts = [f"site_id = {int(comp.site_id)}", cond]
+        return "(" + " OR ".join(f"{c} IS NOT NULL" for c in cols) + ")" if cols else "false"
+    return "(" + " AND ".join(f"{system.column(f)} IS NOT NULL" for f in comp.mandatory) + ")"
+
+
+def component_condition(system: System, comp: Component, params: dict[str, Any]) -> str:
+    """SQL condition for 'component valid': its site, a valid record, and inside its in-service period."""
+    parts = [f"site_id = {int(comp.site_id)}", component_valid_sql(system, comp)]
     if comp.in_service_from is not None:
         params[f"isf_{comp.id}"] = comp.in_service_from
         parts.append(f"time >= :isf_{comp.id}")

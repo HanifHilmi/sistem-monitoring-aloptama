@@ -12,12 +12,16 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from simola.api.deps import ApiError, parse_period, system_or_404, systems
 from simola.core.db import connection
 from simola.core.timeutil import day_start
-from simola.kpi import engine, matrix, minutes, series, status
+from simola.kpi import engine, matrix, minutes, outages, series, status
 from simola.registry import System, get_setting
 
 router = APIRouter(prefix="/api/v1", tags=["public"])
 
 MAX_KPI_SPAN = timedelta(days=366 * 10)
+# Outages are worked out from the minute data: on staging's real data a month of every site takes ~0.35 s and a
+# quarter ~1 s. 93 days covers any quarter; longer periods are explained month by month.
+MAX_OUTAGE_SPAN = timedelta(days=93)
+MAX_OUTAGES = 500
 
 
 def _now() -> datetime:
@@ -260,6 +264,30 @@ async def get_matrix(
         "period": {"from": start, "to": end, "evaluated_to": max(a, b), "as_of": now, "open": end > b},
         **matrix.build_matrix(system, days, first, last, bucket),
     }
+
+
+@router.get("/systems/{code}/outages")
+async def get_outages(
+    code: str,
+    from_: str = Query(alias="from"),
+    to: str = Query(),
+    scope: str = Query(
+        pattern=r"^(sla|ola|cdp:[A-Za-z0-9_-]+|site:[a-z0-9-]+|component:[a-z0-9-]+:[A-Z0-9]+)$"
+    ),
+    limit: int = Query(100, ge=1, le=MAX_OUTAGES),
+    conn: AsyncConnection = Depends(connection),
+) -> dict[str, Any]:
+    """Lost intervals of one scope with start, end, duration and cause, longest first (FR-KPI-009).
+
+    ``by_cause`` covers every interval, so it adds up to the scope's missing minutes even when the list is cut
+    at ``limit``.
+    """
+    system = await system_or_404(conn, code)
+    start, end = parse_period(from_, to, max_span=MAX_OUTAGE_SPAN)
+    try:
+        return await outages.outage_report(conn, system, scope, start, end, _now(), limit)
+    except ValueError as exc:
+        raise ApiError(404, "scope_not_found", str(exc)) from exc
 
 
 @router.get("/systems/{code}/minutes")

@@ -3,8 +3,8 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 // Right-hand panel on wide screens, bottom sheet on phones. Escape or the backdrop closes it.
-const props = defineProps<{ open: boolean; title: string; subtitle?: string }>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{ open: boolean; title: string; subtitle?: string; canGoBack?: boolean }>()
+const emit = defineEmits<{ close: []; back: [] }>()
 const { t } = useI18n()
 const closeBtn = ref<HTMLButtonElement | null>(null)
 
@@ -38,6 +38,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
       :aria-label="title"
     >
       <header class="flex items-start gap-3 border-b border-line px-4 py-3">
+        <button
+          v-if="canGoBack"
+          type="button"
+          class="icon-btn"
+          :aria-label="t('common.back')"
+          @click="emit('back')"
+        >
+          ←
+        </button>
         <div class="min-w-0 flex-1">
           <h2 class="line-clamp-2 text-sm font-semibold">{{ title }}</h2>
           <p v-if="subtitle" class="truncate text-xs text-ink-3">{{ subtitle }}</p>

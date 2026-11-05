@@ -20,6 +20,11 @@ function route(url: URL): Response {
   if (p.endsWith('/matrix'))
     return json(data.matrix(from, to, (q.get('bucket') ?? 'day') as MatrixBucket, now))
   if (p.endsWith('/minutes')) return json(data.minutes(q.get('day') ?? '', q.get('scope') ?? 'sla', now))
+  if (p.endsWith('/outages')) {
+    if (to - from > data.MAX_OUTAGE_SPAN)
+      return json({ code: 'period_too_long', title: 'period longer than 93 days', status: 422 }, 422)
+    return json(data.outages(from, to, q.get('scope') ?? 'sla', now, Number(q.get('limit') ?? 100)))
+  }
   if (p.endsWith('/status')) return json(data.status(now))
   if (p.endsWith('/problems'))
     return json({

@@ -18,6 +18,7 @@
     "to": "To",
     "apply": "Apply",
     "validOfExpected": "{valid} of {expected} minutes valid",
+    "back": "Back",
     "allUtc": "All times UTC."
   },
   "period": {
@@ -78,6 +79,38 @@
     "causeName": { "field_missing": "Mandatory field missing", "no_data": "No data" },
     "more": "{n} more intervals",
     "openCharts": "Open this day's sensor charts"
+  },
+  "outages": {
+    "title": "Outages, longest first",
+    "tooLong": "Outages are listed for up to {days} days at a time. Pick a shorter period below.",
+    "none": "No minute lost in this period.",
+    "cause": {
+      "cdp_no_data": "CDP not producing data",
+      "no_record": "No record",
+      "field_missing": "Mandatory field missing",
+      "flagged": "Flagged",
+      "detection": "Confirmed detection"
+    },
+    "minutes": "{n} min",
+    "summary": "{minutes} min lost in {n} interval | {minutes} min lost in {n} intervals",
+    "allComponents": "all {n} components",
+    "components": "{n} components",
+    "allFields": "all fields",
+    "durDays": "{d} d {h} h",
+    "durHours": "{h} h {m} min",
+    "durMinutes": "{m} min",
+    "ongoing": "ongoing",
+    "open": "Opens its minute view.",
+    "more": "Show {n} more",
+    "truncated": "Showing the {shown} longest of {total} intervals.",
+    "note": "Select an interval for its minute-by-minute view. All times UTC.",
+    "bySite": "By site",
+    "byComponent": "By component",
+    "byBucket": {
+      "day": "By day",
+      "week": "By week",
+      "month": "By month"
+    }
   },
   "live": {
     "componentsTitle": "Components with valid data right now",

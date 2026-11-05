@@ -307,3 +307,97 @@ async def test_matrix_and_minutes_match_kpis(engine: AsyncEngine, loaded) -> Non
             temp["stats"]["count"] > 1400
             and temp["stats"]["min"] <= temp["stats"]["mean"] <= temp["stats"]["max"]
         )
+
+
+async def test_outages_add_up_to_missing_minutes(engine: AsyncEngine, loaded) -> None:  # type: ignore[no-untyped-def]
+    """FR-KPI-009 AC1: interval durations add up exactly to the missing minutes the KPIs and the matrix show."""
+    system, *_ = loaded
+    async with engine.begin() as conn:
+        assert await kpi.recompute_days(conn, system, [DAY], NOW) == 1
+    clear_registry_cache()
+    transport = httpx.ASGITransport(app=create_app())
+    scopes = ["sla", "ola", *(f"cdp:{c.code}" for c in system.cdps)]
+    for site in system.sites:
+        scopes.append(f"site:{site.slug}")
+        scopes += [f"component:{site.slug}:{c.type_code}" for c in site.components]
+    # A stored full day, then a partial day computed live (11-02 12:00 has no files: every minute is lost).
+    periods = [
+        "from=2026-11-03T00:00:00Z&to=2026-11-04T00:00:00Z",
+        "from=2026-11-02T12:00:00Z&to=2026-11-04T00:00:00Z",
+    ]
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        for q in periods:
+            k = (await client.get(f"/api/v1/systems/WIDN-CAT3/kpis?{q}")).json()
+            m = (await client.get(f"/api/v1/systems/WIDN-CAT3/matrix?{q}&bucket=day")).json()
+            rows = {r["key"]: r for r in m["rows"]}
+            for scope in scopes:
+                r = await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope={scope}&limit=500")
+                assert r.status_code == 200, (scope, r.text[:300])
+                assert not _IPV4.search(r.text) and LEAK_PROBE_ADDRESS not in r.text  # FR-AUTH-006
+                o = r.json()
+                missing = o["availability"]["missing"]
+                assert not o["truncated"], scope
+                assert sum(o["by_cause"].values()) == missing, scope
+                assert sum(i["lost_minutes"] for i in o["intervals"]) == missing, scope
+                assert (
+                    sum(i["minutes"] * max(1, len(i.get("components", []))) for i in o["intervals"])
+                    == missing
+                )
+                assert o["by_cause"]["flagged"] == o["by_cause"]["detection"] == 0  # R2
+                if scope == "ola":
+                    assert missing == sum(s["availability"]["missing"] for s in k["sites"])
+                else:
+                    assert o["availability"] == rows[scope]["total"], scope  # same figure as the board
+            if q == periods[1]:
+                sla = (await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope=sla")).json()
+                assert sla["availability"]["missing"] == 720 + 4
+                assert sla["intervals"][0]["minutes"] == 720  # 11-02 12:00 .. 11-03 00:00, no files
+                assert sla["intervals"][0]["cause"] == "cdp_no_data"
+
+        q = periods[0]
+        sla = (await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope=sla")).json()
+        assert sla["availability"] == {"valid": 1436, "expected": 1440, "missing": 4, "pct": 99.72}
+        # FR-ING-005 AC1: both CDPs lack 00:30 and 10:50-10:52; the longest interval comes first.
+        assert [(i["start"][11:16], i["end"][11:16], i["minutes"], i["cause"]) for i in sla["intervals"]] == [
+            ("10:50", "10:53", 3, "cdp_no_data"),
+            ("00:30", "00:31", 1, "cdp_no_data"),
+        ]
+        assert all("components" not in i for i in sla["intervals"])
+        cdp1 = (await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope=cdp:CDP1")).json()
+        assert cdp1["by_cause"]["cdp_no_data"] == 10  # FR-ING-004 AC1
+
+        # The minute view of each component tells the same story, minute by minute.
+        for site in system.sites:
+            for comp in site.components:
+                scope = f"component:{site.slug}:{comp.type_code}"
+                o = (await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope={scope}")).json()
+                codes = (
+                    await client.get(f"/api/v1/systems/WIDN-CAT3/minutes?day=2026-11-03&scope={scope}")
+                ).json()["codes"]
+                assert codes.count("f") == o["by_cause"]["field_missing"], scope
+                assert codes.count("n") == o["by_cause"]["cdp_no_data"] + o["by_cause"]["no_record"], scope
+                for i in o["intervals"]:
+                    assert [c["component"] for c in i["components"]] == [comp.type_code]
+                    if i["cause"] == "field_missing":  # which mandatory fields were missing (DCP: all)
+                        assert set(i["components"][0]["fields"]) <= set(comp.mandatory), scope
+                        assert comp.is_dcp or i["components"][0]["fields"], scope
+
+        # Both CDPs stopping hits every component at once: listed once, with all 21 components.
+        ola = (await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope=ola")).json()
+        gap = next(
+            i for i in ola["intervals"] if i["start"][11:16] == "10:50" and i["cause"] == "cdp_no_data"
+        )
+        assert len(gap["components"]) == sum(len(s.components) for s in system.sites)
+        assert gap["lost_minutes"] == 3 * len(gap["components"])
+
+        long = await client.get(
+            "/api/v1/systems/WIDN-CAT3/outages?from=2026-01-01T00:00:00Z&to=2026-06-01T00:00:00Z&scope=sla"
+        )
+        assert long.status_code == 422 and long.json()["code"] == "period_too_long"
+        unknown = await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope=site:nowhere")
+        assert unknown.status_code == 404 and unknown.json()["code"] == "scope_not_found"
+        malformed = await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope=everything")
+        assert malformed.status_code == 422
+        capped = (await client.get(f"/api/v1/systems/WIDN-CAT3/outages?{q}&scope=ola&limit=1")).json()
+        assert len(capped["intervals"]) == 1 and capped["truncated"] == (capped["intervals_total"] > 1)
+        assert sum(capped["by_cause"].values()) == capped["availability"]["missing"]  # totals ignore the cap

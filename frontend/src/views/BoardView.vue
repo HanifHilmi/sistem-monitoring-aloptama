@@ -2,11 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api/client'
-import type { KpiResponse, MatrixResponse, MatrixRow, SystemInfo } from '@/api/types'
+import type { KpiResponse, MatrixResponse, MatrixRow, Outage, SystemInfo } from '@/api/types'
 import AvailabilityMatrix from '@/components/AvailabilityMatrix.vue'
 import DayDetail from '@/components/DayDetail.vue'
 import KpiStrip, { type KpiItem } from '@/components/KpiStrip.vue'
 import LossesList from '@/components/LossesList.vue'
+import OutageList from '@/components/OutageList.vue'
 import PeriodBar from '@/components/PeriodBar.vue'
 import RowBreakdown from '@/components/RowBreakdown.vue'
 import SidePanel from '@/components/SidePanel.vue'
@@ -149,6 +150,24 @@ type Panel =
   | { kind: 'row'; row: MatrixRow }
   | { kind: 'sub'; row: MatrixRow; col: number }
 const panel = ref<Panel | null>(null)
+// Drilling down inside the panel (a day of the list, an outage) keeps the way back.
+const history = ref<Panel[]>([])
+function openTop(p: Panel) {
+  history.value = []
+  panel.value = p
+}
+function openNested(p: Panel) {
+  if (panel.value) history.value.push(panel.value)
+  panel.value = p
+}
+function back() {
+  panel.value = history.value.pop() ?? null
+  if (panel.value?.kind === 'sub') void subMatrix.load()
+}
+function closePanel() {
+  history.value = []
+  panel.value = null
+}
 const subMatrix = useLoader<MatrixResponse>(async () => {
   const p = panel.value
   const b = p && p.kind === 'sub' ? matrix.data.value?.buckets[p.col] : undefined
@@ -187,20 +206,57 @@ function colName(m: MatrixResponse | null | undefined, i: number): string {
 const scopeOf = (r: MatrixRow) =>
   r.kind === 'component' ? `component:${r.site}:${r.type}` : r.kind === 'cdp' ? `cdp:${r.cdp}` : 'sla'
 
-function openCell(r: MatrixRow, col: number, source: MatrixResponse | null = matrix.data.value) {
+function openCell(
+  r: MatrixRow,
+  col: number,
+  source: MatrixResponse | null = matrix.data.value,
+  open: (p: Panel) => void = openTop,
+) {
   if (!source) return
   if (r.kind === 'site' || r.kind === 'ola') {
-    panel.value = { kind: 'group', row: r, col }
+    open({ kind: 'group', row: r, col })
     return
   }
   if (source.bucket === 'day') {
     const day = source.buckets[col]?.start
-    if (day) panel.value = { kind: 'day', row: r, day }
+    if (day) open({ kind: 'day', row: r, day })
     return
   }
-  panel.value = { kind: 'sub', row: r, col }
+  open({ kind: 'sub', row: r, col })
   void subMatrix.load()
 }
+
+// ---- outage breakdown (FR-KPI-009) ---------------------------------------------------------------
+const outageScope = (r: MatrixRow) =>
+  r.kind === 'ola' ? 'ola' : r.kind === 'site' ? `site:${r.site}` : scopeOf(r)
+const outageRange = computed<{ from: Date; to: Date } | null>(() => {
+  const p = panel.value
+  if (!p || p.kind === 'day') return null
+  if (p.kind === 'row') return { from: period.value.from, to: period.value.to }
+  const b = matrix.data.value?.buckets[p.col]
+  return b ? { from: new Date(`${b.start}T00:00:00Z`), to: new Date(`${b.end}T00:00:00Z`) } : null
+})
+/** An outage opens the minute view of its first day: its component, or SLA for a gap every component shared. */
+function openOutage(iv: Outage) {
+  const p = panel.value
+  if (!p || p.kind === 'day') return
+  const members = iv.components ?? []
+  const first = members[0]
+  const row =
+    members.length > 1 && iv.cause !== 'field_missing'
+      ? rowByKey.value.get('sla')
+      : first
+        ? rowByKey.value.get(`component:${first.site}:${first.component}`)
+        : p.row
+  if (row) openNested({ kind: 'day', row, day: iv.start.slice(0, 10) })
+}
+const breakdownTitle = computed(() => {
+  const p = panel.value
+  if (!p || p.kind === 'day') return ''
+  if (p.kind === 'group') return p.row.kind === 'ola' ? t('outages.bySite') : t('outages.byComponent')
+  const bucket = p.kind === 'sub' ? 'day' : (matrix.data.value?.bucket ?? 'day')
+  return t(`outages.byBucket.${bucket}`)
+})
 
 const groupRows = computed(() => {
   const p = panel.value
@@ -290,7 +346,7 @@ const levelsLegend = computed(() => {
           :info="info"
           :selected="panel && 'col' in panel ? { row: panel.row.key, col: panel.col } : null"
           @cell="(r, i) => openCell(r, i)"
-          @row="(r) => (panel = { kind: 'row', row: r })"
+          @row="(r) => openTop({ kind: 'row', row: r })"
         />
         <div
           class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line pt-2 text-[0.6875rem] text-ink-2"
@@ -309,7 +365,7 @@ const levelsLegend = computed(() => {
             :rows="matrix.data.value.rows"
             :info="info"
             :limit="wall ? 6 : 8"
-            @pick="(r) => (panel = { kind: 'row', row: r })"
+            @pick="(r) => openTop({ kind: 'row', row: r })"
           />
         </div>
         <div v-if="!wall" class="flex flex-col gap-2 px-1 text-[0.6875rem] text-ink-3">
@@ -332,7 +388,9 @@ const levelsLegend = computed(() => {
       :open="!!panel"
       :title="panelTitle"
       :subtitle="panel?.kind === 'day' ? t('day.subtitle') : undefined"
-      @close="panel = null"
+      :can-go-back="history.length > 0"
+      @back="back"
+      @close="closePanel"
     >
       <template v-if="panel">
         <DayDetail
@@ -342,39 +400,53 @@ const levelsLegend = computed(() => {
           :day="panel.day"
           :site-link="siteLink"
         />
-        <RowBreakdown
-          v-else-if="panel.kind === 'group' && matrix.data.value"
-          :matrix="matrix.data.value"
-          :rows="groupRows"
-          :col="panel.col"
-          :col-label="(i) => colName(matrix.data.value, i)"
-          @pick="(r, i) => openCell(r, i)"
-        />
-        <RowBreakdown
-          v-else-if="panel.kind === 'row' && matrix.data.value"
-          :matrix="matrix.data.value"
-          :rows="[{ row: panel.row, label: rowName(panel.row) }]"
-          :col-label="(i) => colName(matrix.data.value, i)"
-          @pick="(r, i) => openCell(r, i)"
-        />
-        <template v-else-if="panel.kind === 'sub'">
-          <div
-            v-if="!subMatrix.data.value"
-            class="h-40 animate-pulse rounded-md bg-sunken"
-            aria-busy="true"
+        <div v-else class="flex flex-col gap-5">
+          <OutageList
+            v-if="info && outageRange"
+            :system-code="code"
+            :scope="outageScope(panel.row)"
+            :from="outageRange.from"
+            :to="outageRange.to"
+            :info="info"
+            @pick="openOutage"
           />
-          <RowBreakdown
-            v-else
-            :matrix="subMatrix.data.value"
-            :rows="
-              subMatrix.data.value.rows
-                .filter((r) => r.key === panel?.row.key)
-                .map((row) => ({ row, label: rowName(row) }))
-            "
-            :col-label="(i) => colName(subMatrix.data.value, i)"
-            @pick="(r, i) => openCell(r, i, subMatrix.data.value)"
-          />
-        </template>
+          <section :aria-label="breakdownTitle">
+            <h3 class="eyebrow mb-1.5">{{ breakdownTitle }}</h3>
+            <RowBreakdown
+              v-if="panel.kind === 'group' && matrix.data.value"
+              :matrix="matrix.data.value"
+              :rows="groupRows"
+              :col="panel.col"
+              :col-label="(i) => colName(matrix.data.value, i)"
+              @pick="(r, i) => openCell(r, i, matrix.data.value, openNested)"
+            />
+            <RowBreakdown
+              v-else-if="panel.kind === 'row' && matrix.data.value"
+              :matrix="matrix.data.value"
+              :rows="[{ row: panel.row, label: rowName(panel.row) }]"
+              :col-label="(i) => colName(matrix.data.value, i)"
+              @pick="(r, i) => openCell(r, i, matrix.data.value, openNested)"
+            />
+            <template v-else-if="panel.kind === 'sub'">
+              <div
+                v-if="!subMatrix.data.value"
+                class="h-40 animate-pulse rounded-md bg-sunken"
+                aria-busy="true"
+              />
+              <RowBreakdown
+                v-else
+                :matrix="subMatrix.data.value"
+                :rows="
+                  subMatrix.data.value.rows
+                    .filter((r) => r.key === panel?.row.key)
+                    .map((row) => ({ row, label: rowName(row) }))
+                "
+                :col-label="(i) => colName(subMatrix.data.value, i)"
+                @pick="(r, i) => openCell(r, i, subMatrix.data.value, openNested)"
+              />
+            </template>
+          </section>
+        </div>
       </template>
     </SidePanel>
   </div>

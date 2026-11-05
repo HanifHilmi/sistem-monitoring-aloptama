@@ -18,6 +18,7 @@
     "to": "Sampai",
     "apply": "Terapkan",
     "validOfExpected": "{valid} dari {expected} menit valid",
+    "back": "Kembali",
     "allUtc": "Semua waktu dalam UTC."
   },
   "period": {
@@ -78,6 +79,38 @@
     "causeName": { "field_missing": "Field wajib hilang", "no_data": "Tidak ada data" },
     "more": "{n} rentang lainnya",
     "openCharts": "Buka grafik sensor hari ini"
+  },
+  "outages": {
+    "title": "Gangguan, terlama dulu",
+    "tooLong": "Gangguan ditampilkan untuk paling lama {days} hari sekaligus. Pilih periode yang lebih pendek di bawah.",
+    "none": "Tidak ada menit yang hilang pada periode ini.",
+    "cause": {
+      "cdp_no_data": "CDP tidak menghasilkan data",
+      "no_record": "Tidak ada rekaman data",
+      "field_missing": "Field wajib hilang",
+      "flagged": "Ditandai",
+      "detection": "Deteksi terkonfirmasi"
+    },
+    "minutes": "{n} menit",
+    "summary": "{minutes} menit hilang dalam {n} rentang",
+    "allComponents": "semua {n} komponen",
+    "components": "{n} komponen",
+    "allFields": "semua field",
+    "durDays": "{d} hr {h} j",
+    "durHours": "{h} j {m} mnt",
+    "durMinutes": "{m} mnt",
+    "ongoing": "masih berlangsung",
+    "open": "Membuka tampilan per menit.",
+    "more": "Tampilkan {n} lagi",
+    "truncated": "Menampilkan {shown} rentang terlama dari {total}.",
+    "note": "Pilih rentang untuk melihat rincian per menit. Semua waktu dalam UTC.",
+    "bySite": "Per lokasi",
+    "byComponent": "Per komponen",
+    "byBucket": {
+      "day": "Per hari",
+      "week": "Per minggu",
+      "month": "Per bulan"
+    }
   },
   "live": {
     "componentsTitle": "Komponen dengan data valid saat ini",

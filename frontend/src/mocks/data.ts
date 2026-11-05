@@ -7,6 +7,8 @@ import type {
   MatrixResponse,
   MatrixRow,
   MinutesResponse,
+  OutageCause,
+  OutagesResponse,
   SeriesField,
   SeriesResponse,
   StatusResponse,
@@ -355,31 +357,58 @@ export function matrix(from: number, to: number, bucket: MatrixBucket, now: numb
   }
 }
 
+function parseScope(scope: string): Scope {
+  const parts = scope.split(':')
+  if (parts[0] === 'cdp') return { kind: 'cdp', cdp: parts[1]! }
+  if (parts[0] === 'component') return { kind: 'component', site: parts[1]!, type: parts[2]! }
+  return { kind: 'sla' }
+}
+
+interface Piece {
+  at: number // minute of the day
+  len: number
+  cause: 'cdp_no_data' | 'field_missing'
+}
+
+/**
+ * Where a scope lost its minutes on a day: the loss shared by everything (no CDP data), then the scope's own.
+ * Pieces never overlap and stay inside the evaluated minutes, so they add up to exactly what the matrix lost.
+ */
+function dayPieces(s: Scope, dayStart: number, now: number): Piece[] {
+  const e = expectedFor(dayStart, now)
+  const [v] = dayCounts(s, dayStart, now)
+  const day = dayKey(dayStart)
+  const lost = e - v
+  const common = Math.min(lost, Math.round(commonLoss(day) * (e / 1440)))
+  const pieces: Piece[] = []
+  let c0 = 0
+  if (common) {
+    c0 = Math.max(0, Math.min(day.endsWith('-12') ? 638 : 30, e - common))
+    pieces.push({ at: c0, len: common, cause: 'cdp_no_data' })
+  }
+  const rest = lost - common
+  if (rest > 0) {
+    const cause = s.kind === 'component' ? 'field_missing' : 'cdp_no_data'
+    const key = s.kind === 'component' ? `${s.site}:${s.type}` : s.kind === 'cdp' ? s.cdp : 'sla'
+    let at = Math.min(Math.floor(hash(key + day) * Math.max(1, e - rest - 60)) + 60, e - rest)
+    const c1 = c0 + common
+    if (common && at < c1 && at + rest > c0) at = c1 + rest <= e ? c1 : c0 - rest
+    if (at >= 0) pieces.push({ at, len: rest, cause })
+    else {
+      // no single free stretch is long enough: fill after the shared loss, then before it
+      const after = e - c1
+      pieces.push({ at: c1, len: after, cause }, { at: c0 - (rest - after), len: rest - after, cause })
+    }
+  }
+  return pieces.filter((p) => p.len > 0).sort((a, b) => a.at - b.at)
+}
+
 export function minutes(day: string, scope: string, now: number): MinutesResponse {
   const start = Date.parse(`${day}T00:00:00Z`)
-  const parts = scope.split(':')
-  const s: Scope =
-    parts[0] === 'cdp'
-      ? { kind: 'cdp', cdp: parts[1]! }
-      : parts[0] === 'component'
-        ? { kind: 'component', site: parts[1]!, type: parts[2]! }
-        : { kind: 'sla' }
   const e = expectedFor(start, now)
-  const [v] = dayCounts(s, start, now)
   const codes: string[] = Array.from({ length: 1440 }, (_, i) => (i < e ? 'v' : 'u'))
-  let lost = e - v
-  const common = Math.min(lost, Math.round(commonLoss(day) * (e / 1440)))
-  const put = (at: number, len: number, c: string) => {
-    for (let i = at; i < Math.min(at + len, e); i++) codes[i] = c
-  }
-  if (common) put(day.endsWith('-12') ? 638 : 30, common, 'n')
-  lost -= common
-  if (lost > 0)
-    put(
-      Math.floor(hash(scope + day) * Math.max(1, e - lost - 60)) + 60,
-      lost,
-      s.kind === 'component' ? 'f' : 'n',
-    )
+  for (const p of dayPieces(parseScope(scope), start, now))
+    for (let i = p.at; i < p.at + p.len; i++) codes[i] = p.cause === 'field_missing' ? 'f' : 'n'
   const str = codes.join('')
   const intervals: MinutesResponse['intervals'] = []
   for (let i = 0; i < str.length;) {
@@ -398,6 +427,105 @@ export function minutes(day: string, scope: string, now: number): MinutesRespons
   }
   intervals.sort((a, b) => b.minutes - a.minutes)
   return { scope, day, codes: str, valid: str.split('v').length - 1, expected: e, intervals }
+}
+
+export const MAX_OUTAGE_SPAN = 93 * DAY
+
+/** Outage breakdown shaped like /outages: identical intervals of several components are listed once. */
+export function outages(
+  from: number,
+  to: number,
+  scope: string,
+  now: number,
+  limit: number,
+): OutagesResponse {
+  type Member = { site: string; component: string; fields?: string[] }
+  const scopes: { s: Scope; member?: Member }[] = []
+  const comps = (site: string) =>
+    SITE_COMPS[site]!.map((type) => ({
+      s: { kind: 'component', site, type } as Scope,
+      member: { site, component: type },
+    }))
+  if (scope === 'ola') scopes.push(...Object.keys(SITE_COMPS).flatMap(comps))
+  else if (scope.startsWith('site:')) scopes.push(...comps(scope.slice(5)))
+  else {
+    const one = parseScope(scope)
+    scopes.push({
+      s: one,
+      member: one.kind === 'component' ? { site: one.site, component: one.type } : undefined,
+    })
+  }
+  const sitesInfo = SYSTEM.sites
+  const groups = new Map<string, { start: number; end: number; cause: OutageCause; members: Member[] }>()
+  const byCause: Record<OutageCause, number> = {
+    cdp_no_data: 0,
+    no_record: 0,
+    field_missing: 0,
+    flagged: 0,
+    detection: 0,
+  }
+  let valid = 0
+  let expected = 0
+  const evalEnd = Math.floor(now / 60_000) * 60_000 - GRACE * 60_000
+  for (const d of periodDays(from, to)) {
+    for (const { s, member } of scopes) {
+      const [v, e] = dayCounts(s, d, now)
+      valid += v
+      expected += e
+      for (const p of dayPieces(s, d, now)) {
+        const start = d + p.at * 60_000
+        const end = start + p.len * 60_000
+        const key = `${start}|${end}|${p.cause}`
+        const g = groups.get(key) ?? { start, end, cause: p.cause, members: [] }
+        if (member && s.kind === 'component') {
+          const fields =
+            sitesInfo.find((x) => x.slug === s.site)?.components.find((c) => c.type === s.type)?.mandatory ??
+            []
+          g.members.push(
+            p.cause === 'field_missing'
+              ? {
+                  ...member,
+                  fields: fields.length ? [fields[Math.floor(hash(key + s.type) * fields.length)]!] : [],
+                }
+              : member,
+          )
+        }
+        groups.set(key, g)
+        byCause[p.cause] += p.len
+      }
+    }
+  }
+  const list = [...groups.values()].sort(
+    (a, b) => b.end - b.start - (a.end - a.start) || b.members.length - a.members.length || a.start - b.start,
+  )
+  return {
+    system: SYSTEM.code,
+    scope,
+    period: {
+      from: new Date(from).toISOString(),
+      to: new Date(to).toISOString(),
+      evaluated_from: new Date(Math.max(from, COVERAGE)).toISOString(),
+      evaluated_to: new Date(Math.min(to, evalEnd)).toISOString(),
+      as_of: new Date(now).toISOString(),
+      open: to > evalEnd,
+    },
+    availability: avail(valid, expected),
+    by_cause: byCause,
+    intervals_total: list.length,
+    truncated: list.length > limit,
+    intervals: list.slice(0, limit).map((g) => {
+      const minutes = (g.end - g.start) / 60_000
+      return {
+        start: new Date(g.start).toISOString(),
+        end: new Date(g.end).toISOString(),
+        minutes,
+        cause: g.cause,
+        lost_minutes: minutes * Math.max(1, g.members.length),
+        ongoing: to > evalEnd && g.end >= evalEnd,
+        ...(g.members.length ? { components: g.members } : {}),
+      }
+    }),
+  }
 }
 
 export function status(now: number): StatusResponse {

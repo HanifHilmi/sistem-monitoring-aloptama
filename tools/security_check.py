@@ -134,6 +134,15 @@ def public_routes(web: str) -> list[tuple[str, str, dict[str, Any]]]:
         ("/api/v1/systems/{code}/minutes", {"day": day, "scope": f"cdp:{cdp}"}),
         ("/api/v1/systems/{code}/minutes", {"day": day, "scope": f"component:{site['slug']}:{component}"}),
     ]
+    month_q = {"from": iso(month), "to": iso(next_month)}
+    outage_scopes = [
+        "sla",
+        f"cdp:{cdp}",
+        "ola",
+        f"site:{site['slug']}",
+        f"component:{site['slug']}:{component}",
+    ]
+    templates += [("/api/v1/systems/{code}/outages", {**month_q, "scope": s}) for s in outage_scopes]
     return [(t, t.format(**ids), q) for t, q in templates]
 
 
