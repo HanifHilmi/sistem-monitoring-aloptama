@@ -46,17 +46,22 @@ def test_september_has_exactly_43200_minutes() -> None:
     assert minutes_between(datetime(2026, 9, 1, tzinfo=UTC), datetime(2026, 10, 1, tzinfo=UTC)) == 43200
 
 
+def ms(times: list[datetime]) -> list[int]:
+    return [int(t.timestamp() * 1000) for t in times]
+
+
 def test_lttb_keeps_endpoints_and_size() -> None:
-    pts = [(float(i), float((i * 7) % 13)) for i in range(5000)]
-    out = lttb(pts, 500)
-    assert len(out) == 500 and out[0] == pts[0] and out[-1] == pts[-1]
+    xs = [float(i) for i in range(5000)]
+    ys = [float((i * 7) % 13) for i in range(5000)]
+    out = lttb(xs, ys, 500)
+    assert len(out) == 500 and out[0] == 0 and out[-1] == 4999
 
 
 def test_numeric_series_breaks_at_gaps() -> None:
     t0 = datetime(2026, 11, 3, tzinfo=UTC)
     times = [t0 + timedelta(minutes=i) for i in range(10) if i != 4]  # minute 4 has no record
     values: list[float | None] = [1.0 if i != 7 else None for i in range(10) if i != 4]  # minute 7 missing
-    out = numeric_series(times, values, window_minutes=10)
+    out = numeric_series(ms(times), values, window_minutes=10)
     assert out["v"].count(None) == 2  # two breaks: missing record and missing value
     assert out["downsampled"] is False
 
@@ -65,7 +70,7 @@ def test_numeric_series_downsamples_long_windows() -> None:
     t0 = datetime(2026, 10, 1, tzinfo=UTC)
     n = 31 * 1440
     times = [t0 + timedelta(minutes=i) for i in range(n)]
-    out = numeric_series(times, [float(i % 97) for i in range(n)], window_minutes=n)
+    out = numeric_series(ms(times), [float(i % 97) for i in range(n)], window_minutes=n)
     assert out["downsampled"] is True and len(out["t"]) <= 1000
 
 

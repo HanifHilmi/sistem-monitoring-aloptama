@@ -37,6 +37,7 @@ For each of **simola-staging** (branch `staging`) and **simola-production** (bra
 4. Environment variables: copy `.env.example` and set real values.
    - Production: `SIMOLA_ENVIRONMENT=production`, `SIMOLA_PG_DATA_DIR=/var/lib/simola/production/pg`, `SIMOLA_BACKUP_DIR=/var/lib/simola/production/backups`, `SIMOLA_BACKUP_ENABLED=true`, `SIMOLA_BACKUP_EXPECTED=true`.
    - Staging: smaller memory limits, `SIMOLA_BACKUP_ENABLED=false`.
+   - `SIMOLA_API_WORKERS` (default 2) sets the API's worker processes; give `SIMOLA_API_MEM` about 150 MB per process plus 100 MB (512m for 2). One process cannot meet NFR-PERF-001/002 under load.
    - Use different passwords per environment, generated with `openssl rand -hex 24` (hex only: `/`, `+` or `@` would break the database URL).
 5. Deploy. Startup order is `db` → `migrate` (exits 0) → `api`, `worker`, `backup` → `web`.
 

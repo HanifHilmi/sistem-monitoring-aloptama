@@ -57,6 +57,9 @@ services:
     restart: unless-stopped
     environment:
       <<: *backend-env
+      # Worker processes (uvicorn reads WEB_CONCURRENCY). One process answers one CPU-heavy request at a time,
+      # so a 31-day chart would hold up every other request (load test 2026-11-04). Each process needs ~150 MB.
+      WEB_CONCURRENCY: ${SIMOLA_API_WORKERS:-2}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -66,7 +69,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-    mem_limit: ${SIMOLA_API_MEM:-384m}
+    mem_limit: ${SIMOLA_API_MEM:-512m}
 
   worker:
     build: ./backend

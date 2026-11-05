@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import math
+from bisect import bisect_right
 from collections import Counter
-from datetime import datetime, timedelta
+from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from simola.core.timeutil import MINUTE, floor_minute, intersect, minutes_between
+from simola.core.timeutil import floor_minute, intersect, minutes_between
 from simola.kpi.engine import MINUTE_TABLE, clip_period, component_condition, grace_minutes, pct
 from simola.registry import Component, Site, System
 
@@ -24,96 +27,126 @@ WIND_SPEED_CLASSES = (
     (20.0, 30.0, "strong"),
     (30.0, math.inf, "gale"),
 )
+_CLASS_FLOORS = tuple(c[0] for c in WIND_SPEED_CLASSES)
+MINUTE_MS = 60_000
 
 
-def lttb(points: list[tuple[float, float]], threshold: int) -> list[tuple[float, float]]:
-    """Largest-Triangle-Three-Buckets downsampling (Steinarsson, 2013). Keeps first and last point."""
-    n = len(points)
+def lttb(xs: Sequence[float], ys: Sequence[float], threshold: int) -> list[int]:
+    """Largest-Triangle-Three-Buckets downsampling (Steinarsson, 2013): the indices of the kept points.
+
+    Keeps the first and last point. Plain lists and hoisted terms keep it fast in pure Python; the arithmetic is
+    the textbook one term for term, so the same points are chosen as by a straightforward implementation.
+    """
+    n = len(xs)
     if threshold >= n or threshold < 3:
-        return list(points)
-    sampled = [points[0]]
+        return list(range(n))
+    kept = [0]
     every = (n - 2) / (threshold - 2)
     a = 0
     for i in range(threshold - 2):
         avg_start = math.floor((i + 1) * every) + 1
         avg_end = min(math.floor((i + 2) * every) + 1, n)
-        avg_x = sum(p[0] for p in points[avg_start:avg_end]) / max(1, avg_end - avg_start)
-        avg_y = sum(p[1] for p in points[avg_start:avg_end]) / max(1, avg_end - avg_start)
+        span = max(1, avg_end - avg_start)
+        avg_x = sum(xs[avg_start:avg_end]) / span
+        avg_y = sum(ys[avg_start:avg_end]) / span
         range_start = math.floor(i * every) + 1
         range_end = math.floor((i + 1) * every) + 1
-        ax, ay = points[a]
-        best_area, best = -1.0, range_start
-        for j in range(range_start, range_end):
-            area = abs((ax - avg_x) * (points[j][1] - ay) - (ax - points[j][0]) * (avg_y - ay))
-            if area > best_area:
-                best_area, best = area, j
-        sampled.append(points[best])
+        ax, ay = xs[a], ys[a]
+        dx, dy = ax - avg_x, avg_y - ay
+        areas = [
+            abs(dx * (y - ay) - (ax - x) * dy)
+            for x, y in zip(xs[range_start:range_end], ys[range_start:range_end], strict=True)
+        ]
+        best = range_start
+        if areas:
+            top = max(areas)
+            if top == top:  # first point with the largest area, as a strict ">" scan would pick
+                best += areas.index(top)
+            else:  # a NaN came first: fall back to the scan, which skips NaN areas
+                best_area = -1.0
+                for j, area in enumerate(areas, start=range_start):
+                    if area > best_area:
+                        best_area, best = area, j
+        kept.append(best)
         a = best
-    sampled.append(points[-1])
-    return sampled
+    kept.append(n - 1)
+    return kept
 
 
-def numeric_series(times: list[datetime], values: list[float | None], window_minutes: int) -> dict[str, Any]:
-    """Split into gap-free segments, downsample each proportionally, join with null separators."""
-    segments: list[list[tuple[float, float]]] = []
-    current: list[tuple[float, float]] = []
-    prev: datetime | None = None
-    for t, v in zip(times, values, strict=True):
-        contiguous = prev is not None and t - prev == MINUTE
-        if v is None or (current and not contiguous):
-            if current:
-                segments.append(current)
-                current = []
-        if v is not None:
-            current.append((t.timestamp() * 1000.0, float(v)))
-        prev = t
-    if current:
-        segments.append(current)
+def numeric_series(ms: Sequence[int], values: Sequence[float | None], window_minutes: int) -> dict[str, Any]:
+    """Split into gap-free segments, downsample each proportionally, join with null separators.
 
-    total = sum(len(s) for s in segments)
+    `ms` holds each row's minute as epoch milliseconds (rows are whole minutes, in time order).
+    """
+    # Segment boundaries: a missing value ends a segment, a missing minute (time jump) starts a new one.
+    stops = sorted(
+        [(i, 0) for i, (a, b) in enumerate(pairwise(ms), start=1) if b - a != MINUTE_MS]
+        + [(i, 1) for i, v in enumerate(values) if v is None]
+    )
+    spans: list[tuple[int, int]] = []
+    begin = 0
+    for i, skip in stops:
+        if i > begin:
+            spans.append((begin, i))
+        begin = i + skip
+    if len(ms) > begin:
+        spans.append((begin, len(ms)))
+    seg_x = [ms[a:b] for a, b in spans]
+    # Spans hold no None, so every value converts.
+    seg_y = [list(map(float, values[a:b])) for a, b in spans]  # type: ignore[arg-type]
+
+    total = sum(len(x) for x in seg_x)
     budget = MAX_POINTS if window_minutes > FULL_RES_MINUTES else total
     out_t: list[Any] = []
     out_v: list[Any] = []
-    for i, seg in enumerate(segments):
-        share = len(seg) if budget >= total else max(2, round(budget * len(seg) / max(1, total)))
-        pts = lttb(seg, share)
+    for i, (xs, ys) in enumerate(zip(seg_x, seg_y, strict=True)):
         if i > 0:
-            out_t.append(int(pts[0][0]) - 1)
+            out_t.append(xs[0] - 1)
             out_v.append(None)  # explicit break so charts do not draw across gaps
-        out_t.extend(int(p[0]) for p in pts)
-        out_v.extend(p[1] for p in pts)
+        if budget >= total:
+            out_t.extend(xs)
+            out_v.extend(ys)
+            continue
+        idx = lttb(xs, ys, max(2, round(budget * len(xs) / max(1, total))))
+        out_t.extend([xs[k] for k in idx])
+        out_v.extend([ys[k] for k in idx])
     return {"t": out_t, "v": out_v, "downsampled": budget < total}
 
 
-def text_series(times: list[datetime], values: list[str | None]) -> dict[str, Any]:
+def text_series(ms: Sequence[int], values: Sequence[str | None]) -> dict[str, Any]:
     transitions: list[list[Any]] = []
     prev: object = object()
-    for t, v in zip(times, values, strict=True):
+    for t, v in zip(ms, values, strict=True):
         if v != prev:
             if len(transitions) < TEXT_TRANSITION_LIMIT:
-                transitions.append([int(t.timestamp() * 1000), v])
+                transitions.append([t, v])
             prev = v
     counts = Counter(v for v in values if v is not None)
     return {
         "transitions": transitions,
         "truncated": len(transitions) >= TEXT_TRANSITION_LIMIT,
         "counts": [{"value": k, "minutes": n} for k, n in counts.most_common(20)],
-        "missing_minutes": sum(1 for v in values if v is None),
+        "missing_minutes": values.count(None),
     }
 
 
 def wind_summary(
-    ws: list[float | None], wd: list[float | None], gs: list[float | None], gd: list[float | None]
+    ws: Sequence[float | None],
+    wd: Sequence[float | None],
+    gs: Sequence[float | None],
+    gd: Sequence[float | None],
 ) -> dict[str, Any]:
-    rose = [dict.fromkeys([c[2] for c in WIND_SPEED_CLASSES], 0) for _ in range(16)]
-    speeds = []
-    for s, d in zip(ws, wd, strict=True):
-        if s is None or d is None:
-            continue
-        speeds.append(s)
-        sector = int(((d % 360.0) + 11.25) // 22.5) % 16  # 16 sectors centred on N, NNE, ...
-        cls = next(c[2] for c in WIND_SPEED_CLASSES if c[0] <= s < c[1])
-        rose[sector][cls] += 1
+    names = [c[2] for c in WIND_SPEED_CLASSES]
+    pairs = [(s, d) for s, d in zip(ws, wd, strict=True) if s is not None and d is not None]
+    speeds = [s for s, _ in pairs]
+    # 16 sectors centred on N, NNE, ...; the speed classes are contiguous from 0 kt, so their lower bounds
+    # decide the class (below 0 counts as calm).
+    cells = Counter(
+        (int(((d % 360.0) + 11.25) // 22.5) % 16, bisect_right(_CLASS_FLOORS, s)) for s, d in pairs
+    )
+    rose = [dict.fromkeys(names, 0) for _ in range(16)]
+    for (sector, k), n in cells.items():
+        rose[sector][names[max(0, k - 1)]] += n
     gust_events = [(g, d) for g, d in zip(gs, gd, strict=True) if g is not None and g > 0]
     top = max(gust_events, key=lambda x: x[0]) if gust_events else None
     return {
@@ -128,17 +161,15 @@ def wind_summary(
     }
 
 
-def field_stats(times: list[datetime], values: list[Any], *, numeric: bool) -> dict[str, Any]:
+def field_stats(ms: Sequence[int], values: Sequence[Any], *, numeric: bool) -> dict[str, Any]:
     """Latest value plus min/max/mean over the raw 1-minute data of the window (not the downsampled points)."""
-    last = next(
-        ((t, v) for t, v in zip(reversed(times), reversed(values), strict=True) if v is not None), None
-    )
+    last = next(((t, v) for t, v in zip(reversed(ms), reversed(values), strict=True) if v is not None), None)
+    nums = [float(v) for v in values if v is not None] if numeric else []
     out: dict[str, Any] = {
-        "last": {"time": last[0], "value": last[1]} if last else None,
-        "count": sum(1 for v in values if v is not None),
+        "last": {"time": datetime.fromtimestamp(last[0] / 1000, UTC), "value": last[1]} if last else None,
+        "count": len(values) - values.count(None),
     }
     if numeric:
-        nums = [float(v) for v in values if v is not None]
         out.update(
             min=min(nums) if nums else None,
             max=max(nums) if nums else None,
@@ -196,17 +227,19 @@ async def component_series(
     rows = (
         await conn.execute(
             text(
-                f"SELECT time, {cols} FROM {MINUTE_TABLE[system.type_code]} "
+                # Epoch milliseconds straight from the database: cheaper than 44,640 datetime objects.
+                f"SELECT (extract(epoch FROM time) * 1000)::bigint, {cols} FROM {MINUTE_TABLE[system.type_code]} "
                 "WHERE site_id = :s AND time >= :a AND time < :b ORDER BY time"
             ),
             {"s": site.id, "a": start, "b": end},
         )
     ).all()
-    times = [r[0] for r in rows]
+    by_column: list[tuple[Any, ...]] = list(zip(*rows, strict=True)) if rows else [()] * (len(fields) + 1)
+    times = by_column[0]
     out_fields = []
-    columns: dict[str, list[Any]] = {}
+    columns: dict[str, tuple[Any, ...]] = {}
     for idx, f in enumerate(fields, start=1):
-        vals = [r[idx] for r in rows]
+        vals = by_column[idx]
         columns[f.code] = vals
         entry: dict[str, Any] = {
             "code": f.code,
