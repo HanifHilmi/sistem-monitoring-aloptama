@@ -1,7 +1,25 @@
 // J1 daily check (PRD §6.4, §15.3): board → figures and problems → a site → a component chart.
+import type { Page } from '@playwright/test'
 import { expect, expectNoPageScroll, test, text, type Lang } from './fixtures'
 
 const PCT = /^\d{1,3}[.,]\d{2}\s?%$/
+
+/** Opens the board and waits for its figures and matrix, so later clicks do not land on a moving page. */
+async function openBoard(page: Page, t: (key: string) => string): Promise<void> {
+  await page.goto('/')
+  await expect(
+    page
+      .getByRole('region', { name: t('board.kpis') })
+      .getByText(PCT)
+      .first(),
+  ).toBeVisible()
+  await expect(
+    page
+      .getByRole('grid', { name: t('board.matrix') })
+      .getByRole('gridcell')
+      .first(),
+  ).toBeVisible()
+}
 
 test.describe('J1 daily check', () => {
   test('board shows the headline figures and the availability matrix', async ({ page, t }) => {
@@ -21,7 +39,7 @@ test.describe('J1 daily check', () => {
   })
 
   test('a day in the matrix opens its detail, which closes again', async ({ page, t }) => {
-    await page.goto('/')
+    await openBoard(page, t)
     const grid = page.getByRole('grid', { name: t('board.matrix') })
     await grid.getByRole('gridcell').first().click()
 
@@ -32,19 +50,23 @@ test.describe('J1 daily check', () => {
   })
 
   test('switching to a year shows one column per month', async ({ page, t }) => {
-    await page.goto('/')
-    await page.getByRole('button', { name: t('period.year'), exact: true }).click()
+    await openBoard(page, t)
+    const year = page.getByRole('button', { name: t('period.year'), exact: true })
+    await year.click()
+    await expect(year).toHaveAttribute('aria-pressed', 'true')
 
     const grid = page.getByRole('grid', { name: t('board.matrix') })
-    await expect(grid.getByRole('columnheader', { name: '%', exact: true })).toBeVisible()
     // The header row reads: label, the 12 months, then % (and lost minutes, hidden on phones).
-    const headers = (await grid.getByRole('columnheader').allInnerTexts()).map((h) => h.trim())
-    expect(headers.indexOf('%')).toBe(13)
+    await expect
+      .poll(async () =>
+        (await grid.getByRole('columnheader').allInnerTexts()).map((h) => h.trim()).indexOf('%'),
+      )
+      .toBe(13)
     await expectNoPageScroll(page)
   })
 
   test('the problems panel opens', async ({ page, t }) => {
-    await page.goto('/')
+    await openBoard(page, t)
     await page
       .getByRole('button', { name: t('problems.open') })
       .first()
@@ -55,7 +77,7 @@ test.describe('J1 daily check', () => {
   })
 
   test('a site shows its sensors, and a field opens its chart', async ({ page, t }) => {
-    await page.goto('/')
+    await openBoard(page, t)
     // On a phone the site links sit in the menu.
     const menu = page.getByRole('button', { name: t('nav.menu'), exact: true })
     if (await menu.isVisible()) await menu.click()
@@ -79,7 +101,7 @@ test.describe('J1 daily check', () => {
 
   test('the language switch changes the page and is remembered', async ({ page, lang }) => {
     const other: Lang = lang === 'id' ? 'en' : 'id'
-    await page.goto('/')
+    await openBoard(page, (key) => text(lang, key))
     await page
       .getByRole('button', { name: `${text(lang, 'nav.language')}: ${text(lang, 'nav.switchTo')}` })
       .click()

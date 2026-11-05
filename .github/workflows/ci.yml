@@ -84,7 +84,8 @@ jobs:
 
   e2e:
     # Browser tests (PRD §15.3) on the sample-data build; runs against staging are in docs/runbooks/testing.md.
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.62 supports Ubuntu 24.04, and ubuntu-latest is moving to Ubuntu 26.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend

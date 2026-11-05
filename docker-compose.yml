@@ -58,7 +58,8 @@ services:
     environment:
       <<: *backend-env
       # Worker processes (uvicorn reads WEB_CONCURRENCY). One process answers one CPU-heavy request at a time,
-      # so a 31-day chart would hold up every other request (load test 2026-11-04). Each process needs ~150 MB.
+      # so a 31-day chart would hold up every other request (load test 2026-11-04). Each process needs ~150 MB
+      # and up to 5 database connections (budget in backend/simola/core/db.py).
       WEB_CONCURRENCY: ${SIMOLA_API_WORKERS:-2}
     depends_on:
       migrate:
