@@ -25,6 +25,9 @@ htmlcov/
 # --- Node ---
 node_modules/
 frontend/dist/
+frontend/dist-e2e/
+frontend/test-results/
+frontend/playwright-report/
 *.tsbuildinfo
 
 # --- Local data ---

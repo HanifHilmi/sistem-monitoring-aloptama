@@ -82,9 +82,71 @@ jobs:
         working-directory: frontend
         run: npm ci --no-audit --no-fund && npm audit --omit=dev --audit-level=high
 
+  e2e:
+    # Browser tests (PRD §15.3) on the sample-data build; runs against staging are in docs/runbooks/testing.md.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.2'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps --only-shell chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+  zap:
+    # OWASP ZAP baseline (passive) scan, PRD §15.4. The whole stack runs on GitHub's runner with throwaway
+    # passwords: this job never reaches staging or production. It fails on any High-risk alert.
+    runs-on: ubuntu-latest
+    env:
+      SIMOLA_ENVIRONMENT: staging
+      POSTGRES_PASSWORD: ci-only
+      SIMOLA_APP_DB_USER: simola_app
+      SIMOLA_APP_DB_PASSWORD: ci-only-app
+      SIMOLA_CDP_ADDRESSES: '{}'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start database, API and web on the runner
+        run: docker compose up -d --build --wait web
+      - name: ZAP baseline scan
+        run: |
+          web=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(docker compose ps -q web)")
+          mkdir -p zap && chmod a+rwx zap
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t "http://$web:8080" -J zap.json -r zap.html -I
+      - name: Fail on High-risk alerts
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          alerts = [a for s in json.load(open("zap/zap.json"))["site"] for a in s["alerts"]]
+          for a in sorted(alerts, key=lambda a: -int(a["riskcode"])):
+              print(f'{a["riskdesc"]:<24} {a["alert"]}')
+          high = [a for a in alerts if int(a["riskcode"]) >= 3]
+          sys.exit(f"{len(high)} High-risk alert(s)" if high else 0)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-report
+          path: zap/
+          retention-days: 14
+      - if: always()
+        run: docker compose down -v
+
   images:
     runs-on: ubuntu-latest
-    needs: [backend, frontend, security]
+    needs: [backend, frontend, security, e2e, zap]
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t simola-backend:ci backend

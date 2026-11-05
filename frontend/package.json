@@ -12,7 +12,8 @@
     "lint": "eslint . && prettier --check \"src/**/*.{ts,vue,css}\"",
     "format": "prettier --write \"src/**/*.{ts,vue,css}\"",
     "test": "vitest run",
-    "check:i18n": "node scripts/check-i18n.mjs"
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "echarts": "6.1.0",
@@ -22,6 +23,7 @@
     "vue-router": "5.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@tailwindcss/vite": "4.3.4",
     "@types/node": "26.6.6",
     "@vitejs/plugin-vue": "6.0.10",
