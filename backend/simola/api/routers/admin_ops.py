@@ -206,6 +206,7 @@ SETTING_TYPES: dict[str, TypeAdapter[Any]] = {
     "color_thresholds": TypeAdapter(ColorThresholds),
     "grace_minutes": TypeAdapter(int),
     "problem_thresholds": TypeAdapter(ProblemThresholds),
+    "calibration_due_soon_days": TypeAdapter(int),
 }
 DEFAULTS: dict[str, Any] = {
     "color_thresholds": {"good": 99, "warning": 95},
@@ -213,7 +214,12 @@ DEFAULTS: dict[str, Any] = {
     "problem_thresholds": ProblemThresholds(
         cdp_no_data_min=2, cdp_unreachable_min=2, site_no_data_min=2, field_missing_min=5, ingest_lag_min=5
     ).model_dump(),
+    "calibration_due_soon_days": 30,
 }
+
+
+# Whole-number settings and their ranges: 1.5 or "3" are refused rather than rounded.
+STRICT_INTS: dict[str, tuple[int, int]] = {"grace_minutes": (1, 15), "calibration_due_soon_days": (1, 180)}
 
 
 class SettingBody(BaseModel):
@@ -225,11 +231,12 @@ def validate_setting(key: str, value: Any) -> Any:
     if key not in SETTING_TYPES:
         raise ApiError(404, "setting_not_found", f"unknown setting {key!r}")
     try:
-        parsed = SETTING_TYPES[key].validate_python(value, strict=key == "grace_minutes")
+        parsed = SETTING_TYPES[key].validate_python(value, strict=key in STRICT_INTS)
     except ValidationError as exc:
         raise ApiError(422, "invalid_setting", exc.errors()[0]["msg"]) from exc
-    if key == "grace_minutes" and not 1 <= parsed <= 15:
-        raise ApiError(422, "invalid_setting", "whole minutes from 1 to 15")
+    if key in STRICT_INTS and not STRICT_INTS[key][0] <= parsed <= STRICT_INTS[key][1]:
+        lo, hi = STRICT_INTS[key]
+        raise ApiError(422, "invalid_setting", f"whole numbers from {lo} to {hi}")
     return parsed.model_dump() if isinstance(parsed, BaseModel) else parsed
 
 
@@ -490,11 +497,21 @@ def _component_row(sy: System, c: Component) -> dict[str, Any]:
     }
 
 
+async def component_rows(conn: AsyncConnection, sy: System, comps: list[Component]) -> list[dict[str, Any]]:
+    """Registry rows with each sensor's record and calibration status (R2.5, FR-REG-004/005)."""
+    from simola import records
+
+    ids = [c.id for c in comps]
+    metas = await records.component_meta(conn, ids)
+    cal = await records.summaries(conn, ids, _today(), await records.due_soon_days(conn))
+    return [_component_row(sy, c) | {"meta": metas.get(c.id, {}), "calibration": cal[c.id]} for c in comps]
+
+
 @router.get("/components")
 async def list_components(system: str = DEFAULT_SYSTEM) -> list[dict[str, Any]]:
     async with get_engine().connect() as conn:
         sy = await _system(conn, system)
-    return [_component_row(sy, c) for s in sy.sites for c in s.components]
+        return await component_rows(conn, sy, [c for s in sy.sites for c in s.components])
 
 
 class ServicePatch(BaseModel):
@@ -580,5 +597,6 @@ async def patch_component(
                 job = await _enqueue(conn, "recompute", sy.code, days[0], days[1], admin.username)
         sy = await _system(conn, row["system_code"])
         comp = next(c for s in sy.sites for c in s.components if c.id == component_id)
+        out = (await component_rows(conn, sy, [comp]))[0]
     clear_registry_cache()
-    return {"component": _component_row(sy, comp), "job": job}
+    return {"component": out, "job": job}

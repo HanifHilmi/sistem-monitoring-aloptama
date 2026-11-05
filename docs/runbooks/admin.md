@@ -1,7 +1,7 @@
-# Runbook: Admin operations (R2.2–R2.4)
+# Runbook: Admin operations (R2.2–R2.5)
 
-PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-001..007; design in [../design/r2.md](../design/r2.md)
-§3, §4.3 and §4.4. All of this is in
+PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-001..007, FR-REG-004/005; design in
+[../design/r2.md](../design/r2.md) §3 and §4.3–4.5. All of this is in
 **Admin** (Admins only), every change is in the audit log with before and after, and rule changes recompute the
 figures in the background. Accounts and the audit log: [accounts.md](accounts.md).
 
@@ -24,6 +24,8 @@ figures in the background. Accounts and the audit log: [accounts.md](accounts.md
 - **Waiting time for data:** a minute is judged this many minutes after it ends (1–15), so a file written a little
   late is not counted as missing. Past days are not affected.
 - **Problems panel:** when each item appears (1–120 minutes).
+- **Calibration "due soon":** how many days before its due date a calibration shows as due soon (1–180, default
+  30).
 
 Each section saves on its own. Nothing here changes stored minutes.
 
@@ -44,6 +46,39 @@ The DCP rule (available when any field of its site has a value) is fixed.
 A component's in-service period (UTC, either end optional) limits its expected minutes: before *from* and after
 *until* nothing is expected, so a sensor that is not yet installed, removed or being replaced does not lower
 availability. Saving recomputes only the days between the old and the new dates.
+
+## Records (Admin → Registry)
+
+The registry page also holds the records (FR-REG-004):
+
+- **Station:** WMO number (5 digits), airport name, coordinates, elevation, procurement year (1950 to this year),
+  notes. Name and ICAO code stay as the registry has them.
+- **Each site:** coordinates, elevation, threshold elevation, description.
+- **Each sensor** (*Open* → Details): sensor type, manufacturer, model, part number, serial number, installed on
+  (not in the future), firmware, notes.
+
+Everyone sees these on the site pages, **except serial and part numbers, which only signed-in users see**. A save
+replaces the whole record; every change is audited with before and after. Records never change a figure.
+
+## Calibration (Admin → Calibration, or a sensor's Calibration tab)
+
+Each sensor's calibrations: date (UTC, not in the future), performed by, certificate number, notes, and the next
+due date, given as a date or as an interval of 1–120 months (31 January + 1 month = 28 or 29 February). The status
+comes from the **latest** record and is worked out when a page is opened, so it moves on by itself:
+
+| Status | When |
+|---|---|
+| OK | due later than the "due soon" window |
+| Due soon | due within the window (Settings), the due day included |
+| Overdue | from the day after the due date; also a **minor** Problems item, which everyone sees |
+| Unknown | no record yet |
+
+DCPs are not calibrated. Records can be corrected or removed; a removed record leaves the history (the status falls
+back to the one before it) but stays in the database and the audit log (PRD §9.6).
+
+Signed-in users also see, in the board's component panel and the day view, **what changed this component's
+figures** in the period: flags on it, decisions on its detections, mandatory-field and in-service changes, and
+reprocess or recompute jobs over the period (FR-AUD-003).
 
 ## Manual flags (Admin → Flags, sensor charts, minute map)
 

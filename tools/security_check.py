@@ -52,12 +52,13 @@ INFRA_KEYS = {
     "share",
     "serial",
     "serial_number",
+    "part_number",
     "last_error",
     "file_name",
     "probe_method",
 }
 WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
-INTERNAL_ROUTES = ("/api/v1/internal/health",)  # Viewer and Admin
+INTERNAL_ROUTES = ("/api/v1/internal/health", "/api/v1/systems/{code}/trace")  # Viewer and Admin
 ADMIN_ROUTES = (
     "/api/v1/admin/users",
     "/api/v1/admin/users/{user_id}",
@@ -83,6 +84,12 @@ ADMIN_ROUTES = (
     "/api/v1/admin/rules/{rule_id}/versions",
     "/api/v1/admin/detections",
     "/api/v1/admin/detections/decide",
+    "/api/v1/admin/station",
+    "/api/v1/admin/sites/{slug}",
+    "/api/v1/admin/components/{component_id}/meta",
+    "/api/v1/admin/components/{component_id}/calibrations",
+    "/api/v1/admin/calibrations",
+    "/api/v1/admin/calibrations/{cal_id}",
 )
 AUTH_ROUTES = ("/api/v1/auth/me", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password")
 # Every state-changing route the API may publish; a new one fails the check until it is reviewed here.
@@ -105,6 +112,12 @@ KNOWN_WRITES = {
     "PUT /api/v1/admin/rules/{rule_id}",
     "DELETE /api/v1/admin/rules/{rule_id}",
     "POST /api/v1/admin/detections/decide",
+    "PUT /api/v1/admin/station",
+    "PUT /api/v1/admin/sites/{slug}",
+    "PUT /api/v1/admin/components/{component_id}/meta",
+    "POST /api/v1/admin/calibrations",
+    "PATCH /api/v1/admin/calibrations/{cal_id}",
+    "DELETE /api/v1/admin/calibrations/{cal_id}",
 }
 # Routes that exist inside the containers but are not public API routes.
 NON_PUBLIC = {"/health", "/ready"}
@@ -200,6 +213,7 @@ def public_routes(web: str) -> list[tuple[str, str, dict[str, Any]]]:
         ("/api/v1/systems/{code}/flags", {**month_q, "scope": f"component:{site['slug']}:{component}"}),
         ("/api/v1/systems/{code}/detections", month_q),
         ("/api/v1/systems/{code}/detections", {**month_q, "scope": f"component:{site['slug']}:{component}"}),
+        ("/api/v1/systems/{code}/assets", {}),  # serial and part numbers must not reach the public
     ]
     return [(t, t.format(**ids), q) for t, q in templates]
 
@@ -297,6 +311,9 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
         "{component_id}": "2",
         "{flag_id}": "1",
         "{rule_id}": "1",
+        "{cal_id}": "1",
+        "{slug}": "04",
+        "{code}": "WIDN-CAT3",
     }
     extra = []
     for p in (*INTERNAL_ROUTES, *ADMIN_ROUTES, *AUTH_ROUTES):
@@ -328,6 +345,7 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
 def check_accounts(web: str) -> None:
     """Without a session nothing above public is served; the CSRF cookie cannot travel in clear or cross-site."""
     for path in (*INTERNAL_ROUTES, "/api/v1/admin/users", "/api/v1/admin/audit"):
+        path = path.replace("{code}", "WIDN-CAT3")
         status, _, body = http("GET", web + path)
         code = json.loads(body).get("code") if body.startswith(b"{") else None
         report(status == 401, "accounts", f"GET {path} without a session -> {status} {code or ''}".rstrip())

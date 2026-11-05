@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from simola import records
 from simola.api.deps import ApiError, parse_period, system_or_404, systems
 from simola.api.security import principal
 from simola.core.db import connection
@@ -149,6 +150,7 @@ async def get_problems(
     now = _now()
     st = await status.system_status(conn, system, now)
     problems = status.problems_from_status(system, st, now)
+    problems += await records.overdue_problems(conn, system, now.date())  # FR-REG-005: public, minor
     # Suspect detections waiting for review are for signed-in users only (FR-DSH-010, OPEN-13).
     user = await principal(request)
     if user is not None and not user.must_change_password:
@@ -164,6 +166,7 @@ async def get_problems(
                     "params": {"n": n},
                 }
             )
+    problems.sort(key=lambda p: status.SEVERITY_ORDER[p["severity"]])
     return {"generated_at": now, "problems": problems}
 
 

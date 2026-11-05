@@ -27,6 +27,8 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("GET", "/api/v1/systems/{code}/minutes"): "public",
     ("GET", "/api/v1/systems/{code}/flags"): "public",  # note and author only for signed-in users
     ("GET", "/api/v1/systems/{code}/detections"): "public",  # suspect and rejected only for signed-in users
+    ("GET", "/api/v1/systems/{code}/assets"): "public",  # serial and part numbers only for signed-in users
+    ("GET", "/api/v1/systems/{code}/trace"): "viewer",
     ("GET", "/api/v1/auth/me"): "public",  # null when nobody is signed in
     ("POST", "/api/v1/auth/login"): "public",
     ("POST", "/api/v1/auth/logout"): "public",
@@ -62,6 +64,14 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("DELETE", "/api/v1/admin/rules/{rule_id}"): "admin",
     ("GET", "/api/v1/admin/detections"): "admin",
     ("POST", "/api/v1/admin/detections/decide"): "admin",
+    ("GET", "/api/v1/admin/station"): "admin",
+    ("PUT", "/api/v1/admin/station"): "admin",
+    ("PUT", "/api/v1/admin/sites/{slug}"): "admin",
+    ("PUT", "/api/v1/admin/components/{component_id}/meta"): "admin",
+    ("GET", "/api/v1/admin/components/{component_id}/calibrations"): "admin",
+    ("POST", "/api/v1/admin/calibrations"): "admin",
+    ("PATCH", "/api/v1/admin/calibrations/{cal_id}"): "admin",
+    ("DELETE", "/api/v1/admin/calibrations/{cal_id}"): "admin",
 }
 
 # Sample values for path parameters. The matrix test sends {} as every write's body, which is invalid or
@@ -76,4 +86,5 @@ PATH_VALUES = {
     "component_id": "2",
     "flag_id": "999999",  # no such flag: the Admin call answers 404 and removes nothing
     "rule_id": "999999",  # no such rule: nothing changes
+    "cal_id": "999999",  # no such calibration: nothing is removed
 }
