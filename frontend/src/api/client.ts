@@ -1,4 +1,9 @@
 import type {
+  ActiveAlarms,
+  AlarmFilter,
+  AlarmName,
+  AlarmPage,
+  AlarmPlace,
   AdminSettings,
   Assets,
   Calibration,
@@ -163,6 +168,24 @@ export const api = {
   trace: (code: string, scope: string, from: Date, to: Date) =>
     get<TraceEvent[]>(`/systems/${encodeURIComponent(code)}/trace`, { ...period(from, to), scope }),
   internalHealth: () => get<Record<string, unknown>>('/internal/health'),
+
+  // AWOS alarms (R3.1, signed-in users)
+  activeAlarms: (code: string, scope?: string) =>
+    get<ActiveAlarms>(`/systems/${encodeURIComponent(code)}/alarms/active`, { scope }),
+  alarms: (code: string, filter: AlarmFilter, offset = 0) =>
+    get<AlarmPage>(`/systems/${encodeURIComponent(code)}/alarms`, {
+      ...filter,
+      active: filter.active === undefined ? undefined : String(filter.active),
+      offset,
+      limit: 50,
+    }),
+  alarmNames: (system: string) => get<AlarmName[]>('/admin/alarm-names', { system }),
+  saveAlarmName: (system: string, name: string, place: AlarmPlace) =>
+    send<AlarmName>(
+      'PUT',
+      `/admin/alarm-names/${encodeURIComponent(name)}?system=${encodeURIComponent(system)}`,
+      place,
+    ),
 
   // Accounts (R2.1)
   /** null for a visitor */

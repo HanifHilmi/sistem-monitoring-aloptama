@@ -17,7 +17,8 @@
     "dashboard": "Dashboard",
     "system": "System",
     "metar": "METAR and METREPORT",
-    "later": "later"
+    "later": "later",
+    "alarms": "Alarms"
   },
   "common": {
     "close": "Close",
@@ -114,7 +115,10 @@
     "selectMinutes": "Flag minutes",
     "selectHint": "Click the first and the last bad minute, or drag across them.",
     "backToMinutes": "Back to the minutes",
-    "detectionsTitle": "Detections on this day"
+    "detectionsTitle": "Detections on this day",
+    "alarmRaised": "alarm raised",
+    "alarmsTitle": "AWOS alarms this day",
+    "moreAlarms": "{n} more in the alarm history"
   },
   "outages": {
     "title": "Outages, longest first",
@@ -191,7 +195,8 @@
       "ingest_stale": "{cdp}: ingestion is {lag} min behind",
       "backup_overdue": "Backup overdue",
       "suspects_pending": "{n} suspect detection waiting for review | {n} suspect detections waiting for review",
-      "calibration_overdue": "{site} · {component}: calibration overdue since {due}"
+      "calibration_overdue": "{site} · {component}: calibration overdue since {due}",
+      "alarms_active": "{n} active AWOS alarm | {n} active AWOS alarms"
     }
   },
   "status": {
@@ -249,6 +254,8 @@
     "database": "Database",
     "probeMethod": "Probe",
     "ingestion": "Ingestion",
+    "alarmFiles": "Alarm files",
+    "lastAlarm": "Last alarm row",
     "source": "Source",
     "available": "Available",
     "lag": "Lag",
@@ -441,7 +448,8 @@
       "jobs": "Jobs",
       "users": "Users",
       "audit": "Audit log",
-      "health": "System health"
+      "health": "System health",
+      "alarms": "Alarm mapping"
     }
   },
   "users": {
@@ -532,7 +540,8 @@
       "component_meta_changed": "Changed sensor record",
       "calibration_added": "Recorded calibration",
       "calibration_changed": "Changed calibration",
-      "calibration_removed": "Removed calibration"
+      "calibration_removed": "Removed calibration",
+      "alarm_mapping_changed": "Changed alarm mapping"
     },
     "entity": {
       "user": "user",
@@ -547,7 +556,8 @@
       "detection": "detection",
       "station": "station",
       "site": "site",
-      "calibration": "calibration"
+      "calibration": "calibration",
+      "alarm": "alarm"
     },
     "yes": "yes",
     "no": "no",
@@ -655,13 +665,20 @@
       "missing": "Choose both dates.",
       "order": "'From' must not be after 'To'.",
       "future": "Days in the future have no data yet.",
-      "coverage": "SIMOLA's data starts on {date}."
+      "coverage": "SIMOLA's data starts on {date}.",
+      "sources": "Choose at least one kind of file."
     },
     "estimate": "takes about {n} min",
     "start": "Start job",
     "error": {
       "running": "A reprocess is already queued or running. Wait for it, or cancel it first."
-    }
+    },
+    "sources": "Files to read again",
+    "source": {
+      "minutes": "1-minute data",
+      "alarms": "Alarms"
+    },
+    "sourcesHint": "Reading only the alarms is quick and leaves the figures as they are."
   },
   "settings": {
     "subtitle": "How SIMOLA shows and judges data. Each section is saved on its own and recorded in the audit log; stored minutes never change.",
@@ -1137,5 +1154,84 @@
     "job_recompute": "Recalculated {days}",
     "job_detect": "Validity rules run over {days}",
     "job_import_legacy": "v2 probes imported for {days}"
+  },
+  "alarms": {
+    "title": "AWOS alarms",
+    "subtitle": "What the AWOS reported about itself, read from both CDPs' alarm files. Alarms are acknowledged on the AWOS, not here.",
+    "tab": {
+      "active": "Active",
+      "history": "History"
+    },
+    "noneActive": "No active alarms.",
+    "activeSummary": "{n} active alarm | {n} active alarms",
+    "errorCount": "{n} error | {n} errors",
+    "asReported": "Type and state are as the AWOS reported them. SIMOLA does not acknowledge alarms.",
+    "activeRule": "Active means raised in the last {h} hours with no clear logged since.",
+    "lastLogged": "last logged {time} ({ago} ago)",
+    "notCleared": {
+      "title": "{n} older alarm with no clear logged | {n} older alarms with no clear logged",
+      "note": "Their latest change says active, but it is more than {h} hours old. The AWOS often raises an alarm again without logging a clear in between, so these are most likely over. They are not counted as active or in the Problems panel."
+    },
+    "activeFor": "since {since} ({for})",
+    "for": {
+      "dh": "{d} d {h} h",
+      "hm": "{h} h {m} min",
+      "m": "{m} min"
+    },
+    "state": {
+      "pending": "pending",
+      "acknowledged": "acknowledged"
+    },
+    "type": {
+      "error": "Error",
+      "warning": "Warning"
+    },
+    "place": {
+      "station": "Station",
+      "unmapped": "Not assigned"
+    },
+    "filter": {
+      "period": "Period",
+      "lastDays": "Last day | Last {n} days",
+      "type": "Type",
+      "place": "Place",
+      "change": "Change",
+      "search": "Search",
+      "searchHint": "Name or message, e.g. Missing",
+      "all": "All"
+    },
+    "change": {
+      "raised": "Raised",
+      "cleared": "Cleared",
+      "acknowledged": "Acknowledged"
+    },
+    "perDay": "Alarms raised per day",
+    "raisedInPeriod": "{n} raised in this period | {n} raised in this period",
+    "changes": "{n} change | {n} changes",
+    "newestFirst": "Newest first",
+    "oldestFirst": "Oldest first",
+    "noneInPeriod": "No alarm changes match these filters.",
+    "col": {
+      "time": "Time (UTC)",
+      "change": "Change",
+      "alarm": "Alarm",
+      "place": "Place",
+      "state": "AWOS state",
+      "cdps": "CDPs"
+    },
+    "more": "Show more ({n} left)",
+    "atSite": "Active AWOS alarms",
+    "historyLink": "Alarm history",
+    "mapping": {
+      "title": "Alarm mapping",
+      "subtitle": "Which site and sensor each AWOS alarm belongs to. Names starting DCPA are Runway 04, DCPB Middle and DCPC Runway 22; a name SIMOLA has not seen before arrives not assigned. A change applies to the whole alarm history at once.",
+      "general": "General",
+      "wholeSite": "{site}, whole site",
+      "seen": "{n} change, last {time} | {n} changes, last {time}",
+      "byAdmin": "set by {who}, {time}",
+      "bySeed": "set from the name",
+      "saved": "Saved",
+      "note": "Every change is in the audit log."
+    }
   }
 }

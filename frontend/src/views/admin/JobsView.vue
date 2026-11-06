@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api, ApiProblem } from '@/api/client'
-import type { JobDetail, JobRow, NewJob } from '@/api/types'
+import { JOB_SOURCES, type JobDetail, type JobRow, type JobSource, type NewJob } from '@/api/types'
 import SidePanel from '@/components/SidePanel.vue'
 import { useLoader } from '@/composables/useLoader'
 import { usePolling } from '@/composables/usePolling'
@@ -37,6 +37,8 @@ const days = (from?: string, to?: string) =>
   from && to ? Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1 : 0
 const range = (j: JobRow) =>
   `${day(j.params.from)} – ${day(j.params.to)} · ${t('jobs.days', days(j.params.from, j.params.to))}`
+const sourcesNote = (j: JobRow) =>
+  j.params.sources?.length ? ` · ${j.params.sources.map((x) => t(`jobs.source.${x}`)).join(', ')}` : ''
 function took(j: JobRow): string {
   const end = j.finished_at ? Date.parse(j.finished_at) : j.started_at ? Date.now() : null
   if (!j.started_at || end === null) return '—'
@@ -73,7 +75,13 @@ async function cancel() {
 
 // -------------------------------------------------------------- new job
 const today = new Date().toISOString().slice(0, 10)
-const form = reactive<NewJob>({ type: 'reprocess', system: DEFAULT_SYSTEM, from: today, to: today })
+const form = reactive<NewJob & { sources: JobSource[] }>({
+  type: 'reprocess',
+  system: DEFAULT_SYSTEM,
+  from: today,
+  to: today,
+  sources: [...JOB_SOURCES],
+})
 const creating = ref(false)
 const busy = ref(false)
 const error = ref<string | null>(null)
@@ -94,15 +102,17 @@ function preset(kind: 'yesterday' | 'week' | 'lastMonth' | 'all') {
 }
 const formDays = computed(() => days(form.from, form.to))
 const formProblem = computed(() =>
-  !form.from || !form.to
-    ? 'missing'
-    : form.from > form.to
-      ? 'order'
-      : form.to > today
-        ? 'future'
-        : form.from < coverage.value
-          ? 'coverage'
-          : null,
+  form.type === 'reprocess' && !form.sources.length
+    ? 'sources'
+    : !form.from || !form.to
+      ? 'missing'
+      : form.from > form.to
+        ? 'order'
+        : form.to > today
+          ? 'future'
+          : form.from < coverage.value
+            ? 'coverage'
+            : null,
 )
 const estimate = computed(() => Math.max(1, Math.round((formDays.value * SECONDS_PER_DAY[form.type]) / 60)))
 async function start() {
@@ -110,7 +120,13 @@ async function start() {
   busy.value = true
   error.value = null
   try {
-    const job = await api.startJob({ ...form })
+    const { sources, ...rest } = form
+    // Reading every source again is the default and needs no list.
+    const job = await api.startJob(
+      rest.type === 'reprocess' && sources.length < JOB_SOURCES.length
+        ? { ...rest, sources: [...sources] }
+        : rest,
+    )
     creating.value = false
     await loader.load({ silent: true })
     await open(job)
@@ -139,7 +155,7 @@ async function start() {
     >
       <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <p class="text-sm font-medium">#{{ j.id }} · {{ t(`jobs.type.${j.type}`) }}</p>
-        <span class="text-xs text-ink-2">{{ range(j) }}</span>
+        <span class="text-xs text-ink-2">{{ range(j) }}{{ sourcesNote(j) }}</span>
         <span class="ml-auto text-xs text-ink-2"
           >{{ t('jobs.by', { who: j.created_by }) }} · {{ took(j) }}</span
         >
@@ -177,7 +193,7 @@ async function start() {
           <span class="num text-xs text-ink-3">#{{ j.id }}</span>
           <span class="min-w-0">
             <span class="block truncate text-sm">{{ t(`jobs.type.${j.type}`) }}</span>
-            <span class="block truncate text-xs text-ink-3">{{ range(j) }}</span>
+            <span class="block truncate text-xs text-ink-3">{{ range(j) }}{{ sourcesNote(j) }}</span>
           </span>
           <span class="justify-self-end sm:justify-self-start"
             ><span class="rounded px-1.5 py-0.5 text-xs" :class="TONE[j.status]">{{
@@ -265,6 +281,14 @@ async function start() {
               <span class="block text-xs text-ink-2">{{ t(`jobs.hint.${k}`) }}</span>
             </span>
           </label>
+        </fieldset>
+        <fieldset v-if="form.type === 'reprocess'" class="flex flex-col gap-1.5">
+          <legend class="label mb-1">{{ t('jobs.sources') }}</legend>
+          <label v-for="s in JOB_SOURCES" :key="s" class="flex items-center gap-2 text-sm">
+            <input v-model="form.sources" type="checkbox" :value="s" class="accent-[var(--s-accent)]" />
+            {{ t(`jobs.source.${s}`) }}
+          </label>
+          <span class="text-xs text-ink-3">{{ t('jobs.sourcesHint') }}</span>
         </fieldset>
         <div class="flex flex-col gap-2">
           <span class="label">{{ t('jobs.range') }}</span>

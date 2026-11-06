@@ -17,7 +17,8 @@
     "dashboard": "Dasbor",
     "system": "Sistem",
     "metar": "METAR dan METREPORT",
-    "later": "menyusul"
+    "later": "menyusul",
+    "alarms": "Alarm"
   },
   "common": {
     "close": "Tutup",
@@ -114,7 +115,10 @@
     "selectMinutes": "Tandai menit",
     "selectHint": "Klik menit buruk pertama dan terakhir, atau seret di atasnya.",
     "backToMinutes": "Kembali ke peta menit",
-    "detectionsTitle": "Deteksi pada hari ini"
+    "detectionsTitle": "Deteksi pada hari ini",
+    "alarmRaised": "alarm muncul",
+    "alarmsTitle": "Alarm AWOS pada hari ini",
+    "moreAlarms": "{n} lainnya di riwayat alarm"
   },
   "outages": {
     "title": "Gangguan, terlama dulu",
@@ -191,7 +195,8 @@
       "ingest_stale": "{cdp}: pengambilan data tertinggal {lag} menit",
       "backup_overdue": "Cadangan terlambat",
       "suspects_pending": "{n} deteksi suspek menunggu tinjauan",
-      "calibration_overdue": "{site} · {component}: kalibrasi lewat jatuh tempo sejak {due}"
+      "calibration_overdue": "{site} · {component}: kalibrasi lewat jatuh tempo sejak {due}",
+      "alarms_active": "{n} alarm AWOS aktif | {n} alarm AWOS aktif"
     }
   },
   "status": {
@@ -249,6 +254,8 @@
     "database": "Database",
     "probeMethod": "Uji jaringan",
     "ingestion": "Pengambilan data",
+    "alarmFiles": "Berkas alarm",
+    "lastAlarm": "Baris alarm terakhir",
     "source": "Sumber",
     "available": "Tersedia",
     "lag": "Tertinggal",
@@ -441,7 +448,8 @@
       "jobs": "Pekerjaan",
       "users": "Pengguna",
       "audit": "Log audit",
-      "health": "Kesehatan sistem"
+      "health": "Kesehatan sistem",
+      "alarms": "Pemetaan alarm"
     }
   },
   "users": {
@@ -532,7 +540,8 @@
       "component_meta_changed": "Mengubah data sensor",
       "calibration_added": "Mencatat kalibrasi",
       "calibration_changed": "Mengubah kalibrasi",
-      "calibration_removed": "Menghapus kalibrasi"
+      "calibration_removed": "Menghapus kalibrasi",
+      "alarm_mapping_changed": "Mengubah pemetaan alarm"
     },
     "entity": {
       "user": "pengguna",
@@ -547,7 +556,8 @@
       "detection": "deteksi",
       "station": "stasiun",
       "site": "lokasi",
-      "calibration": "kalibrasi"
+      "calibration": "kalibrasi",
+      "alarm": "alarm"
     },
     "yes": "ya",
     "no": "tidak",
@@ -655,13 +665,20 @@
       "missing": "Pilih kedua tanggal.",
       "order": "'Dari' tidak boleh setelah 'Sampai'.",
       "future": "Hari yang akan datang belum memiliki data.",
-      "coverage": "Data SIMOLA dimulai pada {date}."
+      "coverage": "Data SIMOLA dimulai pada {date}.",
+      "sources": "Pilih minimal satu jenis berkas."
     },
     "estimate": "sekitar {n} menit",
     "start": "Mulai pekerjaan",
     "error": {
       "running": "Proses ulang lain sedang antre atau berjalan. Tunggu, atau batalkan dahulu."
-    }
+    },
+    "sources": "Berkas yang dibaca ulang",
+    "source": {
+      "minutes": "Data 1 menit",
+      "alarms": "Alarm"
+    },
+    "sourcesHint": "Membaca ulang alarm saja berlangsung cepat dan tidak mengubah angka."
   },
   "settings": {
     "subtitle": "Cara SIMOLA menampilkan dan menilai data. Setiap bagian disimpan sendiri dan dicatat di log audit; menit yang tersimpan tidak pernah berubah.",
@@ -1137,5 +1154,84 @@
     "job_recompute": "Dihitung ulang {days}",
     "job_detect": "Aturan validitas dijalankan untuk {days}",
     "job_import_legacy": "Probe v2 diimpor untuk {days}"
+  },
+  "alarms": {
+    "title": "Alarm AWOS",
+    "subtitle": "Yang dilaporkan AWOS tentang dirinya sendiri, dibaca dari berkas alarm kedua CDP. Alarm dikonfirmasi di AWOS, bukan di sini.",
+    "tab": {
+      "active": "Aktif",
+      "history": "Riwayat"
+    },
+    "noneActive": "Tidak ada alarm aktif.",
+    "activeSummary": "{n} alarm aktif | {n} alarm aktif",
+    "errorCount": "{n} error | {n} error",
+    "asReported": "Jenis dan status sesuai laporan AWOS. SIMOLA tidak mengonfirmasi alarm.",
+    "activeRule": "Aktif berarti muncul dalam {h} jam terakhir dan belum tercatat berakhir.",
+    "lastLogged": "terakhir tercatat {time} ({ago} lalu)",
+    "notCleared": {
+      "title": "{n} alarm lama tanpa catatan berakhir | {n} alarm lama tanpa catatan berakhir",
+      "note": "Perubahan terakhirnya menyatakan aktif, tetapi sudah lebih dari {h} jam. AWOS sering memunculkan alarm lagi tanpa mencatat berakhirnya, jadi kemungkinan besar alarm ini sudah selesai. Alarm ini tidak dihitung sebagai aktif maupun di panel Masalah."
+    },
+    "activeFor": "sejak {since} ({for})",
+    "for": {
+      "dh": "{d} hr {h} j",
+      "hm": "{h} j {m} mnt",
+      "m": "{m} mnt"
+    },
+    "state": {
+      "pending": "menunggu",
+      "acknowledged": "dikonfirmasi"
+    },
+    "type": {
+      "error": "Error",
+      "warning": "Peringatan"
+    },
+    "place": {
+      "station": "Stasiun",
+      "unmapped": "Belum ditetapkan"
+    },
+    "filter": {
+      "period": "Periode",
+      "lastDays": "1 hari terakhir | {n} hari terakhir",
+      "type": "Jenis",
+      "place": "Lokasi",
+      "change": "Perubahan",
+      "search": "Cari",
+      "searchHint": "Nama atau pesan, mis. Missing",
+      "all": "Semua"
+    },
+    "change": {
+      "raised": "Muncul",
+      "cleared": "Berakhir",
+      "acknowledged": "Dikonfirmasi"
+    },
+    "perDay": "Alarm yang muncul per hari",
+    "raisedInPeriod": "{n} muncul dalam periode ini | {n} muncul dalam periode ini",
+    "changes": "{n} perubahan | {n} perubahan",
+    "newestFirst": "Terbaru dulu",
+    "oldestFirst": "Terlama dulu",
+    "noneInPeriod": "Tidak ada perubahan alarm yang cocok dengan filter ini.",
+    "col": {
+      "time": "Waktu (UTC)",
+      "change": "Perubahan",
+      "alarm": "Alarm",
+      "place": "Lokasi",
+      "state": "Status AWOS",
+      "cdps": "CDP"
+    },
+    "more": "Tampilkan lagi ({n} tersisa)",
+    "atSite": "Alarm AWOS aktif",
+    "historyLink": "Riwayat alarm",
+    "mapping": {
+      "title": "Pemetaan alarm",
+      "subtitle": "Lokasi dan sensor untuk setiap alarm AWOS. Nama yang diawali DCPA adalah Landasan 04, DCPB Landasan Tengah, dan DCPC Landasan 22; nama yang belum pernah dilihat SIMOLA masuk sebagai belum ditetapkan. Perubahan berlaku untuk seluruh riwayat alarm sekaligus.",
+      "general": "Umum",
+      "wholeSite": "{site}, seluruh lokasi",
+      "seen": "{n} perubahan, terakhir {time} | {n} perubahan, terakhir {time}",
+      "byAdmin": "diatur oleh {who}, {time}",
+      "bySeed": "diatur dari nama alarm",
+      "saved": "Tersimpan",
+      "note": "Setiap perubahan tercatat di log audit."
+    }
   }
 }

@@ -28,6 +28,13 @@ export const router = createRouter({
     },
     // Wall screen / TV: current month, no controls, larger type, refreshes itself.
     {
+      path: '/systems/:code/alarms',
+      name: 'alarms',
+      component: () => import('@/views/AlarmsView.vue'),
+      props: true,
+      meta: { role: 'viewer' },
+    },
+    {
       path: '/wall',
       name: 'wall',
       component: () => import('@/views/BoardView.vue'),
@@ -62,6 +69,11 @@ export const router = createRouter({
         { path: 'flags', name: 'admin-flags', component: () => import('@/views/admin/FlagsView.vue') },
         { path: 'review', name: 'admin-review', component: () => import('@/views/admin/ReviewView.vue') },
         { path: 'rules', name: 'admin-rules', component: () => import('@/views/admin/RulesView.vue') },
+        {
+          path: 'alarms',
+          name: 'admin-alarms',
+          component: () => import('@/views/admin/AlarmMappingView.vue'),
+        },
         {
           path: 'calibration',
           name: 'admin-calibration',

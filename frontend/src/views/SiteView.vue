@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api/client'
-import type { Assets, ComponentInfo, FlagRow, SystemInfo } from '@/api/types'
+import type { ActiveAlarm, Assets, ComponentInfo, FlagRow, SystemInfo } from '@/api/types'
+import ActiveAlarms from '@/components/alarms/ActiveAlarms.vue'
 import FlagForm from '@/components/flags/FlagForm.vue'
 import SensorBlock from '@/components/SensorBlock.vue'
 import SidePanel from '@/components/SidePanel.vue'
@@ -12,6 +13,7 @@ import WindowBar from '@/components/WindowBar.vue'
 import { usePolling } from '@/composables/usePolling'
 import { useWindowQuery } from '@/composables/useUrlState'
 import type { Locale } from '@/i18n'
+import { useAuthStore } from '@/stores/auth'
 import { useDisplayStore } from '@/stores/display'
 import { DEFAULT_SYSTEM, useLiveStore } from '@/stores/live'
 import { boardPath } from '@/utils/paths'
@@ -40,6 +42,20 @@ const siteMeta = computed(() => assets.value?.sites.find((s) => s.slug === props
 const record = (type: string) =>
   assets.value?.components.find((c) => c.site === props.slug && c.type === type)
 const liveSite = computed(() => live.status?.sites.find((s) => s.slug === props.slug) ?? null)
+
+// Active AWOS alarms at this site (FR-ALM-003, signed-in users only).
+const auth = useAuthStore()
+const alarms = ref<ActiveAlarm[] | null>(null)
+const alarmsAt = ref(Date.now())
+async function loadAlarms() {
+  if (!auth.canView) return
+  try {
+    alarms.value = (await api.activeAlarms(props.code, `site:${props.slug}`)).active
+    alarmsAt.value = Date.now()
+  } catch {
+    /* the page works without them */
+  }
+}
 const dcp = computed(() => site.value?.components.find((c) => c.is_dcp) ?? null)
 
 // Rolling windows move with time; refresh every 60 s (FR-DSH-011).
@@ -47,6 +63,7 @@ const refreshKey = ref(0)
 usePolling(() => {
   if (chartWindow.value.preset !== 'custom') chartWindow.value = windowFromPreset(chartWindow.value.preset)
   refreshKey.value++
+  void loadAlarms()
 }, 60_000)
 
 // ---- flagging from a chart (R2.3, Admins) ----------------------------------------------------------
@@ -98,6 +115,24 @@ function flagDone() {
         </div>
         <WindowBar v-model="chartWindow" />
       </header>
+
+      <section
+        v-if="alarms?.length"
+        class="rounded-lg border border-line bg-surface px-4 py-2"
+        :aria-label="t('alarms.atSite')"
+        data-testid="site-alarms"
+      >
+        <header class="flex flex-wrap items-center gap-x-3 pt-1">
+          <h2 class="text-sm font-semibold">{{ t('alarms.atSite') }}</h2>
+          <span class="num text-xs text-ink-3">{{ alarms.length }}</span>
+          <RouterLink
+            :to="{ path: `/systems/${code}/alarms`, query: { tab: 'history', scope: `site:${slug}` } }"
+            class="ml-auto text-xs text-accent hover:underline"
+            >{{ t('alarms.historyLink') }} →</RouterLink
+          >
+        </header>
+        <ActiveAlarms :alarms="alarms" :info="info" :now="alarmsAt" compact />
+      </section>
 
       <div class="grid items-start gap-3 xl:grid-cols-2">
         <SensorBlock

@@ -456,7 +456,7 @@ export type JobStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled' |
 export interface JobRow {
   id: number
   type: JobType
-  params: { system?: string; from?: string; to?: string }
+  params: { system?: string; from?: string; to?: string; sources?: JobSource[] }
   status: JobStatus
   progress: number
   message: string | null
@@ -470,11 +470,16 @@ export interface JobDetail extends JobRow {
   log: string
 }
 
+export const JOB_SOURCES = ['minutes', 'alarms'] as const
+export type JobSource = (typeof JOB_SOURCES)[number]
+
 export interface NewJob {
   type: 'reprocess' | 'recompute'
   system: string
   from: string
   to: string
+  /** reprocess only: which CDP files to read again (FR-ING-010); all when absent */
+  sources?: JobSource[]
 }
 
 export interface ProblemThresholds {
@@ -865,4 +870,96 @@ export interface RuleChange {
 export interface DecisionResult {
   decided: Detection[]
   job: JobRow | null
+}
+
+// ---------------------------------------------------------------- AWOS alarms (R3.1, FR-ING-008, FR-ALM)
+
+export const ALARM_TYPES = ['error', 'warning'] as const
+export type AlarmType = (typeof ALARM_TYPES)[number]
+
+/** Where an alarm belongs: one sensor, a site, the whole station, or not assigned yet (E12). */
+export type AlarmPlaceKind = 'component' | 'site' | 'station' | 'unmapped'
+export interface AlarmPlace {
+  kind: AlarmPlaceKind
+  /** site slug for "component" and "site" */
+  site: string | null
+  /** component type for "component" */
+  component: string | null
+}
+
+/** One change in the AWOS alarm file: raised (active) or cleared, with the AWOS state as reported. */
+export interface AlarmEvent {
+  id: number
+  time: string
+  name: string
+  type: AlarmType
+  /** as reported by the AWOS: "pending" or "acknowledged" */
+  state: string
+  active: boolean
+  /** this change raised the alarm (an active change that is not an acknowledgement) */
+  raised: boolean
+  message: string
+  /** the CDPs whose files had this row */
+  cdps: string[]
+  place: AlarmPlace
+}
+
+/** An alarm whose latest change says it is active (FR-ALM-001). */
+export interface ActiveAlarm {
+  name: string
+  type: AlarmType
+  state: string
+  message: string
+  /** when it was raised (the change that made it active) */
+  since: string
+  /** its latest change */
+  changed: string
+  cdps: string[]
+  place: AlarmPlace
+}
+
+/**
+ * The AWOS logs a raise far more reliably than a clear, so an alarm counts as active only while its latest change
+ * says active and is at most window_hours old. Older ones are "not_cleared": no clear was logged, but they are
+ * probably over, and they are not counted in the Problems panel.
+ */
+export interface ActiveAlarms {
+  window_hours: number
+  active: ActiveAlarm[]
+  not_cleared: ActiveAlarm[]
+}
+
+export interface AlarmFilter {
+  /** UTC instants; "to" is exclusive */
+  from: string
+  to: string
+  type?: AlarmType
+  /** "site:04", "component:04:RVR", "station" or "unmapped" */
+  scope?: string
+  name?: string
+  /** raised (true) or cleared (false) changes only */
+  active?: boolean
+  order?: 'asc' | 'desc'
+}
+
+export interface AlarmPage {
+  total: number
+  events: AlarmEvent[]
+  /** alarms raised per UTC day in the filtered period, by type */
+  per_day: { day: string; error: number; warning: number }[]
+}
+
+/** One alarm name and where it is shown (Admin → Alarm mapping). */
+export interface AlarmName {
+  name: string
+  type: AlarmType
+  /** latest message text */
+  message: string
+  place: AlarmPlace
+  /** "seed": set from the name's prefix; "admin": changed by an Admin */
+  source: 'seed' | 'admin'
+  events: number
+  last_seen: string
+  updated_by: string | null
+  updated_at: string | null
 }

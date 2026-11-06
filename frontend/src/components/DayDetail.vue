@@ -3,7 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api/client'
-import type { Detection, FieldInfo, Flag, FlagRow, MinutesResponse } from '@/api/types'
+import type { AlarmEvent, AlarmPage, Detection, FieldInfo, Flag, FlagRow, MinutesResponse } from '@/api/types'
+import { changeLabel } from '@/utils/alarms'
+import AlarmTypeBadge from './alarms/AlarmTypeBadge.vue'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -48,12 +50,45 @@ const detLoader = useLoader<Detection[]>(() =>
   ),
 )
 const detections = computed(() => (flaggable.value ? (detLoader.data.value ?? []) : []))
+// AWOS alarms that day at the scope's site (FR-ING-008 acceptance 2, FR-ALM-003; signed-in users only).
+const alarmSite = computed(() =>
+  parts.value[0] === 'component' || parts.value[0] === 'site' ? (parts.value[1] ?? null) : null,
+)
+const alarmLoader = useLoader<AlarmPage>(() =>
+  api.alarms(props.systemCode, {
+    from: new Date(dayStart.value).toISOString(),
+    to: new Date(dayStart.value + 86_400_000).toISOString(),
+    scope: alarmSite.value ? `site:${alarmSite.value}` : undefined,
+    order: 'asc',
+  }),
+)
+const dayAlarms = computed(() => (auth.canView ? (alarmLoader.data.value?.events ?? []) : []))
+/** minute of the day → alarms raised in it */
+const minuteAlarms = computed(() => {
+  const out = new Map<number, AlarmEvent[]>()
+  for (const a of dayAlarms.value) {
+    if (!a.raised) continue
+    const i = Math.floor((Date.parse(a.time) - dayStart.value) / 60_000)
+    out.set(i, [...(out.get(i) ?? []), a])
+  }
+  return out
+})
+const alarmRing = (i: number) => {
+  const list = minuteAlarms.value.get(i)
+  if (!list) return ''
+  return list.some((a) => a.type === 'error')
+    ? 'outline outline-2 outline-bad'
+    : 'outline outline-2 outline-warn'
+}
+const clock = (iso: string) => iso.slice(11, 19)
+
 function reload() {
   void loader.load()
   if (flaggable.value) {
     void flagLoader.load()
     void detLoader.load()
   }
+  if (auth.canView) void alarmLoader.load()
 }
 watch(
   () => `${props.scope}|${props.day}`,
@@ -118,7 +153,9 @@ function minuteTitle(h: number, m: number, c: string) {
   const f = c === 'g' ? minuteFlag.value.get(i) : undefined
   if (f) return `${base}: ${t(`flags.reason.${f.reason}`)} (#${f.id})`
   const d = c === 'd' || c === 's' ? minuteDetection.value.get(i) : undefined
-  return d ? `${base}: ${t(`rules.type.${d.type}`)} · ${d.field} (#${d.id})` : base
+  const withDetail = d ? `${base}: ${t(`rules.type.${d.type}`)} · ${d.field} (#${d.id})` : base
+  const raised = minuteAlarms.value.get(i)
+  return raised ? `${withDetail}\n${raised.map((a) => `⚑ ${a.message}`).join('\n')}` : withDetail
 }
 
 // ---- flagging minutes (Admins) ----------------------------------------------------------------------
@@ -271,7 +308,11 @@ reload()
                 v-for="(c, m) in row"
                 :key="m"
                 class="h-2.5 rounded-[1px]"
-                :class="[CODE_CLASS[c], inSel(h * 60 + m) ? 'ring-2 ring-flag ring-offset-0' : '']"
+                :class="[
+                  CODE_CLASS[c],
+                  inSel(h * 60 + m) ? 'ring-2 ring-flag ring-offset-0' : '',
+                  alarmRing(h * 60 + m),
+                ]"
                 :title="minuteTitle(h, m, c)"
                 @pointerdown.prevent="down(h * 60 + m)"
                 @pointerenter="enter(h * 60 + m)"
@@ -286,8 +327,44 @@ reload()
               :class="[CODE_CLASS[c], c === 'u' ? 'border border-line' : '']"
             />{{ t(`day.code.${c}`) }}</span
           >
+          <span v-if="minuteAlarms.size" class="flex items-center gap-1"
+            ><span class="h-2.5 w-2.5 rounded-[1px] bg-sunken outline outline-2 outline-bad" />{{
+              t('day.alarmRaised')
+            }}</span
+          >
         </div>
       </figure>
+
+      <section v-if="dayAlarms.length" :aria-label="t('day.alarmsTitle')" data-testid="day-alarms">
+        <h3 class="eyebrow mb-1.5">{{ t('day.alarmsTitle') }}</h3>
+        <ul class="flex flex-col text-xs">
+          <li
+            v-for="a in dayAlarms.slice(0, 20)"
+            :key="a.id"
+            class="flex items-start gap-2 border-b border-line py-1.5 last:border-0"
+          >
+            <span class="num w-16 shrink-0 text-ink-2">{{ clock(a.time) }}</span>
+            <span class="w-24 shrink-0 whitespace-nowrap" :class="a.raised ? 'font-medium' : 'text-ink-3'">{{
+              changeLabel(a, t)
+            }}</span>
+            <AlarmTypeBadge :type="a.type" />
+            <span class="min-w-0 flex-1">{{ a.message }}</span>
+          </li>
+        </ul>
+        <RouterLink
+          :to="{
+            path: `/systems/${systemCode}/alarms`,
+            query: { tab: 'history', ...(alarmSite ? { scope: `site:${alarmSite}` } : {}) },
+          }"
+          class="mt-1 inline-block text-xs text-accent hover:underline"
+          >{{
+            dayAlarms.length > 20
+              ? t('day.moreAlarms', { n: dayAlarms.length - 20 })
+              : t('alarms.historyLink')
+          }}
+          →</RouterLink
+        >
+      </section>
 
       <section v-if="flags.length" :aria-label="t('day.flagsTitle')">
         <h3 class="eyebrow mb-1.5">{{ t('day.flagsTitle') }}</h3>

@@ -36,6 +36,16 @@ interface Health {
       path: string | null
       last_error: string | null
     }[]
+    /** the alarm file readers (R3.1); absent on an older API */
+    alarm_files?: {
+      cdp: string | null
+      available: boolean
+      lag_min: number | null
+      last_record_time: string | null
+      parse_warnings: number
+      path: string | null
+      last_error: string | null
+    }[]
     cdps: {
       code: string
       data_flow: string
@@ -117,6 +127,36 @@ const mb = (b: number | null | undefined) => (b == null ? '—' : `${num(b / 1_0
             </tr>
           </tbody>
         </table>
+        <template v-if="s.alarm_files?.length">
+          <h3 class="eyebrow border-t border-line px-3 py-2">{{ t('health.alarmFiles') }}</h3>
+          <table class="w-full min-w-[640px] text-xs" data-testid="health-alarm-files">
+            <thead class="text-left text-[0.625rem] text-ink-3">
+              <tr>
+                <th class="px-3 py-1 font-normal">{{ t('health.source') }}</th>
+                <th class="font-normal">{{ t('health.available') }}</th>
+                <th class="font-normal">{{ t('health.lag') }}</th>
+                <th class="font-normal">{{ t('health.lastAlarm') }}</th>
+                <th class="font-normal">{{ t('health.parseWarnings') }}</th>
+                <th class="font-normal">{{ t('health.path') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in s.alarm_files" :key="i.cdp ?? ''" class="border-t border-line">
+                <td class="num px-3 py-1.5">{{ i.cdp }}</td>
+                <td :class="i.available ? 'text-ok' : 'text-bad'">
+                  {{ i.available ? t('health.yes') : t('health.no') }}
+                </td>
+                <td class="num">{{ i.lag_min === null ? '—' : `${num(i.lag_min, lc)} min` }}</td>
+                <td class="num">{{ formatUtc(i.last_record_time) }}</td>
+                <td class="num">{{ int(i.parse_warnings, lc) }}</td>
+                <td class="num text-ink-3">{{ i.path ?? '—' }}</td>
+              </tr>
+              <tr v-for="i in s.alarm_files.filter((x) => x.last_error)" :key="`ae-${i.cdp}`">
+                <td colspan="6" class="px-3 pb-1.5 text-bad">{{ i.cdp }}: {{ i.last_error }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
         <h3 class="eyebrow border-t border-line px-3 py-2">{{ t('health.cdps') }}</h3>
         <ul class="num px-3 pb-3 text-xs">
           <li v-for="c in s.cdps" :key="c.code">

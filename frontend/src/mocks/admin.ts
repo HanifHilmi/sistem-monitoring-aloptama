@@ -16,6 +16,7 @@ import type {
   SiteMeta,
   TraceEvent,
 } from '@/api/types'
+import { JOB_SOURCES, type JobSource } from '@/api/types'
 import { SYSTEM } from './data'
 import { dqState } from './dqStore'
 import { allFlags } from './flagStore'
@@ -179,12 +180,13 @@ function enqueue(
   to: string,
   by: string,
   now: number,
+  sources?: JobSource[],
 ): Job {
   const days = Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1
   const j: Job = {
     id: Math.max(0, ...s.jobs.map((x) => x.id)) + 1,
     type,
-    params: { system: SYSTEM.code, from, to },
+    params: { system: SYSTEM.code, from, to, ...(sources ? { sources } : {}) },
     status: 'queued',
     progress: 0,
     message: null,
@@ -276,7 +278,26 @@ export function adminRoute(
       s.jobs.some((j) => j.type === 'reprocess' && ['queued', 'running'].includes(j.status))
     )
       return problem(409, 'job_running')
-    return done(json(row(enqueue(s, type, String(b.from), String(b.to), user, now)), 201))
+    const sources = Array.isArray(b.sources)
+      ? (b.sources as string[]).filter((x): x is JobSource => (JOB_SOURCES as readonly string[]).includes(x))
+      : undefined
+    if (type === 'reprocess' && sources && !sources.length) return problem(422, 'no_sources')
+    return done(
+      json(
+        row(
+          enqueue(
+            s,
+            type,
+            String(b.from),
+            String(b.to),
+            user,
+            now,
+            type === 'reprocess' ? sources : undefined,
+          ),
+        ),
+        201,
+      ),
+    )
   }
   const jm = path.match(/^\/admin\/jobs\/(\d+)(\/cancel)?$/)
   if (jm) {

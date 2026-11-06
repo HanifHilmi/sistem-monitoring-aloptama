@@ -2,6 +2,7 @@
 import type { MatrixBucket } from '@/api/types'
 import { accountsRoute, currentUser, signedIn } from './accounts'
 import { adminRoute, assets, calibrationProblems, recalculating, trace } from './admin'
+import * as alarms from './alarms'
 import * as data from './data'
 import { dqRoute, isAdmin, pendingSuspects, publicDetections } from './dq'
 import { flagsRoute, publicFlags } from './flags'
@@ -25,6 +26,17 @@ function route(url: URL, method: string, body: unknown): Response {
     if (dq) return dq
     const admin = adminRoute(p, url, method, body, me.username)
     if (admin) return admin
+    if (p === '/admin/alarm-names' && method === 'GET') return json(alarms.names(Date.now()))
+    const an = p.match(/^\/admin\/alarm-names\/([^/]+)$/)
+    if (an && method === 'PUT') {
+      const saved = alarms.setPlace(decodeURIComponent(an[1]!), body as never, me.username, Date.now())
+      return typeof saved === 'string'
+        ? json(
+            { code: saved, title: saved, status: saved === 'alarm_not_found' ? 404 : 422 },
+            saved === 'alarm_not_found' ? 404 : 422,
+          )
+        : json(saved)
+    }
   }
   const q = url.searchParams
   const from = Date.parse(q.get('from') ?? '')
@@ -44,6 +56,12 @@ function route(url: URL, method: string, body: unknown): Response {
   if (p.endsWith('/flags')) return publicFlags(url)
   if (p.endsWith('/detections')) return publicDetections(url)
   if (p.endsWith('/assets')) return json(assets(signedIn(), now))
+  // The alarm viewer is for signed-in users; the public sees only the count in the Problems panel (OPEN-13).
+  if (/\/alarms(\/active)?$/.test(p)) {
+    if (!signedIn()) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
+    if (p.endsWith('/active')) return json(alarms.active(now, q.get('scope')))
+    return json(alarms.history(now, q))
+  }
   if (p.endsWith('/trace')) {
     if (!signedIn()) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
     return json(trace(q.get('scope') ?? '', from, to, now))
@@ -66,6 +84,7 @@ function route(url: URL, method: string, body: unknown): Response {
           link: '/systems/WIDN-CAT3/sites/04',
           params: { site: 'RWY04', component: 'PWX', since: new Date(now - 3_600_000).toISOString() },
         },
+        ...alarms.alarmProblems(now, signedIn()),
         ...calibrationProblems(now),
         // Pending suspect detections are for signed-in users only (PRD FR-DSH-010, OPEN-13).
         ...(signedIn() && pendingSuspects()
