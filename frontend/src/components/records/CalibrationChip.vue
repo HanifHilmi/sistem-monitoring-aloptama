@@ -3,8 +3,9 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { CalibrationSummary } from '@/api/types'
 
-// Calibration status of a sensor (FR-REG-005): overdue, due soon, OK or unknown, with the days left. Words and a
-// mark, never colour alone (UX-005).
+// Calibration status of a sensor (FR-REG-005): overdue, due soon, OK or unknown, with the days left, and a
+// "certificate pending" mark while the latest calibration's document is not validated yet. Words and a mark,
+// never colour alone (UX-005).
 const props = defineProps<{ calibration: CalibrationSummary; compact?: boolean }>()
 const { t } = useI18n()
 const TONE = {
@@ -26,13 +27,23 @@ const text = computed(() => {
 </script>
 
 <template>
-  <span
-    class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-px text-[0.6875rem] whitespace-nowrap"
-    :class="TONE[calibration.status]"
-    :title="calibration.next_due ? t('calibration.nextDue', { date: calibration.next_due }) : undefined"
-    data-testid="calibration-chip"
-  >
-    <span aria-hidden="true" class="font-semibold">{{ MARK[calibration.status] }}</span>
-    {{ text }}
+  <span class="inline-flex shrink-0 flex-wrap items-center gap-1">
+    <span
+      class="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-px text-[0.6875rem] whitespace-nowrap"
+      :class="TONE[calibration.status]"
+      :title="calibration.next_due ? t('calibration.nextDue', { date: calibration.next_due }) : undefined"
+      data-testid="calibration-chip"
+    >
+      <span aria-hidden="true" class="font-semibold">{{ MARK[calibration.status] }}</span>
+      {{ text }}
+    </span>
+    <span
+      v-if="calibration.pending"
+      class="inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-warn/60 px-2 py-px text-[0.6875rem] whitespace-nowrap text-ink-2"
+      :title="t('calibration.pendingHint')"
+      data-testid="certificate-pending"
+    >
+      <span aria-hidden="true">…</span>{{ t('calibration.pending') }}
+    </span>
   </span>
 </template>

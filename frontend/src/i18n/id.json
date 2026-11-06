@@ -597,7 +597,8 @@
       "model": "Model",
       "manufacturer": "Pabrikan",
       "installed_on": "Dipasang",
-      "calibration_due_soon_days": "Segera jatuh tempo (hari)"
+      "calibration_due_soon_days": "Segera jatuh tempo (hari)",
+      "validated_on": "Divalidasi pada"
     },
     "reason": {
       "password": "kata sandi salah",
@@ -1052,7 +1053,13 @@
     "all": "Semua",
     "noneWithStatus": "Tidak ada sensor dengan status kalibrasi ini.",
     "last": "Kalibrasi terakhir",
-    "windowNote": "\"Segera jatuh tempo\" berarti dalam rentang yang diatur di Admin → Pengaturan (bawaan 30 hari)."
+    "windowNote": "\"Segera jatuh tempo\" berarti dalam rentang yang diatur di Admin → Pengaturan (bawaan 30 hari).",
+    "validatedOn": "Sertifikat divalidasi pada (UTC)",
+    "validatedHint": "Kosongkan selama sertifikat masih dalam proses.",
+    "validated": "Sertifikat divalidasi {date}",
+    "pending": "Sertifikat dalam proses",
+    "pendingHint": "Kalibrasi sudah dilakukan; sertifikatnya belum divalidasi.",
+    "pendingShort": "Dalam proses"
   },
   "records": {
     "title": "Registri dan metadata",
@@ -1073,7 +1080,8 @@
       "firmware": "Firmware atau versi",
       "notes": "Catatan",
       "last_calibration": "Kalibrasi terakhir",
-      "next_due": "Jatuh tempo kalibrasi"
+      "next_due": "Jatuh tempo kalibrasi",
+      "validated_on": "Sertifikat divalidasi"
     },
     "serialHint": "Nomor seri dan nomor part hanya ditampilkan untuk pengguna yang masuk.",
     "save": "Simpan",
@@ -1109,7 +1117,8 @@
       "invalid_wmo": "Nomor WMO terdiri dari 5 angka.",
       "dcp_not_calibrated": "DCP tidak dikalibrasi.",
       "calibration_not_found": "Catatan ini sudah tidak ada.",
-      "component_not_found": "Sensor ini sudah tidak ada."
+      "component_not_found": "Sensor ini sudah tidak ada.",
+      "validated_before_date": "Tanggal validasi tidak boleh sebelum tanggal kalibrasi."
     }
   },
   "trace": {

@@ -112,6 +112,9 @@ const detailRows = computed(() => {
     { key: 'model', value: [m.manufacturer, m.model].filter(Boolean).join(' ') || '—' },
     { key: 'installed_on', value: m.installed_on ?? '—' },
     { key: 'last_calibration', value: r.calibration.last ?? '—' },
+    ...(r.calibration.last
+      ? [{ key: 'validated_on', value: r.calibration.validated_on ?? t('calibration.pendingShort') }]
+      : []),
     { key: 'next_due', value: r.calibration.next_due ?? '—' },
   ]
   if (m.firmware) rows.push({ key: 'firmware', value: m.firmware })

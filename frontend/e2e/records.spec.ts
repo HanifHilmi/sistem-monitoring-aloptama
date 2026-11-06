@@ -45,6 +45,39 @@ test.describe('Records and calibration', () => {
     )
   })
 
+  test('a calibration is marked "certificate pending" until its validation date is entered', async ({
+    page,
+    t,
+  }) => {
+    await page.goto('/login?next=/admin/calibration')
+    await signIn(page, t)
+    const pending = page
+      .getByTestId('calibration-row')
+      .filter({ has: page.getByTestId('certificate-pending') })
+    await expect(pending.first()).toBeVisible()
+    const before = await pending.count()
+    await pending
+      .first()
+      .getByRole('button', { name: t('calibration.record') })
+      .click()
+    const d = page.getByRole('dialog')
+    const history = d.getByTestId('calibration-history')
+    await expect(history).toContainText(t('calibration.pending'))
+    await history
+      .getByRole('button', { name: t('flags.edit') })
+      .first()
+      .click()
+    const field = d.getByLabel(t('calibration.validatedOn'))
+    const calibrated = (await field.getAttribute('min'))!
+    await field.fill('2000-01-01') // before the calibration: refused
+    await expect(d.getByText(t('records.error.validated_before_date'))).toBeVisible()
+    await field.fill(calibrated)
+    await d.getByRole('button', { name: t('calibration.save') }).click()
+    await expect(history).toContainText(t('calibration.validated').replace('{date}', calibrated))
+    await page.keyboard.press('Escape')
+    await expect(pending).toHaveCount(before - 1)
+  })
+
   test('a calibration in the future is refused before it is sent', async ({ page, t }) => {
     await page.goto('/login?next=/admin/calibration')
     await signIn(page, t)

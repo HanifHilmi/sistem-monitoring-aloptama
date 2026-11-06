@@ -579,6 +579,10 @@ export interface CalibrationSummary {
   next_due: string | null
   /** days until it falls due; negative when overdue */
   days_left: number | null
+  /** when the latest calibration's certificate was validated; null while pending */
+  validated_on: string | null
+  /** the latest calibration was done but its certificate is not validated yet */
+  pending: boolean
 }
 
 export interface Calibration {
@@ -591,6 +595,8 @@ export interface Calibration {
   next_due: string
   /** when the next due date came from an interval */
   interval_months: number | null
+  /** UTC date the certificate was validated; null while it is pending */
+  validated_on: string | null
   notes: string | null
   created_by: string
   created_at: string
@@ -606,6 +612,8 @@ export interface CalibrationDraft {
   /** give a next due date, or an interval in months from the calibration date */
   next_due: string | null
   interval_months: number | null
+  /** empty while the certificate is pending */
+  validated_on: string | null
   notes: string | null
 }
 

@@ -74,6 +74,7 @@ const draft = reactive({
   mode: 'interval' as 'interval' | 'date',
   interval: 12,
   next_due: '',
+  validated_on: '',
   notes: '',
 })
 function startNew() {
@@ -84,6 +85,7 @@ function startNew() {
     mode: 'interval',
     interval: 12,
     next_due: '',
+    validated_on: '',
     notes: '',
   })
   editing.value = 'new'
@@ -97,6 +99,7 @@ function startEdit(r: Calibration) {
     mode: r.interval_months ? 'interval' : 'date',
     interval: r.interval_months ?? 12,
     next_due: r.next_due,
+    validated_on: r.validated_on ?? '',
     notes: r.notes ?? '',
   })
   editing.value = r
@@ -120,6 +123,8 @@ const calIssue = computed(() => {
     return 'invalid_interval'
   if (!nextDue.value) return 'next_due_required'
   if (nextDue.value <= draft.date) return 'next_due_before_date'
+  if (draft.validated_on && draft.validated_on > today) return 'date_in_future'
+  if (draft.validated_on && draft.validated_on < draft.date) return 'validated_before_date'
   return null
 })
 const calBusy = ref(false)
@@ -136,6 +141,7 @@ async function saveCal() {
     certificate: draft.certificate.trim() || null,
     next_due: draft.mode === 'date' ? draft.next_due : null,
     interval_months: draft.mode === 'interval' ? draft.interval : null,
+    validated_on: draft.validated_on || null,
     notes: draft.notes.trim() || null,
   }
   try {
@@ -294,9 +300,23 @@ async function saveService() {
               <span class="label">{{ t('calibration.performedBy') }}</span>
               <input v-model="draft.performed_by" type="text" maxlength="100" class="input py-1.5" />
             </label>
-            <label class="flex flex-col gap-1.5 sm:col-span-2">
+            <label class="flex flex-col gap-1.5">
               <span class="label">{{ t('calibration.certificate') }}</span>
               <input v-model="draft.certificate" type="text" maxlength="100" class="input num py-1.5" />
+            </label>
+            <label class="flex flex-col gap-1.5">
+              <span class="label">{{ t('calibration.validatedOn') }}</span>
+              <input
+                v-model="draft.validated_on"
+                type="date"
+                :min="draft.date"
+                :max="today"
+                class="input num py-1.5"
+                aria-describedby="validated-hint"
+              />
+              <span id="validated-hint" class="text-[0.6875rem] text-ink-3">{{
+                t('calibration.validatedHint')
+              }}</span>
             </label>
           </div>
           <fieldset class="flex flex-col gap-2">
@@ -358,6 +378,13 @@ async function saveService() {
             <span class="min-w-0 flex-1">
               {{ r.performed_by }}
               <span v-if="r.certificate" class="num text-ink-3">· {{ r.certificate }}</span>
+              <span class="num block text-xs" :class="r.validated_on ? 'text-ink-2' : 'font-medium text-ink'">
+                {{
+                  r.validated_on
+                    ? t('calibration.validated', { date: r.validated_on })
+                    : `… ${t('calibration.pending')}`
+                }}
+              </span>
               <span class="num block text-xs text-ink-2">
                 {{ t('calibration.nextDue', { date: r.next_due }) }}
                 <template v-if="r.interval_months">

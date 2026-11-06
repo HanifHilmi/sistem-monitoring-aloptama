@@ -597,7 +597,8 @@
       "model": "Model",
       "manufacturer": "Manufacturer",
       "installed_on": "Installed on",
-      "calibration_due_soon_days": "Due soon (days)"
+      "calibration_due_soon_days": "Due soon (days)",
+      "validated_on": "Validated on"
     },
     "reason": {
       "password": "wrong password",
@@ -1052,7 +1053,13 @@
     "all": "All",
     "noneWithStatus": "No sensors with this calibration status.",
     "last": "Last calibration",
-    "windowNote": "\"Due soon\" means within the window set in Admin → Settings (30 days by default)."
+    "windowNote": "\"Due soon\" means within the window set in Admin → Settings (30 days by default).",
+    "validatedOn": "Certificate validated on (UTC)",
+    "validatedHint": "Leave empty while the certificate is pending.",
+    "validated": "Certificate validated {date}",
+    "pending": "Certificate pending",
+    "pendingHint": "The calibration was done; its certificate is not validated yet.",
+    "pendingShort": "Pending"
   },
   "records": {
     "title": "Registry and records",
@@ -1073,7 +1080,8 @@
       "firmware": "Firmware or version",
       "notes": "Notes",
       "last_calibration": "Last calibration",
-      "next_due": "Calibration due"
+      "next_due": "Calibration due",
+      "validated_on": "Certificate validated"
     },
     "serialHint": "Serial and part numbers are shown to signed-in users only.",
     "save": "Save",
@@ -1109,7 +1117,8 @@
       "invalid_wmo": "A WMO number is 5 digits.",
       "dcp_not_calibrated": "A DCP is not calibrated.",
       "calibration_not_found": "This record no longer exists.",
-      "component_not_found": "This sensor no longer exists."
+      "component_not_found": "This sensor no longer exists.",
+      "validated_before_date": "The validation date cannot be before the calibration date."
     }
   },
   "trace": {

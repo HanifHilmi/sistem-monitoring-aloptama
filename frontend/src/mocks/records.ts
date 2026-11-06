@@ -98,6 +98,8 @@ function seed(now: number): State {
         certificate: `CAL/${new Date(at).getUTCFullYear()}/${String(100 + id * 37).padStart(4, '0')}`,
         next_due: day(today + next * DAY),
         interval_months: Math.round((next - last) / 30.4) === 12 ? 12 : null,
+        // calibrations of the last two months still wait for their certificate
+        validated_on: last >= -61 ? null : day(at + 4 * DAY),
         notes: null,
         created_by: id % 3 ? 'andi' : 'budi',
         created_at: new Date(at + 6 * 3_600_000).toISOString(),
@@ -218,7 +220,15 @@ export function calibrations(site: string, type: string): Calibration[] {
 /** Status from the latest record (FR-REG-005): overdue, due soon (within ``window`` days), OK, or unknown. */
 export function summary(site: string, type: string, now: number, window: number): CalibrationSummary {
   const latest = calibrations(site, type)[0]
-  if (!latest) return { status: 'unknown', last: null, next_due: null, days_left: null }
+  if (!latest)
+    return {
+      status: 'unknown',
+      last: null,
+      next_due: null,
+      days_left: null,
+      validated_on: null,
+      pending: false,
+    }
   const today = Math.floor(now / DAY) * DAY
   const left = Math.round((Date.parse(`${latest.next_due}T00:00:00Z`) - today) / DAY)
   return {
@@ -226,6 +236,8 @@ export function summary(site: string, type: string, now: number, window: number)
     last: latest.date,
     next_due: latest.next_due,
     days_left: left,
+    validated_on: latest.validated_on,
+    pending: latest.validated_on === null,
   }
 }
 
@@ -241,6 +253,10 @@ export function checkCalibration(d: CalibrationDraft, now: number): string | nul
   }
   if (!d.next_due || !/^\d{4}-\d{2}-\d{2}$/.test(d.next_due)) return 'next_due_required'
   if (d.next_due <= d.date) return 'next_due_before_date'
+  if (d.validated_on) {
+    if (d.validated_on > day(now)) return 'date_in_future'
+    if (d.validated_on < d.date) return 'validated_before_date'
+  }
   return null
 }
 
@@ -256,6 +272,7 @@ export function addCalibration(site: string, type: string, d: CalibrationDraft, 
     certificate: d.certificate?.trim() || null,
     next_due: d.next_due!,
     interval_months: d.interval_months ?? null,
+    validated_on: d.validated_on || null,
     notes: d.notes?.trim() || null,
     created_by: by,
     created_at: new Date(now).toISOString(),
@@ -275,6 +292,7 @@ export function updateCalibration(id: number, d: CalibrationDraft, by: string, n
     certificate: d.certificate?.trim() || null,
     next_due: d.next_due!,
     interval_months: d.interval_months ?? null,
+    validated_on: d.validated_on || null,
     notes: d.notes?.trim() || null,
     updated_by: by,
     updated_at: new Date(now).toISOString(),

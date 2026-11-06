@@ -15,11 +15,13 @@ describe('sample calibration status', () => {
       last: null,
       next_due: null,
       days_left: null,
+      validated_on: null,
+      pending: false,
     })
   })
 
   it('checks a record as the PRD says (§9.5)', () => {
-    const base = { component_id: 2, performed_by: 'Lab', certificate: null, notes: null }
+    const base = { component_id: 2, performed_by: 'Lab', certificate: null, notes: null, validated_on: null }
     const today = new Date(now).toISOString().slice(0, 10)
     const future = new Date(now + 86_400_000).toISOString().slice(0, 10)
     expect(checkCalibration({ ...base, date: future, next_due: null, interval_months: 12 }, now)).toBe(
@@ -34,6 +36,16 @@ describe('sample calibration status', () => {
     const d = { ...base, date: '2026-01-31', next_due: null, interval_months: 12 }
     expect(checkCalibration(d, now)).toBeNull()
     expect(d.next_due).toBe('2027-01-31') // filled from the interval
+    // the certificate's validation date: optional (pending), not before the calibration, not in the future
+    expect(checkCalibration({ ...d, validated_on: '2026-01-30' }, now)).toBe('validated_before_date')
+    expect(checkCalibration({ ...d, validated_on: future }, now)).toBe('date_in_future')
+    expect(checkCalibration({ ...d, validated_on: '2026-02-04' }, now)).toBeNull()
+  })
+
+  it('marks a calibration whose certificate is not validated yet as pending', () => {
+    expect(summary('middle', 'RAIN', now, 30)).toMatchObject({ pending: true, validated_on: null })
+    expect(summary('04', 'BARO', now, 30).pending).toBe(false)
+    expect(summary('04', 'RVR', now, 30).pending).toBe(false) // nothing recorded: unknown, not pending
   })
 })
 
