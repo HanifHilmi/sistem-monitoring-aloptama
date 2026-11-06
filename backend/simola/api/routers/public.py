@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
-from simola import records
+from simola import alarms, records
 from simola.api.deps import ApiError, parse_period, system_or_404, systems
 from simola.api.security import principal
 from simola.core.db import connection
@@ -151,9 +151,14 @@ async def get_problems(
     st = await status.system_status(conn, system, now)
     problems = status.problems_from_status(system, st, now)
     problems += await records.overdue_problems(conn, system, now.date())  # FR-REG-005: public, minor
-    # Suspect detections waiting for review are for signed-in users only (FR-DSH-010, OPEN-13).
     user = await principal(request)
-    if user is not None and not user.must_change_password:
+    signed_in = user is not None and not user.must_change_password
+    # The number of active AWOS alarms is public; the list behind the link is for signed-in users (OPEN-13).
+    alarm = await alarms.problem(conn, system, now, signed_in=signed_in)
+    if alarm is not None:
+        problems.append(alarm)
+    # Suspect detections waiting for review are for signed-in users only (FR-DSH-010, OPEN-13).
+    if user is not None and signed_in:
         from simola.api.routers.dq import pending_suspects
 
         n = await pending_suspects(conn, system)

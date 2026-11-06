@@ -2,7 +2,7 @@
 
 simola migrate
 simola load-history [--system WIDN-CAT3]              # enqueue reprocess from coverage start to today
-simola reprocess --from 2026-10-01 --to 2026-10-31 [--inline]
+simola reprocess --from 2026-10-01 --to 2026-10-31 [--sources minutes,alarms] [--inline]
 simola recompute --from 2026-01-01 --to 2026-10-31
 simola jobs | simola cancel <id>
 simola import-legacy-probes --csv v2_probes.csv       # one-off at cutover (FR-ING-014)
@@ -72,7 +72,13 @@ async def _cmd_enqueue(job_type: str, params: dict[str, Any]) -> int:
 
 
 async def _cmd_reprocess(a: argparse.Namespace) -> int:
-    params = {"system": a.system, "from": a.from_, "to": a.to}
+    params: dict[str, Any] = {"system": a.system, "from": a.from_, "to": a.to}
+    if a.sources:
+        chosen = [x.strip() for x in a.sources.split(",") if x.strip()]
+        unknown = sorted(set(chosen) - set(jobs.SOURCES))
+        if unknown or not chosen:
+            raise SystemExit(f"--sources takes {','.join(jobs.SOURCES)}; got {a.sources!r}")
+        params["sources"] = [x for x in jobs.SOURCES if x in chosen]
     if not a.inline:
         return await _cmd_enqueue("reprocess", params)
     engine, system = await _with_system(a.system)
@@ -398,6 +404,9 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--to", required=True, type=lambda s: date.fromisoformat(s).isoformat())
         if name == "reprocess":
             sp.add_argument("--inline", action="store_true", help="run in this process instead of the worker")
+            sp.add_argument(
+                "--sources", help="files to read again, comma-separated: minutes,alarms (default: all)"
+            )
     lh = sub.add_parser("load-history", help="enqueue reprocess from coverage start to today")
     lh.add_argument("--system", default=DEFAULT_SYSTEM)
     sub.add_parser("jobs", help="list recent jobs")

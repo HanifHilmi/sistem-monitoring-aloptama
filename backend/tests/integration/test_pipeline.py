@@ -190,7 +190,11 @@ async def test_live_cycle_after_midnight_rescans_yesterday(engine: AsyncEngine, 
     assert set(result) == {"CDP1", "CDP2"} and all(v >= 0 for v in result.values())
     async with engine.connect() as conn:
         live = await kpi.live_counts(conn, system, DAY_START, DAY_END)
-        status = (await conn.execute(text("SELECT count(*) FROM ingest_status WHERE available"))).scalar_one()
+        status = (
+            await conn.execute(
+                text("SELECT count(*) FROM ingest_status WHERE available AND source LIKE '%:oneminute'")
+            )
+        ).scalar_one()
     assert live.get(("sla", system.id)) == (1436, 1440)
     assert status == 2
 
@@ -219,7 +223,10 @@ async def test_a_dead_share_does_not_stop_the_other_cdp(engine: AsyncEngine, loa
         async with engine.connect() as conn:
             rows = (
                 await conn.execute(
-                    text("SELECT source, available, last_error FROM ingest_status ORDER BY source")
+                    text(
+                        "SELECT source, available, last_error FROM ingest_status "
+                        "WHERE source LIKE '%:oneminute' ORDER BY source"
+                    )
                 )
             ).all()
         status = {r.source.split(":")[1]: r for r in rows}  # WIDN-CAT3:CDP1:oneminute
@@ -234,7 +241,9 @@ async def test_a_dead_share_does_not_stop_the_other_cdp(engine: AsyncEngine, loa
     assert (await ing.cycle(NOW))["CDP1"] >= 0
     async with engine.connect() as conn:
         available = (
-            await conn.execute(text("SELECT count(*) FROM ingest_status WHERE available"))
+            await conn.execute(
+                text("SELECT count(*) FROM ingest_status WHERE available AND source LIKE '%:oneminute'")
+            )
         ).scalar_one()
     assert available == 2
 

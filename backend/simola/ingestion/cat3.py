@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from simola.core.config import Settings
 from simola.core.timeutil import DAY, MINUTE, day_start, floor_minute
 from simola.ingestion import widn
+from simola.ingestion.alarm_files import AlarmReader
 from simola.ingestion.share import ShareIO
 from simola.registry import Cdp, System
 
@@ -169,6 +170,7 @@ class Cat3Ingestor:
         self._oldest_checked: dict[str, datetime] = {}
         # Every call on a share runs on that CDP's own threads, so a dead share cannot stall the rest.
         self._share = {code: ShareIO(code, settings.file_io_timeout_s) for code in self.paths}
+        self.alarms = AlarmReader(self)  # the alarm files, on the same share threads (R3.1)
 
     # ------------------------------------------------------------------ files
     def resolve_file(self, cdp_code: str, day: date) -> Path | None:
@@ -184,21 +186,21 @@ class Cat3Ingestor:
         matches = sorted(directory.glob(f"*OneMinute.{day.strftime('%Y%m%d')}.dat"))
         return matches[0] if matches else None
 
-    async def _on_share[T](self, cdp_code: str, fn: Callable[[], T]) -> T:
+    async def on_share[T](self, cdp_code: str, fn: Callable[[], T]) -> T:
         return await self._share[cdp_code].run(fn)
 
     async def _resolve(self, cdp_code: str, day: date) -> Path | None:
-        return await self._on_share(cdp_code, partial(self.resolve_file, cdp_code, day))
+        return await self.on_share(cdp_code, partial(self.resolve_file, cdp_code, day))
 
     async def _read(self, cdp_code: str, path: Path) -> tuple[str, tuple[int, int]]:
         def _do() -> tuple[str, tuple[int, int]]:
             st = path.stat()
             return path.read_text(encoding="utf-8", errors="replace"), (st.st_size, st.st_mtime_ns)
 
-        return await self._on_share(cdp_code, _do)
+        return await self.on_share(cdp_code, _do)
 
     async def _stat(self, cdp_code: str, path: Path) -> tuple[int, int]:
-        st = await self._on_share(cdp_code, path.stat)
+        st = await self.on_share(cdp_code, path.stat)
         return (st.st_size, st.st_mtime_ns)
 
     async def parse_day(self, cdp: Cdp, day: date, *, not_after: datetime | None) -> ParsedDay | None:
@@ -351,7 +353,7 @@ class Cat3Ingestor:
                     continue
             return None
 
-        return await self._on_share(cdp.code, _scan)
+        return await self.on_share(cdp.code, _scan)
 
     def _prune(self, now: datetime) -> None:
         cutoff = floor_minute(now) - timedelta(days=3)

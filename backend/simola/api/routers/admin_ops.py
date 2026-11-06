@@ -24,6 +24,7 @@ from simola.core.db import get_engine
 from simola.core.timeutil import floor_minute, minutes_between
 from simola.kpi import engine
 from simola.registry import Component, System, load_system
+from simola.worker import jobs
 
 router = APIRouter(
     prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends(require_admin), Depends(csrf)]
@@ -66,7 +67,13 @@ async def _bump_registry(conn: AsyncConnection) -> None:
 
 
 async def _enqueue(
-    conn: AsyncConnection, job_type: str, system: str, start: date, end: date, by: str
+    conn: AsyncConnection,
+    job_type: str,
+    system: str,
+    start: date,
+    end: date,
+    by: str,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     row = (
         (
@@ -76,7 +83,9 @@ async def _enqueue(
         """),
                 {
                     "t": job_type,
-                    "p": json.dumps({"system": system, "from": start.isoformat(), "to": end.isoformat()}),
+                    "p": json.dumps(
+                        {"system": system, "from": start.isoformat(), "to": end.isoformat(), **(extra or {})}
+                    ),
                     "by": by,
                 },
             )
@@ -97,6 +106,8 @@ class NewJob(BaseModel):
     system: str = DEFAULT_SYSTEM
     start: date = Field(alias="from")
     end: date = Field(alias="to")
+    # reprocess only: which CDP files to read again (FR-ING-010); all of them when absent
+    sources: list[Literal["minutes", "alarms"]] | None = None
 
 
 @router.get("/jobs")
@@ -129,19 +140,26 @@ async def start_job(
         raise ApiError(422, "invalid_period", "from must not be after to")
     if body.end > _today():
         raise ApiError(422, "future_days", "days in the future have no data yet")
+    extra: dict[str, Any] = {}
+    if body.type == "reprocess" and body.sources is not None:
+        if not body.sources:
+            raise ApiError(422, "no_sources", "choose at least one kind of file to read again")
+        chosen = [x for x in jobs.SOURCES if x in body.sources]
+        if len(chosen) < len(jobs.SOURCES):
+            extra["sources"] = chosen
     try:
         async with get_engine().begin() as conn:
             system = await _system(conn, body.system)
             if body.start < system.coverage_start.date():
                 raise ApiError(422, "before_coverage", f"data starts on {system.coverage_start.date()}")
-            job = await _enqueue(conn, body.type, system.code, body.start, body.end, admin.username)
+            job = await _enqueue(conn, body.type, system.code, body.start, body.end, admin.username, extra)
             await audit.record(
                 conn,
                 "job_started",
                 actor=admin.username,
                 entity_type="job",
                 entity_id=str(job["id"]),
-                after={"type": body.type, "system": system.code, "from": body.start, "to": body.end},
+                after={"type": body.type, "system": system.code, "from": body.start, "to": body.end, **extra},
                 source_ip=client_ip(request),
             )
     except IntegrityError as exc:  # job_one_active_reprocess

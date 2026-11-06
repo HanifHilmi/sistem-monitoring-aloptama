@@ -66,7 +66,7 @@ async def system_status(conn: AsyncConnection, system: System, now: datetime) ->
         SELECT i.source, n.code AS cdp, i.available, i.last_success_at, i.last_record_time, i.last_error,
                i.parse_warnings, i.oldest_file_date
         FROM ingest_status i LEFT JOIN cdp_node n ON n.id = i.cdp_id
-        WHERE i.system_id = :s ORDER BY i.source
+        WHERE i.system_id = :s AND i.source LIKE '%:oneminute' ORDER BY i.source
     """),
                 {"s": system.id},
             )
@@ -235,6 +235,37 @@ async def system_status(conn: AsyncConnection, system: System, now: datetime) ->
         "backup": {"last_ok": backup["last_ok"], "last_run": backup["last_run"]},
         "thresholds": th.__dict__,
     }
+
+
+async def alarm_sources(conn: AsyncConnection, system: System, now: datetime) -> list[dict[str, Any]]:
+    """The alarm file readers, one per CDP (R3.1), for the health page. An alarm file exists only on days with
+    an alarm, so the last row may be days old: only the last successful read says whether the reader works."""
+    th = await thresholds(conn)
+    rows = (
+        await conn.execute(
+            text("""
+        SELECT n.code AS cdp, i.available, i.last_success_at, i.last_record_time, i.last_error, i.parse_warnings
+        FROM ingest_status i LEFT JOIN cdp_node n ON n.id = i.cdp_id
+        WHERE i.system_id = :s AND i.source LIKE '%:alarms' ORDER BY i.source
+    """),
+            {"s": system.id},
+        )
+    ).mappings()
+    out = []
+    for r in rows:
+        lag = (now - r["last_success_at"]).total_seconds() / 60 if r["last_success_at"] else None
+        out.append(
+            {
+                "cdp": r["cdp"],
+                "available": r["available"],
+                "stale": lag is None or lag > th.ingest_lag_min,
+                "lag_min": round(lag, 1) if lag is not None else None,
+                "last_record_time": r["last_record_time"],
+                "parse_warnings": r["parse_warnings"],
+                "last_error": r["last_error"],
+            }
+        )
+    return out
 
 
 def problems_from_status(system: System, status: dict[str, Any], now: datetime) -> list[dict[str, Any]]:

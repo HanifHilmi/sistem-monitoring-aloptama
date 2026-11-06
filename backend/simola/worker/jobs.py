@@ -107,21 +107,42 @@ def _days(params: dict[str, Any]) -> list[date]:
     return list(iter_days(start, end))
 
 
+SOURCES = ("minutes", "alarms")  # which CDP files a reprocess reads again (FR-ING-010)
+
+
+def reprocess_sources(params: dict[str, Any]) -> list[str]:
+    """The sources a reprocess job reads; all of them when the job does not say."""
+    chosen = params.get("sources") or SOURCES
+    return [s for s in SOURCES if s in chosen]
+
+
 async def run_reprocess(ctx: JobContext, ingestor: Cat3Ingestor, params: dict[str, Any]) -> str:
     days = _days(params)
+    sources = reprocess_sources(params)
     newest_first = list(reversed(days))  # recent data first, so dashboards become useful early
     total_minutes = 0
+    alarm_rows = 0
     for i, d in enumerate(newest_first, start=1):
-        summary = await ingestor.reprocess_day(d)
-        mins = {k: v.get("minutes", 0) for k, v in summary["cdps"].items()}
-        total_minutes += sum(mins.values())
-        await ctx.progress(
-            i / (len(newest_first) + 1),
-            f"{d.isoformat()} "
-            + " ".join(
+        line = [d.isoformat()]
+        if "minutes" in sources:
+            summary = await ingestor.reprocess_day(d)
+            mins = {k: v.get("minutes", 0) for k, v in summary["cdps"].items()}
+            total_minutes += sum(mins.values())
+            line += [
                 f"{k}={'no-file' if not v.get('file') else v['minutes']}" for k, v in summary["cdps"].items()
-            ),
-        )
+            ]
+        if "alarms" in sources:
+            found_alarms = await ingestor.alarms.reprocess_day(d)
+            alarm_rows += sum(v.get("new", 0) for v in found_alarms["cdps"].values())
+            line += [
+                f"alarms:{k}={'no-file' if not v.get('file') else v['rows']}"
+                for k, v in found_alarms["cdps"].items()
+            ]
+        await ctx.progress(i / (len(newest_first) + 1), " ".join(line))
+    alarms_note = f"{alarm_rows} new alarm row(s)"
+    if "minutes" not in sources:
+        # Alarms change no figure: nothing to check or recompute.
+        return f"reprocessed {len(days)} day(s) of alarm files; {alarms_note}"
     # The minutes changed: the rules look at them again (FR-DQ-003), before the figures are recomputed.
     async with ingestor.engine.connect() as conn:
         system = await load_system(conn, ingestor.system.code) or ingestor.system
@@ -132,7 +153,8 @@ async def run_reprocess(ctx: JobContext, ingestor: Cat3Ingestor, params: dict[st
             text("DELETE FROM rollup_dirty WHERE system_id = :s AND day = ANY(:d)"),
             {"s": ingestor.system.id, "d": days},
         )
-    return f"reprocessed {len(days)} day(s), {total_minutes} CDP-minutes; {stored} daily rollup(s) stored; {found}"
+    message = f"reprocessed {len(days)} day(s), {total_minutes} CDP-minutes; {stored} daily rollup(s) stored; {found}"
+    return message + (f"; {alarms_note}" if "alarms" in sources else "")
 
 
 def month_chunks(first: date, last: date) -> list[tuple[date, date]]:

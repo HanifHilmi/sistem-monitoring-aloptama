@@ -87,6 +87,11 @@ class Worker:
             written = await ing.cycle()
             logger.debug("ingest cycle", extra={"system": code, "rows": written})
 
+    async def ingest_alarms(self) -> None:
+        for code, ing in self.ingestors.items():
+            new = await ing.alarms.cycle()
+            logger.debug("alarm cycle", extra={"system": code, "rows": new})
+
     async def probe(self) -> None:
         for p in self.probers.values():
             await p.probe_once()
@@ -211,6 +216,9 @@ class Worker:
                         logger.warning("marked running jobs as interrupted", extra={"count": interrupted})
                     tasks = [
                         asyncio.create_task(_every(self.settings.ingest_interval_s, self.ingest, "ingest")),
+                        asyncio.create_task(
+                            _every(self.settings.ingest_interval_s, self.ingest_alarms, "alarms")
+                        ),
                         asyncio.create_task(_every(self.settings.probe_interval_s, self.probe, "probe")),
                         asyncio.create_task(_every(30, self.rollups, "rollups")),
                         asyncio.create_task(_every(5, self.run_jobs, "jobs")),

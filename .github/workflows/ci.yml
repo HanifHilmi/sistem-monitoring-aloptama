@@ -4,8 +4,8 @@ name: ci
 
 on:
   push:
-    # R2 phases are built on their own branches (docs/design/r2.md §5) and tested before they merge.
-    branches: [main, staging, 'r2.*']
+    # R2 and R3 phases are built on their own branches (docs/design/r2.md §5, r3.md §5) and tested before they merge.
+    branches: [main, staging, 'r2.*', 'r3.*']
     tags: ['v*']
   pull_request:
 

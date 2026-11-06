@@ -58,7 +58,13 @@ INFRA_KEYS = {
     "probe_method",
 }
 WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
-INTERNAL_ROUTES = ("/api/v1/internal/health", "/api/v1/systems/{code}/trace")  # Viewer and Admin
+# Viewer and Admin. Alarm messages can name the station's equipment and network: never for the public (OPEN-13).
+INTERNAL_ROUTES = (
+    "/api/v1/internal/health",
+    "/api/v1/systems/{code}/trace",
+    "/api/v1/systems/{code}/alarms/active",
+    "/api/v1/systems/{code}/alarms",
+)
 ADMIN_ROUTES = (
     "/api/v1/admin/users",
     "/api/v1/admin/users/{user_id}",
@@ -90,6 +96,8 @@ ADMIN_ROUTES = (
     "/api/v1/admin/components/{component_id}/calibrations",
     "/api/v1/admin/calibrations",
     "/api/v1/admin/calibrations/{cal_id}",
+    "/api/v1/admin/alarm-names",
+    "/api/v1/admin/alarm-names/{name}",
 )
 AUTH_ROUTES = ("/api/v1/auth/me", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password")
 # Every state-changing route the API may publish; a new one fails the check until it is reviewed here.
@@ -118,6 +126,7 @@ KNOWN_WRITES = {
     "POST /api/v1/admin/calibrations",
     "PATCH /api/v1/admin/calibrations/{cal_id}",
     "DELETE /api/v1/admin/calibrations/{cal_id}",
+    "PUT /api/v1/admin/alarm-names/{name}",
 }
 # Routes that exist inside the containers but are not public API routes.
 NON_PUBLIC = {"/health", "/ready"}
@@ -312,6 +321,7 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
         "{flag_id}": "1",
         "{rule_id}": "1",
         "{cal_id}": "1",
+        "{name}": "NoSuchAlarm",
         "{slug}": "04",
         "{code}": "WIDN-CAT3",
     }

@@ -13,7 +13,7 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from simola.api.deps import ApiError, problem_response
-from simola.api.routers import admin, admin_ops, auth, dq, flags, internal, public, records
+from simola.api.routers import admin, admin_ops, alarms, auth, dq, flags, internal, public, records
 from simola.api.security import principal
 from simola.core.config import get_settings
 from simola.core.db import get_engine, set_engine
@@ -102,6 +102,8 @@ def create_app() -> FastAPI:
     app.include_router(dq.admin_router)
     app.include_router(records.router)
     app.include_router(records.admin_router)
+    app.include_router(alarms.router)
+    app.include_router(alarms.admin_router)
     return app
 
 

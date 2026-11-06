@@ -1,4 +1,4 @@
-# Runbook: Admin operations (R2.2–R2.5)
+# Runbook: Admin operations (R2.2–R2.5, R3.1)
 
 PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-001..007, FR-REG-004/005; design in
 [../design/r2.md](../design/r2.md) §3 and §4.3–4.5. All of this is in
@@ -9,14 +9,15 @@ figures in the background. Accounts and the audit log: [accounts.md](accounts.md
 
 | Job | Does | When |
 |---|---|---|
-| Reprocess from CDP files | Reads both CDPs' 1-minute files again for the chosen UTC days, replaces the stored minutes and recomputes the figures | After a share outage or a corrected file |
+| Reprocess from CDP files | Reads both CDPs' files again for the chosen UTC days. *1-minute data* replaces the stored minutes and recomputes the figures; *alarms* adds any alarm row not stored yet and changes no figure. Both are ticked by default | After a share outage or a corrected file |
 | Recompute figures | Recomputes the daily figures from the stored minutes, without reading files | After a rule change (queued automatically) |
 
 - Days run newest first; the page shows progress, who started the job, its log, and a *Cancel* while it runs.
   Days already done stay done.
 - Only one reprocess at a time. A whole history (about 317 days) takes about 21 minutes on staging.
-- The command line still works (`simola reprocess`, `simola recompute`, [history.md](history.md)); those jobs show
-  "cli" as who started them.
+- The command line still works (`simola reprocess [--sources minutes,alarms]`, `simola recompute`,
+  [history.md](history.md)); those jobs show "cli" as who started them.
+- A reprocess of alarms only takes seconds: an alarm file exists only on days that had an alarm.
 
 ## Settings (Admin → Settings)
 
@@ -179,6 +180,33 @@ several and decide them together. Decisions can be reversed later; each is in th
 
 **Staging until R1 is accepted:** do not confirm detections in December 2026 or in the two reference months (the
 acceptance recount counts the raw files). Rejecting is harmless.
+
+## AWOS alarms (Alarms page; Admin → Alarm mapping)
+
+The worker reads `alarm/091ALARM.<date>.dat` from both CDPs every minute (FR-ING-008). It reads every alarm file on
+the shares when it starts and then hourly, so the history since 24 December 2025 loads by itself and a day missed
+while the worker was down is caught up. The health page shows each CDP's alarm reader.
+
+- **Each change once.** Each CDP runs its own alarm detection, so both usually log the same change, seconds apart
+  (once 85 s apart). Rows with the same name, type, state, active flag and message from different CDPs within
+  2 minutes of each other are one change, listed with both CDPs. Each CDP's rows are kept as read, so re-reading a
+  file adds nothing.
+- **Active.** The AWOS logs a raise far more reliably than a clear: an alarm is often raised again with no clear
+  in between, and on 6 November 2026, 47 of the 75 alarm names had "active" as their latest change, some since
+  December 2025. So an alarm counts as **active** only while its latest change says active and is at most
+  **24 hours** old. Older ones are listed under *older alarms with no clear logged* on the Alarms page, and are not
+  counted in the Problems panel.
+- **Raised** marks a change that raised the alarm; an acknowledgement of an alarm already active is shown as
+  *Acknowledged*. The per-day chart and the day view's minute outlines count raises only.
+- **Who sees what.** The public sees only "N active AWOS alarms" in the Problems panel. The list, the history, the
+  site pages' alarms and the day view's alarms are for signed-in users: one AFTN alarm message contains a network
+  address.
+- **Mapping.** A name is placed when it is first seen: the 75 names seen up to 6 November 2026 from their name
+  (DCPA = Runway 04, DCPB = Middle, DCPC = Runway 22; the rest of the name gives the sensor; GPS, AFTN and the
+  barometer-range alarm are the station; `RLS0_Missing` is Runway 04). A name not seen before arrives **not
+  assigned** and is listed first under Admin → Alarm mapping. A change there applies to the whole history at once
+  and is audited (`alarm_mapping_changed`).
+- SIMOLA never acknowledges an alarm; that is done on the AWOS.
 
 ## How the rest of SIMOLA follows
 
