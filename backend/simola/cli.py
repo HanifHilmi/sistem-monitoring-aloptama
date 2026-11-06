@@ -9,6 +9,7 @@ simola import-legacy-probes --csv v2_probes.csv       # one-off at cutover (FR-I
 simola create-admin --username <name> [--display-name "<Full name>"]   # first Admin (FR-AUTH-001)
 simola create-admin --username <name> --reset          # new password for an Admin who is locked out
 simola propose-rules [--refresh]                       # proposed validity rules from the history, all off
+simola import-records <file.json|-> --actor <name> [--dry-run]   # sensor records and calibrations, audited
 simola dev-reset                                       # development only
 """
 
@@ -21,6 +22,7 @@ import json
 import sys
 from collections import defaultdict
 from datetime import UTC, date, datetime
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import text
@@ -324,6 +326,50 @@ async def _cmd_propose_rules(a: argparse.Namespace) -> int:
         await engine.dispose()
 
 
+async def _cmd_import_records(a: argparse.Namespace) -> int:
+    """Sensor records and calibrations from a JSON file (see simola/records_import.py), audited under --actor.
+    With --dry-run everything is checked and counted, then rolled back."""
+    from pydantic import ValidationError
+
+    from simola.records_import import ImportDoc, ImportRefused, run_import
+
+    actor = a.actor.strip()
+    if not 1 <= len(actor) <= 60:
+        print("refusing: --actor must be 1 to 60 characters", file=sys.stderr)
+        return 2
+    if a.file == "-":
+        raw = sys.stdin.read()
+    else:
+        raw = await asyncio.to_thread(Path(a.file).read_text, encoding="utf-8")
+    try:
+        doc = ImportDoc.model_validate_json(raw)
+    except ValidationError as exc:
+        print(f"refusing: the file is not valid ({exc.error_count()} problem(s))", file=sys.stderr)
+        for err in exc.errors():
+            print(f"  {'.'.join(str(x) for x in err['loc'])}: {err['msg']}", file=sys.stderr)
+        return 2
+    engine, system = await _with_system(a.system)
+    try:
+        async with engine.connect() as conn:
+            trans = await conn.begin()
+            try:
+                result = await run_import(conn, system, doc, actor=actor, today=datetime.now(UTC).date())
+            except ImportRefused as exc:
+                await trans.rollback()
+                print("refusing: nothing was written", file=sys.stderr)
+                for problem in exc.problems:
+                    print(f"  {problem}", file=sys.stderr)
+                return 2
+            if a.dry_run:
+                await trans.rollback()
+            else:
+                await trans.commit()
+        print(json.dumps({**result, "dry_run": a.dry_run, "actor": actor}))
+        return 0
+    finally:
+        await engine.dispose()
+
+
 async def _cmd_dev_reset(_a: argparse.Namespace) -> int:
     settings = get_settings()
     if settings.environment != "development":
@@ -368,6 +414,11 @@ def build_parser() -> argparse.ArgumentParser:
     pr = sub.add_parser("propose-rules", help="proposed validity rules from the history, all off (OPEN-08)")
     pr.add_argument("--system", default=DEFAULT_SYSTEM)
     pr.add_argument("--refresh", action="store_true", help="work the field statistics out again")
+    ir = sub.add_parser("import-records", help="sensor records and calibrations from a JSON file, audited")
+    ir.add_argument("file", help="the JSON file, or - for standard input")
+    ir.add_argument("--actor", required=True, help="the name the audit log shows for these changes")
+    ir.add_argument("--system", default=DEFAULT_SYSTEM)
+    ir.add_argument("--dry-run", action="store_true", help="check and count, then roll back")
     sub.add_parser("dev-reset", help="drop and recreate the schema (development only)")
     return p
 
@@ -382,6 +433,7 @@ COMMANDS = {
     "import-legacy-probes": _cmd_import_legacy,
     "create-admin": _cmd_create_admin,
     "propose-rules": _cmd_propose_rules,
+    "import-records": _cmd_import_records,
     "dev-reset": _cmd_dev_reset,
 }
 

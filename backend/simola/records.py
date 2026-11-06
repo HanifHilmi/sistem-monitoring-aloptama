@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
+from simola.auth import audit
 from simola.registry import Component, System, get_setting
 
 STATION_FIELDS = ("wmo_number", "airport_name", "lat", "lon", "elevation_m", "procurement_year", "notes")
@@ -30,6 +31,19 @@ COMPONENT_FIELDS = (
 )
 PRIVATE_FIELDS = ("part_number", "serial_number")  # signed-in users only (PRD §5.4, OPEN-13)
 DEFAULT_DUE_SOON_DAYS = 30
+CALIBRATION_COLUMNS = (
+    "id, component_id, date, performed_by, certificate, next_due, interval_months, validated_on, notes, "
+    "created_by, created_at, updated_by, updated_at"
+)
+CALIBRATION_AUDIT = (
+    "date",
+    "performed_by",
+    "certificate",
+    "next_due",
+    "interval_months",
+    "validated_on",
+    "notes",
+)
 
 
 class RecordError(ValueError):
@@ -46,20 +60,43 @@ def add_months(d: date, months: int) -> date:
     return date(year, month, min(d.day, calendar.monthrange(year, month)[1]))
 
 
-def calibration_status(next_due: date | None, last: date | None, today: date, window: int) -> dict[str, Any]:
+def calibration_status(
+    next_due: date | None, last: date | None, today: date, window: int, validated_on: date | None = None
+) -> dict[str, Any]:
     """FR-REG-005: overdue once the due date has passed, due soon within ``window`` days, otherwise OK; unknown
-    without a record. Dates are UTC."""
+    without a record. Dates are UTC. ``pending``: the latest calibration was done but its certificate is not
+    validated yet (it does not change the status)."""
     if next_due is None:
-        return {"status": "unknown", "last": None, "next_due": None, "days_left": None}
+        return {
+            "status": "unknown",
+            "last": None,
+            "next_due": None,
+            "days_left": None,
+            "validated_on": None,
+            "pending": False,
+        }
     left = (next_due - today).days
     status = "overdue" if left < 0 else "due_soon" if left <= window else "ok"
-    return {"status": status, "last": last, "next_due": next_due, "days_left": left}
+    return {
+        "status": status,
+        "last": last,
+        "next_due": next_due,
+        "days_left": left,
+        "validated_on": validated_on,
+        "pending": validated_on is None,
+    }
 
 
 def check_calibration(
-    when: date, performed_by: str | None, next_due: date | None, interval_months: int | None, today: date
+    when: date,
+    performed_by: str | None,
+    next_due: date | None,
+    interval_months: int | None,
+    today: date,
+    validated_on: date | None = None,
 ) -> date:
-    """The next due date (from the interval when given), or RecordError with the screens' code (PRD §9.5)."""
+    """The next due date (from the interval when given), or RecordError with the screens' code (PRD §9.5). The
+    certificate's validation date is optional (pending), but not before the calibration or in the future."""
     if when > today:
         raise RecordError("date_in_future")
     if not (performed_by or "").strip():
@@ -72,7 +109,17 @@ def check_calibration(
         raise RecordError("next_due_required")
     if next_due <= when:
         raise RecordError("next_due_before_date")
+    if validated_on is not None:
+        if validated_on > today:
+            raise RecordError("date_in_future")
+        if validated_on < when:
+            raise RecordError("validated_before_date")
     return next_due
+
+
+def check_installed(installed_on: date | None, today: date) -> None:
+    if installed_on is not None and installed_on > today:
+        raise RecordError("date_in_future")
 
 
 def check_place(meta: dict[str, Any], today: date) -> None:
@@ -104,15 +151,15 @@ async def summaries(
     """Calibration status of each component from its latest record that was not removed."""
     rows = await conn.execute(
         text("""
-        SELECT DISTINCT ON (component_id) component_id, date, next_due FROM calibration_record
+        SELECT DISTINCT ON (component_id) component_id, date, next_due, validated_on FROM calibration_record
         WHERE removed_at IS NULL AND component_id = ANY(:ids)
         ORDER BY component_id, date DESC, id DESC
     """),
         {"ids": component_ids},
     )
-    latest = {int(r[0]): (r[1], r[2]) for r in rows}
+    latest = {int(r[0]): (r[1], r[2], r[3]) for r in rows}
     return {
-        cid: calibration_status(latest[cid][1], latest[cid][0], today, window)
+        cid: calibration_status(latest[cid][1], latest[cid][0], today, window, latest[cid][2])
         if cid in latest
         else calibration_status(None, None, today, window)
         for cid in component_ids
@@ -194,6 +241,110 @@ async def overdue_problems(conn: AsyncConnection, system: System, today: date) -
         for s, c in comps
         if cal[c.id]["status"] == "overdue"
     ]
+
+
+# ---------------------------------------------------------------------------- writes (API and import)
+def where(system: System, comp: Component) -> str:
+    """How the audit log names a component: "<site slug>:<type>"."""
+    site = next(s for s in system.sites if s.id == comp.site_id)
+    return f"{site.slug}:{comp.type_code}"
+
+
+async def calibration_row(conn: AsyncConnection, cal_id: int, *, lock: bool = False) -> dict[str, Any] | None:
+    row = (
+        (
+            await conn.execute(
+                text(f"""
+            SELECT {CALIBRATION_COLUMNS} FROM calibration_record WHERE id = :id AND removed_at IS NULL
+            {"FOR UPDATE" if lock else ""}
+        """),
+                {"id": cal_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return dict(row) if row else None
+
+
+async def calibration_history(conn: AsyncConnection, component_id: int) -> list[dict[str, Any]]:
+    rows = await conn.execute(
+        text(f"""
+        SELECT {CALIBRATION_COLUMNS} FROM calibration_record WHERE component_id = :c AND removed_at IS NULL
+        ORDER BY date DESC, id DESC
+    """),
+        {"c": component_id},
+    )
+    return [dict(r) for r in rows.mappings()]
+
+
+def audit_view(row: dict[str, Any]) -> dict[str, Any]:
+    return {k: row[k] for k in CALIBRATION_AUDIT}
+
+
+async def save_component_meta(
+    conn: AsyncConnection,
+    system: System,
+    comp: Component,
+    meta: dict[str, Any],
+    *,
+    actor: str,
+    source_ip: str | None = None,
+) -> dict[str, Any]:
+    """Replaces a sensor's record with ``meta`` (every field of COMPONENT_FIELDS); audited when anything changed."""
+    old = (await component_meta(conn, [comp.id]))[comp.id]
+    await conn.execute(
+        text(f"UPDATE component SET {', '.join(f'{k} = :{k}' for k in COMPONENT_FIELDS)} WHERE id = :id"),
+        {**{k: meta[k] for k in COMPONENT_FIELDS}, "id": comp.id},
+    )
+    before, after = audit.diff(old, meta)
+    if after:
+        await audit.record(
+            conn,
+            "component_meta_changed",
+            actor=actor,
+            entity_type="component",
+            entity_id=where(system, comp),
+            before=before,
+            after=after,
+            source_ip=source_ip,
+        )
+    return (await component_meta(conn, [comp.id]))[comp.id]
+
+
+async def add_calibration(
+    conn: AsyncConnection,
+    system: System,
+    comp: Component,
+    d: dict[str, Any],
+    *,
+    actor: str,
+    source_ip: str | None = None,
+) -> dict[str, Any]:
+    """Records a calibration already checked with ``check_calibration`` (``next_due`` filled in); audited."""
+    cal_id = (
+        await conn.execute(
+            text("""
+        INSERT INTO calibration_record (component_id, date, performed_by, certificate, next_due, interval_months,
+                                        validated_on, notes, created_by)
+        VALUES (:c, :date, :performed_by, :certificate, :next_due, :interval_months, :validated_on, :notes, :by)
+        RETURNING id
+    """),
+            {**{k: d.get(k) for k in CALIBRATION_AUDIT}, "c": comp.id, "by": actor},
+        )
+    ).scalar_one()
+    row = await calibration_row(conn, cal_id)
+    assert row is not None
+    await audit.record(
+        conn,
+        "calibration_added",
+        actor=actor,
+        entity_type="calibration",
+        entity_id=str(cal_id),
+        after={"component": where(system, comp), **audit_view(row)},
+        source_ip=source_ip,
+    )
+    return row
 
 
 def _json(v: Any) -> Any:

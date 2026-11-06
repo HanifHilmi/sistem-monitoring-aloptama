@@ -7,14 +7,20 @@ every record back as they found it.
 
 from __future__ import annotations
 
+import argparse
+import json
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from simola.cli import _cmd_import_records
+from simola.records_import import ImportDoc, ImportRefused, run_import
+from simola.registry import load_system
 from tests.integration.browser import Browser, _add_user
 
 pytestmark = pytest.mark.integration
@@ -72,7 +78,14 @@ async def test_u5_calibration_status_problems_and_hidden_serials(engine: AsyncEn
         assert (await viewer.login("rec-viewer")).status_code == 200
         rows = await _ids(admin)
         atrh, dcp = rows["04:ATRH"], rows["04:DCP"]
-        assert atrh["calibration"] == {"status": "unknown", "last": None, "next_due": None, "days_left": None}
+        assert atrh["calibration"] == {
+            "status": "unknown",
+            "last": None,
+            "next_due": None,
+            "days_left": None,
+            "validated_on": None,
+            "pending": False,
+        }
         assert atrh["meta"] == EMPTY_META
 
         # The sensor's record: everyone sees the model, only signed-in users the serial and part numbers.
@@ -118,6 +131,8 @@ async def test_u5_calibration_status_problems_and_hidden_serials(engine: AsyncEn
             "last": old_day.isoformat(),
             "next_due": due.isoformat(),
             "days_left": (due - today).days,
+            "validated_on": None,
+            "pending": True,  # no validation date: the certificate is pending
         }
         assert (await _asset(visitor, "04:ATRH"))["calibration"]["status"] == "overdue"
         assert await _overdue(visitor) == [
@@ -177,6 +192,29 @@ async def test_u5_calibration_status_problems_and_hidden_serials(engine: AsyncEn
         [changed] = await _audit(admin, "calibration_changed")
         assert changed["entity_id"] == str(new.json()["id"])
         assert changed["after"] == {"next_due": (today + timedelta(days=5)).isoformat()}
+
+        # Validating its certificate clears "pending" everywhere; the validation cannot come before the calibration.
+        corrected = {
+            **draft,
+            "date": today.isoformat(),
+            "next_due": (today + timedelta(days=5)).isoformat(),
+            "interval_months": None,
+        }
+        assert (await _ids(admin))["04:ATRH"]["calibration"]["pending"] is True
+        r = await admin.send(
+            "PATCH",
+            f"/api/v1/admin/calibrations/{new.json()['id']}",
+            {**corrected, "validated_on": (today - timedelta(days=1)).isoformat()},
+        )
+        assert (r.status_code, r.json()["code"]) == (422, "validated_before_date")
+        r = await admin.send(
+            "PATCH",
+            f"/api/v1/admin/calibrations/{new.json()['id']}",
+            {**corrected, "validated_on": today.isoformat()},
+        )
+        assert r.status_code == 200 and r.json()["validated_on"] == today.isoformat()
+        assert (await _ids(admin))["04:ATRH"]["calibration"]["pending"] is False
+        assert (await _asset(visitor, "04:ATRH"))["calibration"]["validated_on"] == today.isoformat()
 
         history = (await admin.get(f"/api/v1/admin/components/{atrh['id']}/calibrations")).json()
         assert [h["id"] for h in history] == [new.json()["id"], old.json()["id"]]  # newest first
@@ -359,3 +397,120 @@ async def test_the_trace_lists_a_flag_on_the_component(engine: AsyncEngine, reco
         assert (
             await viewer.get(f"{SYS}/trace", params={**period, "scope": "component:04:NOPE"})
         ).status_code == 404
+
+
+IMPORT = {
+    "components": [
+        {"site": "04", "type": "ATRH", "installed_on": "2025-12-23"},
+        {"site": "04", "type": "DCP", "installed_on": "2025-12-23"},
+    ],
+    "calibrations": [
+        {
+            "site": "04",
+            "type": "ATRH",
+            "date": "2025-12-27",
+            "performed_by": "BMKG",
+            "interval_months": 12,
+            "validated_on": "2025-12-31",
+            "notes": "Calibration work 27-28 Dec 2025.",
+        },
+        {"site": "04", "type": "BARO", "date": "2025-12-27", "performed_by": "BMKG", "interval_months": 12},
+    ],
+}
+
+
+def _args(path: Path, *, dry_run: bool) -> argparse.Namespace:
+    return argparse.Namespace(file=str(path), actor="records-import", system="WIDN-CAT3", dry_run=dry_run)
+
+
+async def test_the_import_is_checked_audited_and_repeatable(
+    engine: AsyncEngine, recorder: str, tmp_path: Path
+) -> None:
+    """R2.5.1: `simola import-records` writes like the Admin screens, adds nothing the second time, and writes
+    nothing when any entry is refused."""
+    today = _today()
+    path = tmp_path / "records.json"
+    path.write_text(json.dumps(IMPORT))
+    async with Browser() as admin:
+        assert (await admin.login(recorder)).status_code == 200
+
+        assert await _cmd_import_records(_args(path, dry_run=True)) == 0
+        rows = await _ids(admin)
+        assert rows["04:ATRH"]["meta"]["installed_on"] is None  # a dry run writes nothing
+        assert rows["04:BARO"]["calibration"]["status"] == "unknown"
+
+        assert await _cmd_import_records(_args(path, dry_run=False)) == 0
+        rows = await _ids(admin)
+        assert (
+            rows["04:ATRH"]["meta"]["installed_on"] == rows["04:DCP"]["meta"]["installed_on"] == "2025-12-23"
+        )
+        assert rows["04:ATRH"]["calibration"] | {"status": None, "days_left": None} == {
+            "status": None,
+            "last": "2025-12-27",
+            "next_due": "2026-12-27",
+            "days_left": None,
+            "validated_on": "2025-12-31",
+            "pending": False,
+        }
+        assert rows["04:BARO"]["calibration"]["pending"] is True  # no validation date given
+        added = [e for e in await _audit(admin, "calibration_added") if e["actor"] == "records-import"]
+        assert len(added) == 2 and {e["after"]["component"] for e in added} == {"04:ATRH", "04:BARO"}
+        changed = [e for e in await _audit(admin, "component_meta_changed") if e["actor"] == "records-import"]
+        assert sorted(e["entity_id"] for e in changed) == ["04:ATRH", "04:DCP"]
+
+        # The same file again changes nothing.
+        async with engine.begin() as conn:
+            system = await load_system(conn, "WIDN-CAT3")
+            assert system is not None
+            again = await run_import(
+                conn, system, ImportDoc.model_validate(IMPORT), actor="records-import", today=today
+            )
+        assert again == {
+            "components_changed": 0,
+            "components_unchanged": 2,
+            "calibrations_added": 0,
+            "calibrations_skipped": 2,
+        }
+
+        # One refused entry stops the whole import: nothing is written, every problem is listed.
+        good = {
+            "site": "04",
+            "type": "RVR",
+            "date": "2025-12-27",
+            "performed_by": "BMKG",
+            "interval_months": 12,
+        }
+        bad = {
+            "components": [
+                {"site": "04", "type": "BARO", "installed_on": (today + timedelta(days=1)).isoformat()}
+            ],
+            "calibrations": [
+                good,
+                {**good, "type": "DCP"},
+                {**good, "type": "NOPE"},
+                {**good, "type": "CEL", "validated_on": "2025-12-20"},
+            ],
+        }
+        with pytest.raises(ImportRefused) as refused:
+            async with engine.begin() as conn:
+                assert system is not None
+                await run_import(
+                    conn, system, ImportDoc.model_validate(bad), actor="records-import", today=today
+                )
+        assert refused.value.problems == [
+            "components 04:BARO: date_in_future",
+            "calibrations 04:DCP 2025-12-27: dcp_not_calibrated",
+            "calibrations 04:NOPE 2025-12-27: unknown component",
+            "calibrations 04:CEL 2025-12-27: validated_before_date",
+        ]
+        assert (await _ids(admin))["04:RVR"]["calibration"]["status"] == "unknown"
+
+        # Put everything back.
+        for key in ("04:ATRH", "04:BARO"):
+            for cal in (await admin.get(f"/api/v1/admin/components/{rows[key]['id']}/calibrations")).json():
+                assert (
+                    await admin.send("DELETE", f"/api/v1/admin/calibrations/{cal['id']}")
+                ).status_code == 200
+        for key in ("04:ATRH", "04:DCP"):
+            r = await admin.send("PUT", f"/api/v1/admin/components/{rows[key]['id']}/meta", EMPTY_META)
+            assert r.status_code == 200

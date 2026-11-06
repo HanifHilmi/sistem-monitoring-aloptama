@@ -32,10 +32,6 @@ admin_router = APIRouter(
 )
 
 MAX_TRACE_SPAN = timedelta(days=366)
-CALIBRATION_COLUMNS = (
-    "id, component_id, date, performed_by, certificate, next_due, interval_months, notes, "
-    "created_by, created_at, updated_by, updated_at"
-)
 
 
 def _blank(v: Any) -> Any:
@@ -91,6 +87,7 @@ class CalibrationBody(_Body):
     certificate: str | None = Field(None, max_length=100)
     next_due: dt.date | None = None
     interval_months: int | None = None
+    validated_on: dt.date | None = None  # empty while the certificate is pending
     notes: str | None = Field(None, max_length=500)
 
 
@@ -99,11 +96,6 @@ def _check(fn: Any, *args: Any) -> Any:
         return fn(*args)
     except records.RecordError as exc:
         raise ApiError(422, exc.code, exc.code.replace("_", " ")) from exc
-
-
-def _where(system: System, comp: Component) -> str:
-    site = next(s for s in system.sites if s.id == comp.site_id)
-    return f"{site.slug}:{comp.type_code}"
 
 
 # ------------------------------------------------------------------------------------------ public
@@ -240,61 +232,32 @@ async def put_component_meta(
     component_id: int, body: ComponentMetaBody, request: Request, admin: Principal = Depends(require_admin)
 ) -> dict[str, Any]:
     meta = body.model_dump()
-    if meta["installed_on"] and meta["installed_on"] > _today():
-        raise ApiError(422, "date_in_future", "installed on cannot be in the future")
+    _check(records.check_installed, meta["installed_on"], _today())
     async with get_engine().begin() as conn:
         sy, comp = await _component(conn, component_id, lock=True)
-        old = (await records.component_meta(conn, [comp.id]))[comp.id]
-        await conn.execute(
-            text(
-                f"UPDATE component SET {', '.join(f'{k} = :{k}' for k in records.COMPONENT_FIELDS)} WHERE id = :id"
-            ),
-            {**meta, "id": comp.id},
+        return await records.save_component_meta(
+            conn, sy, comp, meta, actor=admin.username, source_ip=client_ip(request)
         )
-        before, after = audit.diff(old, meta)
-        if after:
-            await audit.record(
-                conn,
-                "component_meta_changed",
-                actor=admin.username,
-                entity_type="component",
-                entity_id=_where(sy, comp),
-                before=before,
-                after=after,
-                source_ip=client_ip(request),
-            )
-        return (await records.component_meta(conn, [comp.id]))[comp.id]
 
 
 # ------------------------------------------------------------------------------------------ calibration
 async def _calibration(conn: AsyncConnection, cal_id: int, *, lock: bool = False) -> dict[str, Any]:
-    row = (
-        (
-            await conn.execute(
-                text(f"""
-            SELECT {CALIBRATION_COLUMNS} FROM calibration_record WHERE id = :id AND removed_at IS NULL
-            {"FOR UPDATE" if lock else ""}
-        """),
-                {"id": cal_id},
-            )
-        )
-        .mappings()
-        .first()
-    )
+    row = await records.calibration_row(conn, cal_id, lock=lock)
     if row is None:
         raise ApiError(404, "calibration_not_found", "no such calibration")
-    return dict(row)
-
-
-def _audit_view(row: dict[str, Any]) -> dict[str, Any]:
-    keys = ("date", "performed_by", "certificate", "next_due", "interval_months", "notes")
-    return {k: row[k] for k in keys}
+    return row
 
 
 def _validated(body: CalibrationBody) -> dict[str, Any]:
     d = body.model_dump()
     d["next_due"] = _check(
-        records.check_calibration, d["date"], d["performed_by"], d["next_due"], d["interval_months"], _today()
+        records.check_calibration,
+        d["date"],
+        d["performed_by"],
+        d["next_due"],
+        d["interval_months"],
+        _today(),
+        d["validated_on"],
     )
     return d
 
@@ -304,14 +267,7 @@ async def list_calibrations(component_id: int) -> list[dict[str, Any]]:
     """A sensor's calibrations, newest first. Removed ones stay in the database and the audit log."""
     async with get_engine().connect() as conn:
         await _component(conn, component_id)
-        rows = await conn.execute(
-            text(f"""
-            SELECT {CALIBRATION_COLUMNS} FROM calibration_record WHERE component_id = :c AND removed_at IS NULL
-            ORDER BY date DESC, id DESC
-        """),
-            {"c": component_id},
-        )
-        return [dict(r) for r in rows.mappings()]
+        return await records.calibration_history(conn, component_id)
 
 
 @admin_router.post("/calibrations", status_code=201)
@@ -322,29 +278,9 @@ async def add_calibration(
         sy, comp = await _component(conn, body.component_id, lock=True)
         if comp.is_dcp:
             raise ApiError(422, "dcp_not_calibrated", "a DCP is not calibrated")
-        d = _validated(body)
-        cal_id = (
-            await conn.execute(
-                text("""
-            INSERT INTO calibration_record (component_id, date, performed_by, certificate, next_due, interval_months,
-                                            notes, created_by)
-            VALUES (:component_id, :date, :performed_by, :certificate, :next_due, :interval_months, :notes, :by)
-            RETURNING id
-        """),
-                {**d, "by": admin.username},
-            )
-        ).scalar_one()
-        row = await _calibration(conn, cal_id)
-        await audit.record(
-            conn,
-            "calibration_added",
-            actor=admin.username,
-            entity_type="calibration",
-            entity_id=str(cal_id),
-            after={"component": _where(sy, comp), **_audit_view(row)},
-            source_ip=client_ip(request),
+        return await records.add_calibration(
+            conn, sy, comp, _validated(body), actor=admin.username, source_ip=client_ip(request)
         )
-        return row
 
 
 @admin_router.patch("/calibrations/{cal_id}")
@@ -361,14 +297,14 @@ async def update_calibration(
         await conn.execute(
             text("""
             UPDATE calibration_record SET date = :date, performed_by = :performed_by, certificate = :certificate,
-                   next_due = :next_due, interval_months = :interval_months, notes = :notes,
-                   updated_by = :by, updated_at = now()
+                   next_due = :next_due, interval_months = :interval_months, validated_on = :validated_on,
+                   notes = :notes, updated_by = :by, updated_at = now()
             WHERE id = :id
         """),
-            {**d, "by": admin.username, "id": cal_id},
+            {**{k: d[k] for k in records.CALIBRATION_AUDIT}, "by": admin.username, "id": cal_id},
         )
         row = await _calibration(conn, cal_id)
-        before, after = audit.diff(_audit_view(old), _audit_view(row))
+        before, after = audit.diff(records.audit_view(old), records.audit_view(row))
         if after:
             await audit.record(
                 conn,
@@ -376,7 +312,7 @@ async def update_calibration(
                 actor=admin.username,
                 entity_type="calibration",
                 entity_id=str(cal_id),
-                before={"component": _where(sy, comp), **before},
+                before={"component": records.where(sy, comp), **before},
                 after=after,
                 source_ip=client_ip(request),
             )
@@ -402,7 +338,7 @@ async def remove_calibration(
             actor=admin.username,
             entity_type="calibration",
             entity_id=str(cal_id),
-            before={"component": _where(sy, comp), **_audit_view(old)},
+            before={"component": records.where(sy, comp), **records.audit_view(old)},
             source_ip=client_ip(request),
         )
     return {"removed": cal_id}

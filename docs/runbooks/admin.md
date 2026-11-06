@@ -62,9 +62,10 @@ replaces the whole record; every change is audited with before and after. Record
 
 ## Calibration (Admin → Calibration, or a sensor's Calibration tab)
 
-Each sensor's calibrations: date (UTC, not in the future), performed by, certificate number, notes, and the next
-due date, given as a date or as an interval of 1–120 months (31 January + 1 month = 28 or 29 February). The status
-comes from the **latest** record and is worked out when a page is opened, so it moves on by itself:
+Each sensor's calibrations: date (UTC, not in the future), performed by, certificate number, the date the
+certificate was validated, notes, and the next due date, given as a date or as an interval of 1–120 months
+(31 January + 1 month = 28 or 29 February). The status comes from the **latest** record and is worked out when a
+page is opened, so it moves on by itself:
 
 | Status | When |
 |---|---|
@@ -73,12 +74,35 @@ comes from the **latest** record and is worked out when a page is opened, so it 
 | Overdue | from the day after the due date; also a **minor** Problems item, which everyone sees |
 | Unknown | no record yet |
 
+**Certificate pending:** leave the validation date empty while the certificate is still being validated. The
+sensor then shows "certificate pending" next to its status (calibration list, registry, site pages); enter the
+date when the document is validated. It cannot be before the calibration date. The next due date still counts
+from the calibration date.
+
 DCPs are not calibrated. Records can be corrected or removed; a removed record leaves the history (the status falls
 back to the one before it) but stays in the database and the audit log (PRD §9.6).
 
 Signed-in users also see, in the board's component panel and the day view, **what changed this component's
 figures** in the period: flags on it, decisions on its detections, mandatory-field and in-service changes, and
 reprocess or recompute jobs over the period (FR-AUD-003).
+
+### Loading many records at once
+
+`simola import-records <file.json> --actor <name> [--dry-run]` (in the worker container) loads sensor records and
+calibrations from a JSON file, for example what the station already knew before SIMOLA:
+
+```json
+{"components":   [{"site": "04", "type": "ATRH", "installed_on": "2025-12-23"}],
+ "calibrations": [{"site": "04", "type": "ATRH", "date": "2025-12-27", "performed_by": "…",
+                   "interval_months": 12, "validated_on": "2025-12-31", "notes": "…"}]}
+```
+
+- Every entry is checked with the same rules as the screens first; one refusal stops the import and nothing is
+  written (the command lists every problem). `--dry-run` checks and counts, then writes nothing.
+- A component entry changes only the fields it names. A calibration is skipped when the sensor already has one on
+  that date, so running the same file twice adds nothing.
+- Every change is in the audit log under `--actor`, like a change made in the screens. Records never change a
+  figure, so nothing is recomputed.
 
 ## Manual flags (Admin → Flags, sensor charts, minute map)
 

@@ -14,9 +14,11 @@ from simola.records import (
     add_months,
     calibration_status,
     check_calibration,
+    check_installed,
     check_place,
     public_meta,
 )
+from simola.records_import import ImportDoc
 
 TODAY = date(2026, 11, 5)
 
@@ -55,6 +57,8 @@ def test_status_follows_the_due_date_and_window() -> None:
         "last": None,
         "next_due": None,
         "days_left": None,
+        "validated_on": None,
+        "pending": False,
     }
     assert status(TODAY - timedelta(days=1)) == "overdue"  # overdue starts the day after the due date
     assert status(TODAY) == "due_soon"
@@ -62,7 +66,16 @@ def test_status_follows_the_due_date_and_window() -> None:
     assert status(TODAY + timedelta(days=31)) == "ok"
     assert status(TODAY + timedelta(days=31), window=60) == "due_soon"
     out = calibration_status(TODAY - timedelta(days=4), last, TODAY, 30)
-    assert out == {"status": "overdue", "last": last, "next_due": TODAY - timedelta(days=4), "days_left": -4}
+    assert out == {
+        "status": "overdue",
+        "last": last,
+        "next_due": TODAY - timedelta(days=4),
+        "days_left": -4,
+        "validated_on": None,
+        "pending": True,  # done, certificate not validated yet
+    }
+    validated = calibration_status(TODAY + timedelta(days=90), last, TODAY, 30, last + timedelta(days=4))
+    assert validated["status"] == "ok" and validated["pending"] is False
 
 
 def _code(fn: Callable[..., object], *args: object) -> str | None:
@@ -85,6 +98,13 @@ def test_calibration_checks_as_the_prd_says() -> None:
     assert _code(check_calibration, d, "Lab", None, 121, TODAY) == "invalid_interval"
     assert _code(check_calibration, d, "Lab", None, None, TODAY) == "next_due_required"
     assert _code(check_calibration, d, "Lab", d, None, TODAY) == "next_due_before_date"
+    # the certificate's validation date: optional, not before the calibration, not in the future
+    assert check_calibration(d, "Lab", None, 12, TODAY, date(2026, 10, 4)) == date(2027, 10, 1)
+    assert check_calibration(d, "Lab", None, 12, TODAY, d) == date(2027, 10, 1)  # validated the same day
+    assert _code(check_calibration, d, "Lab", None, 12, TODAY, date(2026, 9, 30)) == "validated_before_date"
+    assert _code(check_calibration, d, "Lab", None, 12, TODAY, TODAY + timedelta(days=1)) == "date_in_future"
+    assert _code(check_installed, TODAY + timedelta(days=1), TODAY) == "date_in_future"
+    assert _code(check_installed, TODAY, TODAY) is None and _code(check_installed, None, TODAY) is None
 
 
 def test_place_checks() -> None:
@@ -103,3 +123,23 @@ def test_serial_and_part_numbers_are_for_signed_in_users() -> None:
     meta = {"model": "CL51", "serial_number": "S123", "part_number": "P9", "firmware": "2.1"}
     assert public_meta(meta, full=True) == meta
     assert public_meta(meta, full=False) == {"model": "CL51", "firmware": "2.1"}
+
+
+def test_an_import_file_names_only_known_fields_and_blank_means_empty() -> None:
+    doc = ImportDoc.model_validate_json(
+        """{"components": [{"site": "04", "type": "ATRH", "installed_on": "2025-12-23", "notes": "  "}],
+            "calibrations": [{"site": "04", "type": "ATRH", "date": "2025-12-27", "performed_by": " BMKG ",
+                              "interval_months": 12, "validated_on": "2025-12-31"}]}"""
+    )
+    [c] = doc.components
+    assert c.model_fields_set == {"site", "type", "installed_on", "notes"} and c.notes is None
+    assert doc.calibrations[0].performed_by == "BMKG" and doc.calibrations[0].validated_on == date(
+        2025, 12, 31
+    )
+    for bad in (
+        '{"component": []}',  # a typo is refused, not ignored
+        '{"components": [{"site": "04", "type": "ATRH", "serial": "x"}]}',
+        '{"calibrations": [{"site": "04", "type": "ATRH"}]}',  # no date
+    ):
+        with pytest.raises(ValueError):
+            ImportDoc.model_validate_json(bad)
