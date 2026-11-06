@@ -39,11 +39,22 @@ public route until the switch.
    host's 4 CPUs with staging and v2.
 5. **Recount** production against the files for December and two historical months (history.md, Verify): every
    figure must match.
-6. **Backup:** `backup-now`, then `backup-verify` in production's `backup` container; it must end with `PASSED`
-   ([backup-restore.md](backup-restore.md)).
-7. **First Admin:** `simola create-admin` in production's worker ([accounts.md](accounts.md)), then the other
+6. **Records:** load the station's installation dates and December 2025 calibrations with `simola import-records`
+   in production's worker ([admin.md](admin.md), "Loading many records at once"): `--dry-run` first, then for real,
+   with `--actor records-import`. The facts, as loaded on staging on 2026-11-06:
+   - installed on 23 Dec 2025: every component at runway 04 (DCP included); 24 Dec 2025: every component at 22
+     and middle;
+   - every sensor (not the DCPs): calibrated 27 Dec 2025 (the work ran 27–28 Dec; the first day, so it is never
+     shown late), performed by "BMKG (Direktorat Instrumentasi dan Kalibrasi)", 12-month interval (due
+     27 Dec 2026), certificate validated 31 Dec 2025, note "Calibration work 27–28 Dec 2025.".
+
+   The dry run must report 21 components and 18 calibrations. Then add by hand (Admin → Registry, Calibration)
+   anything recorded on staging since then, such as January's calibrations.
+7. **Backup** (the Product Owner asks for it): `backup-now`, then `backup-verify` in production's `backup` container;
+   it must end with `PASSED` ([backup-restore.md](backup-restore.md)).
+8. **First Admin:** `simola create-admin` in production's worker ([accounts.md](accounts.md)), then the other
    accounts in Admin → Users.
-8. **Access before the domain:** in Cloudflare Access, protect all of `simola.hilmihanif.my.id` first. Only then
+9. **Access before the domain:** in Cloudflare Access, protect all of `simola.hilmihanif.my.id` first. Only then
    set the `web` service's domain in Coolify (`http://simola.hilmihanif.my.id:8080`), redeploy, and check that every
    path answers 302 to the Access login.
 
@@ -52,7 +63,7 @@ public route until the switch.
 - UAT U1, U2, U8 and U10 signed off.
 - December on staging: SM-1 recount exact; SM-2: for every completed day, stored minutes = minutes present in
   either CDP file. Both come from `tools/recount.py ... --month 2026-12 --daily` ([history.md](history.md), Verify).
-- Production prepared (A): history loaded, recount exact, `backup-verify` passed.
+- Production prepared (A): history loaded, recount exact, records imported, `backup-verify` passed.
 - The decision is recorded in the PRD revision history, together with the changes since v1.1:
   - backups run only on request (replaces the nightly backup of NFR-BAK-001 and SM-5);
   - the v2 figure comparison of §14.5 was dropped; v2 is a reference only;
