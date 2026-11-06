@@ -66,9 +66,9 @@ async def system_status(conn: AsyncConnection, system: System, now: datetime) ->
         SELECT i.source, n.code AS cdp, i.available, i.last_success_at, i.last_record_time, i.last_error,
                i.parse_warnings, i.oldest_file_date
         FROM ingest_status i LEFT JOIN cdp_node n ON n.id = i.cdp_id
-        WHERE i.system_id = :s AND i.source LIKE '%:oneminute' ORDER BY i.source
+        WHERE i.system_id = :s AND i.source LIKE :kind ORDER BY i.source
     """),
-                {"s": system.id},
+                {"s": system.id, "kind": "%:oneminute"},
             )
         )
         .mappings()
@@ -246,9 +246,9 @@ async def alarm_sources(conn: AsyncConnection, system: System, now: datetime) ->
             text("""
         SELECT n.code AS cdp, i.available, i.last_success_at, i.last_record_time, i.last_error, i.parse_warnings
         FROM ingest_status i LEFT JOIN cdp_node n ON n.id = i.cdp_id
-        WHERE i.system_id = :s AND i.source LIKE '%:alarms' ORDER BY i.source
+        WHERE i.system_id = :s AND i.source LIKE :kind ORDER BY i.source
     """),
-            {"s": system.id},
+            {"s": system.id, "kind": "%:alarms"},
         )
     ).mappings()
     out = []

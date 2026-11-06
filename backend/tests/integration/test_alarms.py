@@ -88,7 +88,7 @@ async def test_the_live_reader_loads_the_history_once(engine: AsyncEngine) -> No
         ).all()
         status = (
             await conn.execute(
-                text("SELECT source, available FROM ingest_status WHERE source LIKE '%:alarms'")
+                text("SELECT source, available FROM ingest_status WHERE source LIKE :k"), {"k": "%:alarms"}
             )
         ).all()
     assert len(nov2) == 3 and all(len(r.cdp_ids) == 2 for r in nov2)

@@ -192,7 +192,8 @@ async def test_live_cycle_after_midnight_rescans_yesterday(engine: AsyncEngine, 
         live = await kpi.live_counts(conn, system, DAY_START, DAY_END)
         status = (
             await conn.execute(
-                text("SELECT count(*) FROM ingest_status WHERE available AND source LIKE '%:oneminute'")
+                text("SELECT count(*) FROM ingest_status WHERE available AND source LIKE :k"),
+                {"k": "%:oneminute"},
             )
         ).scalar_one()
     assert live.get(("sla", system.id)) == (1436, 1440)
@@ -225,8 +226,9 @@ async def test_a_dead_share_does_not_stop_the_other_cdp(engine: AsyncEngine, loa
                 await conn.execute(
                     text(
                         "SELECT source, available, last_error FROM ingest_status "
-                        "WHERE source LIKE '%:oneminute' ORDER BY source"
-                    )
+                        "WHERE source LIKE :k ORDER BY source"
+                    ),
+                    {"k": "%:oneminute"},
                 )
             ).all()
         status = {r.source.split(":")[1]: r for r in rows}  # WIDN-CAT3:CDP1:oneminute
@@ -242,7 +244,8 @@ async def test_a_dead_share_does_not_stop_the_other_cdp(engine: AsyncEngine, loa
     async with engine.connect() as conn:
         available = (
             await conn.execute(
-                text("SELECT count(*) FROM ingest_status WHERE available AND source LIKE '%:oneminute'")
+                text("SELECT count(*) FROM ingest_status WHERE available AND source LIKE :k"),
+                {"k": "%:oneminute"},
             )
         ).scalar_one()
     assert available == 2
