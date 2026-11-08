@@ -276,5 +276,5 @@ async def test_a_reprocess_can_read_the_alarm_files_only(engine: AsyncEngine, pe
         assert done["status"] == "done", done
         assert done["message"] == "reprocessed 1 day(s) of alarm files; 0 new alarm row(s)"
         assert "alarms:CDP1=7" in done["log"] and "CDP1=" not in done["log"].replace("alarms:CDP1", "")
-    assert jobs.reprocess_sources({}) == ["minutes", "alarms"]
+    assert jobs.reprocess_sources({}) == list(jobs.SOURCES)  # all of them when the job does not say
     assert jobs.reprocess_sources({"sources": ["alarms", "minutes"]}) == ["minutes", "alarms"]
