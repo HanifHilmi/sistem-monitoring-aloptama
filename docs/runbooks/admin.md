@@ -252,6 +252,21 @@ itself (FR-ING-010): after the R3.2 deploy, start one reprocess job with only *r
   ten files a minute; the eleventh is refused with a message on the page.
 - Files are made on request and never stored. A month of 1-minute data takes a few seconds.
 
+## Monthly report (PDF, Exports page, Viewers and Admins)
+
+- Pick the month and the language (Bahasa Indonesia or English) and press **Download PDF**. Last month is picked
+  by default. The report is drawn on the server and takes a few seconds; the button counts the seconds.
+- Eight pages: the cover with the month's headline figures and a sign-off box, the KPI summary, sites and
+  sensors, the month day by day (chart, table and the colour grid), the longest outages, alarms, data quality,
+  calibration, and how the figures are calculated. Every figure is the dashboard's for the same month.
+- Calibration is shown as it stood on the month's last day, so making a past month's report again gives the same
+  pages. A month that is still running says up to when it counts; days before the data starts say "no data
+  coverage".
+- Only one report is drawn at a time on the whole server: a second request in the same seconds is told to try
+  again in a minute. Reports and CSV files together count toward the ten files a minute.
+- Every report is in the audit log as "Downloaded an export" (monthly-report, with the month and language). Reports
+  are made on request and never stored.
+
 ## How the rest of SIMOLA follows
 
 - The worker checks for registry changes before every rollup (every 30 s) and reloads the rules; recompute jobs

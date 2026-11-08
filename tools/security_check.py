@@ -104,6 +104,8 @@ ADMIN_ROUTES = (
     "/api/v1/admin/alarm-names",
     "/api/v1/admin/alarm-names/{name}",
 )
+# Viewer routes that only take POST: the monthly PDF report (R3.5) draws a file and changes no data.
+VIEWER_POSTS = ("/api/v1/systems/{code}/exports/monthly-report",)
 AUTH_ROUTES = ("/api/v1/auth/me", "/api/v1/auth/login", "/api/v1/auth/logout", "/api/v1/auth/password")
 # Every state-changing route the API may publish; a new one fails the check until it is reviewed here.
 KNOWN_WRITES = {
@@ -132,6 +134,7 @@ KNOWN_WRITES = {
     "PATCH /api/v1/admin/calibrations/{cal_id}",
     "DELETE /api/v1/admin/calibrations/{cal_id}",
     "PUT /api/v1/admin/alarm-names/{name}",
+    "POST /api/v1/systems/{code}/exports/monthly-report",  # draws a PDF and audits it; changes no data
 }
 # Routes that exist inside the containers but are not public API routes.
 NON_PUBLIC = {"/health", "/ready"}
@@ -296,7 +299,9 @@ def check_headers(web: str) -> None:
 
 def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any]]]) -> None:
     status, _, body = http("GET", web + "/api/v1/openapi.json")
-    covered = {t for t, _, _ in routes} | set(INTERNAL_ROUTES) | set(ADMIN_ROUTES) | set(AUTH_ROUTES)
+    covered = (
+        {t for t, _, _ in routes} | set(INTERNAL_ROUTES) | set(ADMIN_ROUTES) | set(AUTH_ROUTES) | set(VIEWER_POSTS)
+    )
     if status == 200:
         spec = json.loads(body)
         published = set(spec.get("paths", {}))
@@ -337,7 +342,7 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
         "{code}": "WIDN-CAT3",
     }
     extra = []
-    for p in (*INTERNAL_ROUTES, *ADMIN_ROUTES, *AUTH_ROUTES):
+    for p in (*INTERNAL_ROUTES, *ADMIN_ROUTES, *AUTH_ROUTES, *VIEWER_POSTS):
         for k, v in ids.items():
             p = p.replace(k, v)
         extra.append(p)
@@ -370,6 +375,13 @@ def check_accounts(web: str) -> None:
         status, _, body = http("GET", web + path)
         code = json.loads(body).get("code") if body.startswith(b"{") else None
         report(status == 401, "accounts", f"GET {path} without a session -> {status} {code or ''}".rstrip())
+    for path in VIEWER_POSTS:
+        path = path.replace("{code}", "WIDN-CAT3")
+        status, _, body = http("POST", web + path)
+        code = json.loads(body).get("code") if body.startswith(b"{") else None
+        report(
+            status in (401, 403), "accounts", f"POST {path} without a session -> {status} {code or ''}".rstrip()
+        )
     status, h, body = http("GET", web + "/api/v1/auth/me")
     report(
         status == 200 and body.strip() == b"null",
@@ -416,6 +428,12 @@ def check_access(public: str) -> None:
                 status == 403 and from_cloudflare
             )
         report(guarded, "access", f"{path} -> {status}{' (Access login)' if guarded and location else ''}")
+    for path in VIEWER_POSTS:
+        path = path.replace("{code}", "WIDN-CAT3")
+        status, h, _ = http("POST", public + path)
+        host = urllib.parse.urlparse(h.get("location", "")).hostname or ""
+        guarded = (status in (301, 302, 303, 307) and host.endswith("cloudflareaccess.com")) or status in (401, 403)
+        report(guarded, "access", f"POST {path} -> {status}")
     status, h, _ = http("GET", public + "/")
     print(
         f"note  access    / -> {status} {urllib.parse.urlparse(h.get('location', '')).hostname or ''}".rstrip()

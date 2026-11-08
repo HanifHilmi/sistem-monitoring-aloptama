@@ -499,6 +499,47 @@ async def history(
     return {"total": int(total), "events": events, "per_day": per_day}
 
 
+async def month_summary(
+    conn: AsyncConnection, system: System, start: datetime, end: datetime
+) -> dict[str, Any]:
+    """The monthly report's alarm page (FR-EXP-001 item 6): the changes logged, the alarms raised by type and per
+    UTC day (as the alarm history counts them), and how often each alarm was raised, with its place."""
+    f = HistoryFilter(start=start, end=end)
+    page = await history(conn, system, f, offset=0, limit=1)
+    where, params = _where(system, f)
+    rows = (
+        await conn.execute(
+            text(f"""
+            SELECT e.name, e.type, n.place_kind, n.site_id, n.component_type, count(*) AS raised, max(e.time) AS last
+            FROM alarm_event e JOIN alarm_name n ON n.system_id = e.system_id AND n.name = e.name
+            WHERE {where} AND e.raised
+            GROUP BY 1, 2, 3, 4, 5
+        """),
+            params,
+        )
+    ).mappings()
+    names = [
+        {
+            "name": r["name"],
+            "type": r["type"],
+            "place": place_view(system, r["place_kind"], r["site_id"], r["component_type"]),
+            "raised": int(r["raised"]),
+            "last": r["last"],
+        }
+        for r in rows
+    ]
+    raised: dict[str, int] = {}
+    for n in names:
+        raised[n["type"]] = raised.get(n["type"], 0) + n["raised"]
+    return {
+        "changes": page["total"],
+        "raised": raised,
+        "per_day": page["per_day"],
+        "names": names,
+        "names_total": len({n["name"] for n in names}),
+    }
+
+
 async def all_changes(
     conn: AsyncConnection, system: System, f: HistoryFilter
 ) -> AsyncIterator[dict[str, Any]]:

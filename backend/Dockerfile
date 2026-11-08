@@ -9,6 +9,10 @@ COPY simola ./simola
 RUN uv sync --frozen --no-dev
 
 FROM python:3.13.13-slim-bookworm AS runtime
+# Pango and HarfBuzz for WeasyPrint, which draws the monthly PDF report (R3.5); its fonts ship with the code.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin simola
 WORKDIR /app
 COPY --from=build --chown=simola:simola /app /app

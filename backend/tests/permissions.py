@@ -45,6 +45,7 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("GET", "/api/v1/systems/{code}/exports/minutes.csv"): "viewer",
     ("GET", "/api/v1/systems/{code}/exports/alarms.csv"): "viewer",
     ("GET", "/api/v1/systems/{code}/exports/quality.csv"): "viewer",
+    ("POST", "/api/v1/systems/{code}/exports/monthly-report"): "viewer",  # the monthly PDF (FR-EXP-001)
     ("GET", "/api/v1/auth/me"): "public",  # null when nobody is signed in
     ("POST", "/api/v1/auth/login"): "public",
     ("POST", "/api/v1/auth/logout"): "public",

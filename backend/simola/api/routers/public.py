@@ -31,7 +31,8 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _registry_view(system: System) -> dict[str, Any]:
+def registry_view(system: System) -> dict[str, Any]:
+    """GET /systems/{code}: the registry as the dashboard (and the monthly report) reads it."""
     return {
         "code": system.code,
         "type": system.type_code,
@@ -74,12 +75,16 @@ def _public_status(st: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-@router.get("/settings/display")
-async def display_settings(conn: AsyncConnection = Depends(connection)) -> dict[str, Any]:
+async def display_view(conn: AsyncConnection) -> dict[str, Any]:
     return {
         "color_thresholds": await get_setting(conn, "color_thresholds", {"good": 99, "warning": 95}),
         "grace_minutes": await engine.grace_minutes(conn),
     }
+
+
+@router.get("/settings/display")
+async def display_settings(conn: AsyncConnection = Depends(connection)) -> dict[str, Any]:
+    return await display_view(conn)
 
 
 @router.get("/systems")
@@ -94,7 +99,7 @@ async def list_systems(conn: AsyncConnection = Depends(connection)) -> list[dict
         st = await status.system_status(conn, system, now)
         out.append(
             {
-                **{k: v for k, v in _registry_view(system).items() if k in ("code", "type", "name", "icao")},
+                **{k: v for k, v in registry_view(system).items() if k in ("code", "type", "name", "icao")},
                 "sla_today": engine.availability(*today_counts.get(("sla", system.id))),
                 "sla_month": engine.availability(*month_counts.get(("sla", system.id))),
                 "ola_month": {"pct": engine.ratio_pct(engine.ola_ratio(system, month_counts))},
@@ -107,7 +112,7 @@ async def list_systems(conn: AsyncConnection = Depends(connection)) -> list[dict
 
 @router.get("/systems/{code}")
 async def get_system(code: str, conn: AsyncConnection = Depends(connection)) -> dict[str, Any]:
-    return _registry_view(await system_or_404(conn, code))
+    return registry_view(await system_or_404(conn, code))
 
 
 @router.get("/systems/{code}/kpis")
@@ -119,7 +124,13 @@ async def get_kpis(
 ) -> dict[str, Any]:
     system = await system_or_404(conn, code)
     start, end = parse_period(from_, to, max_span=MAX_KPI_SPAN)
-    now = _now()
+    return await kpis_view(conn, system, start, end, _now())
+
+
+async def kpis_view(
+    conn: AsyncConnection, system: System, start: datetime, end: datetime, now: datetime
+) -> dict[str, Any]:
+    """GET /systems/{code}/kpis, shared with the monthly report so its figures are the dashboard's."""
     counts, a, b = await engine.period_counts(conn, system, start, end, now)
     return {
         "system": system.code,
@@ -193,6 +204,10 @@ async def get_data_quality(
 
 @router.get("/definitions")
 async def get_definitions(conn: AsyncConnection = Depends(connection)) -> dict[str, Any]:
+    return await definitions_view(conn)
+
+
+async def definitions_view(conn: AsyncConnection) -> dict[str, Any]:
     """FR-KPI-010: the definitions version in force, from the earliest coverage start."""
     first = min((s.coverage_start for s in await systems(conn)), default=None)
     return {
@@ -311,7 +326,18 @@ async def get_matrix(
     """Availability per row (SLA, CDPs, OLA, sites, components) and period bucket (performance board)."""
     system = await system_or_404(conn, code)
     start, end = parse_period(from_, to, max_span=MAX_KPI_SPAN)
-    now = _now()
+    return await matrix_view(conn, system, start, end, _now(), bucket)
+
+
+async def matrix_view(
+    conn: AsyncConnection,
+    system: System,
+    start: datetime,
+    end: datetime,
+    now: datetime,
+    bucket: Literal["day", "week", "month"],
+) -> dict[str, Any]:
+    """GET /systems/{code}/matrix, shared with the monthly report (its day grid and daily figures)."""
     days, a, b = await engine.grouped_counts(conn, system, start, end, now, bucket)
     first, last = start.date(), (end - timedelta(minutes=1)).date()
     return {

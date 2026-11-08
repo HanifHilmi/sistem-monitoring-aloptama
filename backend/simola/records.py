@@ -146,16 +146,22 @@ async def due_soon_days(conn: AsyncConnection) -> int:
 
 
 async def summaries(
-    conn: AsyncConnection, component_ids: list[int], today: date, window: int
+    conn: AsyncConnection, component_ids: list[int], today: date, window: int, *, as_at: bool = False
 ) -> dict[int, dict[str, Any]]:
-    """Calibration status of each component from its latest record that was not removed."""
+    """Calibration status of each component from its latest record that was not removed.
+
+    ``as_at``: the status as it stood on ``today`` (the monthly report, for a past month): only records dated on
+    or before that day count, and a certificate validated later was still pending then.
+    """
     rows = await conn.execute(
-        text("""
-        SELECT DISTINCT ON (component_id) component_id, date, next_due, validated_on FROM calibration_record
-        WHERE removed_at IS NULL AND component_id = ANY(:ids)
+        text(f"""
+        SELECT DISTINCT ON (component_id) component_id, date, next_due,
+               CASE WHEN :as_at AND validated_on > :today THEN NULL ELSE validated_on END
+        FROM calibration_record
+        WHERE removed_at IS NULL AND component_id = ANY(:ids) {"AND date <= :today" if as_at else ""}
         ORDER BY component_id, date DESC, id DESC
     """),
-        {"ids": component_ids},
+        {"ids": component_ids, "as_at": as_at, "today": today},
     )
     latest = {int(r[0]): (r[1], r[2], r[3]) for r in rows}
     return {
@@ -224,6 +230,18 @@ async def assets(conn: AsyncConnection, system: System, *, full: bool, today: da
             for s, c in comps
         ],
         "due_soon_days": window,
+    }
+
+
+async def calibration_on(conn: AsyncConnection, system: System, day: date) -> dict[str, Any]:
+    """Every sensor's calibration status on ``day`` (UTC), for the monthly report (FR-EXP-001 item 8)."""
+    comps = [(s, c) for s in system.sites for c in s.components]
+    window = await due_soon_days(conn)
+    cal = await summaries(conn, [c.id for _, c in comps], day, window, as_at=True)
+    return {
+        "as_of": day,
+        "due_soon_days": window,
+        "components": [{"site": s.slug, "type": c.type_code, "calibration": cal[c.id]} for s, c in comps],
     }
 
 
