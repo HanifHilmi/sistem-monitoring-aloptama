@@ -1,4 +1,4 @@
-# Runbook: Admin operations (R2.2–R2.5, R3.1)
+# Runbook: Admin operations (R2.2–R2.5, R3.1–R3.2)
 
 PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-001..007, FR-REG-004/005; design in
 [../design/r2.md](../design/r2.md) §3 and §4.3–4.5. All of this is in
@@ -9,15 +9,16 @@ figures in the background. Accounts and the audit log: [accounts.md](accounts.md
 
 | Job | Does | When |
 |---|---|---|
-| Reprocess from CDP files | Reads both CDPs' files again for the chosen UTC days. *1-minute data* replaces the stored minutes and recomputes the figures; *alarms* adds any alarm row not stored yet and changes no figure. Both are ticked by default | After a share outage or a corrected file |
+| Reprocess from CDP files | Reads both CDPs' files again for the chosen UTC days. *1-minute data* replaces the stored minutes and recomputes the figures; *alarms* and *reports* add any alarm row or report line not stored yet and change no figure. All are ticked by default | After a share outage or a corrected file; once after R3.2 is deployed, *reports* only, from 24 December 2025 to today, to load the report history |
 | Recompute figures | Recomputes the daily figures from the stored minutes, without reading files | After a rule change (queued automatically) |
 
 - Days run newest first; the page shows progress, who started the job, its log, and a *Cancel* while it runs.
   Days already done stay done.
 - Only one reprocess at a time. A whole history (about 317 days) takes about 21 minutes on staging.
-- The command line still works (`simola reprocess [--sources minutes,alarms]`, `simola recompute`,
+- The command line still works (`simola reprocess [--sources minutes,alarms,reports]`, `simola recompute`,
   [history.md](history.md)); those jobs show "cli" as who started them.
-- A reprocess of alarms only takes seconds: an alarm file exists only on days that had an alarm.
+- A reprocess of alarms only takes seconds: an alarm file exists only on days that had an alarm. Reports only:
+  three small logs a day per CDP.
 
 ## Settings (Admin → Settings)
 
@@ -207,6 +208,25 @@ while the worker was down is caught up. The health page shows each CDP's alarm r
   assigned** and is listed first under Admin → Alarm mapping. A change there applies to the whole history at once
   and is audited (`alarm_mapping_changed`).
 - SIMOLA never acknowledges an alarm; that is done on the AWOS.
+
+## METAR, MET REPORT and TAF (the reports page)
+
+The worker reads `reports/METAR.<date>.log`, `METREPORT.<date>.log` and `TAF.<date>.log` from both CDPs every
+minute: today's, and yesterday's for the first two hours of the day (FR-ING-009). It does not read older logs by
+itself (FR-ING-010): after the R3.2 deploy, start one reprocess job with only *reports* ticked, from 24 December
+2025 to today. The health page shows each CDP's report reader.
+
+- **Each report once.** Each CDP logs the reports it sends, usually both, up to two minutes apart (the widest pair
+  seen was 117 s). Lines with the same text from different CDPs within 2 minutes are one report, listed with both
+  CDPs. A CDP that logs the same report twice sent it twice: both are kept. Each CDP's lines are kept as read, so
+  re-reading a log adds nothing.
+- **Different texts are different reports.** On some evenings the CDPs logged different METARs for the same time
+  (e.g. 1 November 2026, 21:30–23:30: CDP1 an `AUTO` report, CDP2 another); both are listed, each with its CDP.
+- **Never decoded** (FR-RPT-004): the text is shown and copied exactly as issued. The AWOS's notes after the `=`
+  (runway in use, why a SPECI or SPECIAL was sent) are shown as labels beside it.
+- **Public**, like the reports: the latest of each type, a UTC day's archive, and a search over at most 31 days.
+- A line still being written (no line end yet), or a TAF without its `=` at the end of the log, is read on the next
+  cycle. Lines that cannot be read are counted as parse warnings on the health page.
 
 ## How the rest of SIMOLA follows
 

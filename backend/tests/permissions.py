@@ -29,6 +29,9 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("GET", "/api/v1/systems/{code}/detections"): "public",  # suspect and rejected only for signed-in users
     ("GET", "/api/v1/systems/{code}/assets"): "public",  # serial and part numbers only for signed-in users
     ("GET", "/api/v1/systems/{code}/trace"): "viewer",
+    ("GET", "/api/v1/systems/{code}/reports/latest"): "public",  # METAR, MET REPORT and TAF (FR-RPT)
+    ("GET", "/api/v1/systems/{code}/reports"): "public",
+    ("GET", "/api/v1/systems/{code}/reports/search"): "public",
     # The public sees only the number of active alarms, in the Problems panel (OPEN-13).
     ("GET", "/api/v1/systems/{code}/alarms/active"): "viewer",
     ("GET", "/api/v1/systems/{code}/alarms"): "viewer",

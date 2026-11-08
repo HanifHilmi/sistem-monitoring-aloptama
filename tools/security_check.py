@@ -223,6 +223,10 @@ def public_routes(web: str) -> list[tuple[str, str, dict[str, Any]]]:
         ("/api/v1/systems/{code}/detections", month_q),
         ("/api/v1/systems/{code}/detections", {**month_q, "scope": f"component:{site['slug']}:{component}"}),
         ("/api/v1/systems/{code}/assets", {}),  # serial and part numbers must not reach the public
+        ("/api/v1/systems/{code}/reports/latest", {}),
+        ("/api/v1/systems/{code}/reports", {"day": day, "type": "metar"}),
+        ("/api/v1/systems/{code}/reports", {"day": day, "type": "taf"}),
+        ("/api/v1/systems/{code}/reports/search", {"from": day, "to": day, "type": "metreport", "q": "RWY"}),
     ]
     return [(t, t.format(**ids), q) for t, q in templates]
 

@@ -23,6 +23,7 @@ from simola.core.config import Settings
 from simola.core.timeutil import DAY, MINUTE, day_start, floor_minute
 from simola.ingestion import widn
 from simola.ingestion.alarm_files import AlarmReader
+from simola.ingestion.report_files import ReportReader
 from simola.ingestion.share import ShareIO
 from simola.registry import Cdp, System
 
@@ -171,6 +172,7 @@ class Cat3Ingestor:
         # Every call on a share runs on that CDP's own threads, so a dead share cannot stall the rest.
         self._share = {code: ShareIO(code, settings.file_io_timeout_s) for code in self.paths}
         self.alarms = AlarmReader(self)  # the alarm files, on the same share threads (R3.1)
+        self.reports = ReportReader(self)  # METAR, MET REPORT and TAF logs (R3.2)
 
     # ------------------------------------------------------------------ files
     def resolve_file(self, cdp_code: str, day: date) -> Path | None:

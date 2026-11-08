@@ -107,7 +107,7 @@ def _days(params: dict[str, Any]) -> list[date]:
     return list(iter_days(start, end))
 
 
-SOURCES = ("minutes", "alarms")  # which CDP files a reprocess reads again (FR-ING-010)
+SOURCES = ("minutes", "alarms", "reports")  # which CDP files a reprocess reads again (FR-ING-010)
 
 
 def reprocess_sources(params: dict[str, Any]) -> list[str]:
@@ -122,6 +122,7 @@ async def run_reprocess(ctx: JobContext, ingestor: Cat3Ingestor, params: dict[st
     newest_first = list(reversed(days))  # recent data first, so dashboards become useful early
     total_minutes = 0
     alarm_rows = 0
+    report_rows = 0
     for i, d in enumerate(newest_first, start=1):
         line = [d.isoformat()]
         if "minutes" in sources:
@@ -138,11 +139,20 @@ async def run_reprocess(ctx: JobContext, ingestor: Cat3Ingestor, params: dict[st
                 f"alarms:{k}={'no-file' if not v.get('file') else v['rows']}"
                 for k, v in found_alarms["cdps"].items()
             ]
+        if "reports" in sources:
+            found_reports = await ingestor.reports.reprocess_day(d)
+            report_rows += sum(v.get("new", 0) for v in found_reports["cdps"].values())
+            line += [f"reports:{k}={v['rows']}" for k, v in found_reports["cdps"].items()]
         await ctx.progress(i / (len(newest_first) + 1), " ".join(line))
-    alarms_note = f"{alarm_rows} new alarm row(s)"
+    notes = []
+    if "alarms" in sources:
+        notes.append(f"{alarm_rows} new alarm row(s)")
+    if "reports" in sources:
+        notes.append(f"{report_rows} new report line(s)")
     if "minutes" not in sources:
-        # Alarms change no figure: nothing to check or recompute.
-        return f"reprocessed {len(days)} day(s) of alarm files; {alarms_note}"
+        # Alarms and reports change no figure: nothing to check or recompute.
+        files = " and ".join(x for x in ("alarm", "report") if f"{x}s" in sources)
+        return f"reprocessed {len(days)} day(s) of {files} files; " + "; ".join(notes)
     # The minutes changed: the rules look at them again (FR-DQ-003), before the figures are recomputed.
     async with ingestor.engine.connect() as conn:
         system = await load_system(conn, ingestor.system.code) or ingestor.system
@@ -154,7 +164,7 @@ async def run_reprocess(ctx: JobContext, ingestor: Cat3Ingestor, params: dict[st
             {"s": ingestor.system.id, "d": days},
         )
     message = f"reprocessed {len(days)} day(s), {total_minutes} CDP-minutes; {stored} daily rollup(s) stored; {found}"
-    return message + (f"; {alarms_note}" if "alarms" in sources else "")
+    return "; ".join([message, *notes])
 
 
 def month_chunks(first: date, last: date) -> list[tuple[date, date]]:

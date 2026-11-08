@@ -36,7 +36,11 @@ def share_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     from tests.conftest import FIXTURES
 
     root = tmp_path_factory.mktemp("shares")
-    for pattern, folder in (("cdp*_091OneMinute.*.dat.gz", "oneminute"), ("cdp*_091ALARM.*.dat.gz", "alarm")):
+    for pattern, folder in (
+        ("cdp*_091OneMinute.*.dat.gz", "oneminute"),
+        ("cdp*_091ALARM.*.dat.gz", "alarm"),
+        ("cdp*_*.log.gz", "reports"),  # METAR, METREPORT and TAF logs
+    ):
         for gz in FIXTURES.glob(pattern):
             cdp, name = gz.name[: -len(".gz")].split("_", 1)
             target = root / cdp / folder

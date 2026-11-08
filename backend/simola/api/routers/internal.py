@@ -71,15 +71,18 @@ async def internal_health(conn: AsyncConnection = Depends(connection)) -> dict[s
                     }
                     for src in st["ingestion"]
                 ],
-                "alarm_files": [
-                    {
-                        **src,
-                        "path": f"{settings.cdp_paths[src['cdp']]}/alarm"
-                        if src["cdp"] in settings.cdp_paths
-                        else None,
-                    }
-                    for src in await status.alarm_sources(conn, system, now)
-                ],
+                **{
+                    f"{kind}_files": [
+                        {
+                            **src,
+                            "path": f"{settings.cdp_paths[src['cdp']]}/{folder}"
+                            if src["cdp"] in settings.cdp_paths
+                            else None,
+                        }
+                        for src in await status.file_sources(conn, system, now, f"{kind}s")
+                    ]
+                    for kind, folder in (("alarm", "alarm"), ("report", "reports"))
+                },
                 "cdps": [{**c, "address": settings.cdp_addresses.get(c["code"])} for c in st["cdps"]],
             }
         )

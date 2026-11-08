@@ -92,6 +92,11 @@ class Worker:
             new = await ing.alarms.cycle()
             logger.debug("alarm cycle", extra={"system": code, "rows": new})
 
+    async def ingest_reports(self) -> None:
+        for code, ing in self.ingestors.items():
+            new = await ing.reports.cycle()
+            logger.debug("report cycle", extra={"system": code, "rows": new})
+
     async def probe(self) -> None:
         for p in self.probers.values():
             await p.probe_once()
@@ -218,6 +223,9 @@ class Worker:
                         asyncio.create_task(_every(self.settings.ingest_interval_s, self.ingest, "ingest")),
                         asyncio.create_task(
                             _every(self.settings.ingest_interval_s, self.ingest_alarms, "alarms")
+                        ),
+                        asyncio.create_task(
+                            _every(self.settings.ingest_interval_s, self.ingest_reports, "reports")
                         ),
                         asyncio.create_task(_every(self.settings.probe_interval_s, self.probe, "probe")),
                         asyncio.create_task(_every(30, self.rollups, "rollups")),

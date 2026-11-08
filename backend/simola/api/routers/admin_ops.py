@@ -107,7 +107,7 @@ class NewJob(BaseModel):
     start: date = Field(alias="from")
     end: date = Field(alias="to")
     # reprocess only: which CDP files to read again (FR-ING-010); all of them when absent
-    sources: list[Literal["minutes", "alarms"]] | None = None
+    sources: list[Literal["minutes", "alarms", "reports"]] | None = None
 
 
 @router.get("/jobs")

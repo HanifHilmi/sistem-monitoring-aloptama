@@ -237,9 +237,11 @@ async def system_status(conn: AsyncConnection, system: System, now: datetime) ->
     }
 
 
-async def alarm_sources(conn: AsyncConnection, system: System, now: datetime) -> list[dict[str, Any]]:
-    """The alarm file readers, one per CDP (R3.1), for the health page. An alarm file exists only on days with
-    an alarm, so the last row may be days old: only the last successful read says whether the reader works."""
+async def file_sources(
+    conn: AsyncConnection, system: System, now: datetime, kind: str = "alarms"
+) -> list[dict[str, Any]]:
+    """The alarm (R3.1) or report (R3.2) file readers, one per CDP, for the health page. An alarm file exists only
+    on days with an alarm, so the last row may be days old: only the last successful read says whether it works."""
     th = await thresholds(conn)
     rows = (
         await conn.execute(
@@ -248,7 +250,7 @@ async def alarm_sources(conn: AsyncConnection, system: System, now: datetime) ->
         FROM ingest_status i LEFT JOIN cdp_node n ON n.id = i.cdp_id
         WHERE i.system_id = :s AND i.source LIKE :kind ORDER BY i.source
     """),
-            {"s": system.id, "kind": "%:alarms"},
+            {"s": system.id, "kind": f"%:{kind}"},
         )
     ).mappings()
     out = []
