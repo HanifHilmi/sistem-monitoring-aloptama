@@ -71,11 +71,17 @@ async def test_both_cdps_files_are_stored_once_and_rereading_adds_nothing(engine
     assert rows[0].time == datetime(2026, 11, 3, 10, 43, 49, tzinfo=UTC)  # the earlier of the two CDPs
 
 
-async def test_the_live_reader_loads_the_history_once(engine: AsyncEngine) -> None:
+async def test_the_live_reader_reads_today_and_a_job_reads_the_history(engine: AsyncEngine) -> None:
     system = await _system(engine)
-    reader = _reader(system, engine)  # a fresh worker: it lists every alarm file on the shares
-    new = await reader.cycle(NOW)
-    assert new == {"CDP1": 7, "CDP2": 7}  # 2 November; 3 November is already stored
+    reader = _reader(system, engine)  # a fresh worker: it reads only today's and (early on) yesterday's files
+    assert await reader.cycle(NOW) == {"CDP1": 0, "CDP2": 0}  # 3 November is already stored
+    async with engine.connect() as conn:
+        before = (
+            await conn.execute(text("SELECT count(*) FROM alarm_event WHERE time < '2026-11-03'"))
+        ).scalar_one()
+    assert before == 0  # a restart never reads the history by itself (FR-ING-010)
+    loaded = await reader.reprocess_day(date(2026, 11, 2), now=NOW)
+    assert [v["new"] for v in loaded["cdps"].values()] == [7, 7]
     assert await reader.cycle(NOW + timedelta(minutes=1)) == {"CDP1": 0, "CDP2": 0}
     # 2 November: CDP2 logged the DCP alarms 85 s after CDP1. Still one change each.
     async with engine.connect() as conn:

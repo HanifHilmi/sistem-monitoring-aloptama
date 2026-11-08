@@ -2,16 +2,14 @@
 
 - Every cycle: today's file, and yesterday's for the first hours of the day, re-read only when their size or time
   changed.
-- At start and then hourly: every alarm file on the share from the coverage start on, so the history loads by
-  itself (D5) and a day missed while the worker was down is caught up. Stored rows are skipped, so this is cheap.
-- A reprocess job re-reads chosen days whatever their size or time.
+- The history, or a day missed while the worker was down, is read by a reprocess job with the source "alarms" that
+  an Admin starts (FR-ING-010: a deploy or restart never starts one by itself). Stored rows are skipped.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from functools import partial
@@ -28,7 +26,6 @@ if TYPE_CHECKING:
     from simola.ingestion.cat3 import Cat3Ingestor
 
 logger = logging.getLogger(__name__)
-SWEEP_EVERY = timedelta(hours=1)
 
 
 class AlarmFolderMissing(OSError):
@@ -50,7 +47,6 @@ class AlarmReader:
     def __init__(self, ingestor: Cat3Ingestor) -> None:
         self.ing = ingestor
         self._sig: dict[tuple[str, str], tuple[int, int]] = {}  # (CDP, file name) -> (size, mtime)
-        self._swept: dict[str, datetime] = {}
         self._lock = asyncio.Lock()
 
     @property
@@ -61,21 +57,6 @@ class AlarmReader:
         return self.ing.paths[cdp_code] / "alarm"
 
     # ------------------------------------------------------------------ files
-    def _list(self, cdp_code: str) -> list[tuple[date, str]]:
-        folder = self.folder(cdp_code)
-        if not folder.is_dir():
-            raise AlarmFolderMissing(f"{cdp_code}: alarm folder not readable")
-        out = []
-        for n in os.listdir(folder):
-            m = alarms.FILE_RE.search(n)
-            if m is None:
-                continue
-            try:
-                out.append((datetime.strptime(m.group(1), "%Y%m%d").date(), n))
-            except ValueError:
-                continue
-        return sorted(out)
-
     def _resolve(self, cdp_code: str, day: date) -> str | None:
         folder = self.folder(cdp_code)
         exact = folder / alarms.file_name_for(day)
@@ -107,12 +88,6 @@ class AlarmReader:
         return (st.st_size, st.st_mtime_ns)
 
     async def _files_to_check(self, cdp: Cdp, now: datetime) -> list[str]:
-        last = self._swept.get(cdp.code)
-        if last is None or now - last >= SWEEP_EVERY:
-            listed = await self.ing.on_share(cdp.code, partial(self._list, cdp.code))
-            self._swept[cdp.code] = now
-            first = self.system.coverage_start.date()
-            return [n for d, n in listed if first <= d <= now.date()]
         names = []
         for day in self.ing.days_to_scan(now):
             n = await self.ing.on_share(cdp.code, partial(self._resolve, cdp.code, day))
@@ -160,6 +135,8 @@ class AlarmReader:
                 out[cdp.code] = -1
             else:
                 out[cdp.code] = res
+        keep = {d.strftime("%Y%m%d") for d in (now.date(), now.date() - timedelta(days=1))}
+        self._sig = {k: v for k, v in self._sig.items() if k[1].split(".")[1] in keep}
         return out
 
     async def _cycle_cdp(self, cdp: Cdp, now: datetime) -> int:
@@ -197,7 +174,6 @@ class AlarmReader:
                         {"w": warnings, "s": source_name(self.system, cdp)},
                     )
         except (OSError, TimeoutError) as exc:
-            self._swept.pop(cdp.code, None)  # list the folder again once it answers
             await self._status(cdp, available=False, last_attempt_at=now, last_error=str(exc)[:500])
             raise
         if new:

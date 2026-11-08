@@ -15,7 +15,7 @@ from simola.api.deps import ApiError, parse_period, system_or_404, systems
 from simola.api.security import principal
 from simola.core.db import connection
 from simola.core.timeutil import day_start
-from simola.kpi import engine, matrix, minutes, outages, series, status
+from simola.kpi import definitions, engine, matrix, minutes, outages, quality, series, status
 from simola.registry import System, get_setting
 
 router = APIRouter(prefix="/api/v1", tags=["public"])
@@ -173,6 +173,33 @@ async def get_problems(
             )
     problems.sort(key=lambda p: status.SEVERITY_ORDER[p["severity"]])
     return {"generated_at": now, "problems": problems}
+
+
+@router.get("/systems/{code}/data-quality")
+async def get_data_quality(
+    request: Request,
+    code: str,
+    from_: str = Query(alias="from"),
+    to: str = Query(),
+    conn: AsyncConnection = Depends(connection),
+) -> dict[str, Any]:
+    """FR-DQ-008: what flags and confirmed detections cost each sensor; the suspect count for signed-in users."""
+    system = await system_or_404(conn, code)
+    start, end = parse_period(from_, to, max_span=MAX_OUTAGE_SPAN)
+    user = await principal(request)
+    signed_in = user is not None and not user.must_change_password
+    return await quality.summary(conn, system, start, end, _now(), signed_in=signed_in)
+
+
+@router.get("/definitions")
+async def get_definitions(conn: AsyncConnection = Depends(connection)) -> dict[str, Any]:
+    """FR-KPI-010: the definitions version in force, from the earliest coverage start."""
+    first = min((s.coverage_start for s in await systems(conn)), default=None)
+    return {
+        "version": definitions.VERSION,
+        "effective_from": first.date().isoformat() if first else None,
+        "source": definitions.SOURCE,
+    }
 
 
 def _bucket_start(d: date, bucket: str) -> date:

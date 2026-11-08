@@ -1,4 +1,4 @@
-# Runbook: Admin operations (R2.2–R2.5, R3.1–R3.2)
+# Runbook: Admin operations (R2.2–R2.5, R3.1–R3.3)
 
 PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-001..007, FR-REG-004/005; design in
 [../design/r2.md](../design/r2.md) §3 and §4.3–4.5. All of this is in
@@ -184,9 +184,11 @@ acceptance recount counts the raw files). Rejecting is harmless.
 
 ## AWOS alarms (Alarms page; Admin → Alarm mapping)
 
-The worker reads `alarm/091ALARM.<date>.dat` from both CDPs every minute (FR-ING-008). It reads every alarm file on
-the shares when it starts and then hourly, so the history since 24 December 2025 loads by itself and a day missed
-while the worker was down is caught up. The health page shows each CDP's alarm reader.
+The worker reads `alarm/091ALARM.<date>.dat` from both CDPs every minute (FR-ING-008): today's, and yesterday's for
+the first two hours of the day. Like the report logs, older files are read only by a reprocess job with *alarms*
+ticked (FR-ING-010: a deploy or restart never starts one): use it to load the history on a new server, or for days
+missed while the worker was down. On staging the history since 24 December 2025 is already loaded. The health page
+shows each CDP's alarm reader.
 
 - **Each change once.** Each CDP runs its own alarm detection, so both usually log the same change, seconds apart
   (once 85 s apart). Rows with the same name, type, state, active flag and message from different CDPs within
@@ -227,6 +229,17 @@ itself (FR-ING-010): after the R3.2 deploy, start one reprocess job with only *r
 - **Public**, like the reports: the latest of each type, a UTC day's archive, and a search over at most 31 days.
 - A line still being written (no line end yet), or a TAF without its `=` at the end of the log, is read on the next
   cycle. Lines that cannot be read are counted as parse warnings on the health page.
+
+## Data quality and definitions (public pages)
+
+- **Data quality** shows, for a period of at most 93 days, the minutes manual flags and confirmed detections cost
+  each sensor, with their reasons (flag reason, detection rule). The minutes are the outage list's, so they always
+  match it: a minute a flag covers that was already lost for another reason stays under that reason. Signed-in
+  users also see the suspects waiting for review that overlap the period (D7).
+- **Definitions** ("How the figures are calculated", linked from every page's footer) explains each figure, with the
+  mandatory fields, the grace and the colour thresholds as they are set now, and the definitions version
+  (`simola/kpi/definitions.py`). A change to a formula needs a new version there; exports and the monthly report
+  carry it. Changing mandatory fields does not change the version.
 
 ## How the rest of SIMOLA follows
 

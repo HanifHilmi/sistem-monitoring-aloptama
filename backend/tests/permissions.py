@@ -29,6 +29,11 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("GET", "/api/v1/systems/{code}/detections"): "public",  # suspect and rejected only for signed-in users
     ("GET", "/api/v1/systems/{code}/assets"): "public",  # serial and part numbers only for signed-in users
     ("GET", "/api/v1/systems/{code}/trace"): "viewer",
+    (
+        "GET",
+        "/api/v1/systems/{code}/data-quality",
+    ): "public",  # the suspect count only for signed-in users (D7)
+    ("GET", "/api/v1/definitions"): "public",
     ("GET", "/api/v1/systems/{code}/reports/latest"): "public",  # METAR, MET REPORT and TAF (FR-RPT)
     ("GET", "/api/v1/systems/{code}/reports"): "public",
     ("GET", "/api/v1/systems/{code}/reports/search"): "public",
