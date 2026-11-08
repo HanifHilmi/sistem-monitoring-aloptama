@@ -132,15 +132,15 @@ test.describe('AWOS alarms', () => {
     await place.selectOption('site:22')
     const sensor = page.getByTestId('alarm-sensor')
     await expect(sensor.locator('option').first()).toHaveText(t('alarms.filter.allSensors'))
-    await sensor.selectOption('PWX')
+    // The sample history is random per day, except yesterday's 10:43 outage of the three DCPs: pick the one at
+    // Runway 22, which always has rows.
+    await sensor.selectOption('DCP')
     const rows = isMobile
       ? page.getByTestId('alarm-history-list').locator('li')
       : page.getByTestId('alarm-history').locator('tbody tr')
-    const elsewhere = async () =>
-      (await rows.allInnerTexts()).filter((r) => !(r.includes('Present Weather Sensor') && r.includes('22')))
-        .length
-    await expect.poll(elsewhere).toBe(0) // once the list has reloaded, every row is that sensor's
-    expect(await rows.count()).toBeGreaterThan(0)
+    const names = async () => (await rows.allInnerTexts()).map((r) => r.includes('DCPC_Missing'))
+    await expect.poll(async () => (await names()).length).toBeGreaterThan(0)
+    await expect.poll(async () => (await names()).every(Boolean)).toBe(true) // once the list has reloaded
     await place.selectOption('station')
     await expect(page.getByTestId('alarm-sensor')).toHaveCount(0)
   })

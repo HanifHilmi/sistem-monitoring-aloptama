@@ -122,9 +122,17 @@ export function events(now: number): AlarmEvent[] {
       const name = names[Math.floor(r() * names.length)]!
       const at = today - d * DAY + Math.floor(r() * 22 * 60) * MIN
       const cdps = cdpsFor(r)
+      const acked = r() < 0.3
+      const clearedAt = at + (5 + Math.floor(r() * 300)) * MIN
+      const clearState = r() < 0.3 ? 'acknowledged' : 'pending'
+      // Only the alarms in ACTIVE are active: a random one not cleared by now is left out, so the sample's
+      // active list is the same at every hour of the day.
+      if (clearedAt > now) continue
+      const fixed = ACTIVE[name]
+      if (fixed && clearedAt >= now - fixed[0] * HOUR) continue // would end an alarm that is still active
       push(at, name, 'pending', true, cdps)
-      if (r() < 0.3) push(at + 20 * MIN, name, 'acknowledged', true, cdps)
-      push(at + (5 + Math.floor(r() * 300)) * MIN, name, r() < 0.3 ? 'acknowledged' : 'pending', false, cdps)
+      if (acked && at + 20 * MIN < clearedAt) push(at + 20 * MIN, name, 'acknowledged', true, cdps)
+      push(clearedAt, name, clearState, false, cdps)
     }
   }
   // Yesterday at 10:43 the three DCPs dropped together, next to a gap in the data, and came back at 10:55.
