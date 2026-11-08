@@ -17,6 +17,7 @@ RUN useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin simol
 WORKDIR /app
 COPY --from=build --chown=simola:simola /app /app
 ENV PATH="/app/.venv/bin:${PATH}" \
+    XDG_CACHE_HOME=/tmp/.cache \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 USER simola

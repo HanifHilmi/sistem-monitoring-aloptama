@@ -112,6 +112,7 @@ h3 { font-size: 9.2pt; font-weight: 600; margin: 4mm 0 1.4mm; break-after: avoid
 .halves > * { flex: 1; }
 .daily td, .daily th { padding: 0.62mm 1.1mm; }
 .daily .gap { width: 5mm; border: 0; }
+.daily th.n { white-space: normal; }  /* long headings (MENIT HILANG SLA) wrap instead of widening the table */
 .daily td { font-size: 7.6pt; }
 .daily .date { white-space: nowrap; }
 
