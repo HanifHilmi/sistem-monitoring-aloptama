@@ -16,7 +16,6 @@
     "switchTo": "English",
     "dashboard": "Dasbor",
     "system": "Sistem",
-    "metar": "METAR dan METREPORT",
     "later": "menyusul",
     "alarms": "Alarm",
     "comingSoon": "Segera hadir",
@@ -25,7 +24,8 @@
       "cat1": "AWOS KAT. I",
       "awsDigi": "AWS Digi",
       "awsArg": "AWS / ARG"
-    }
+    },
+    "reports": "METAR, MET REPORT dan TAF"
   },
   "common": {
     "close": "Tutup",
@@ -263,6 +263,8 @@
     "ingestion": "Pengambilan data",
     "alarmFiles": "Berkas alarm",
     "lastAlarm": "Baris alarm terakhir",
+    "reportFiles": "Berkas laporan",
+    "lastReport": "Laporan terakhir",
     "source": "Sumber",
     "available": "Tersedia",
     "lag": "Tertinggal",
@@ -683,9 +685,10 @@
     "sources": "Berkas yang dibaca ulang",
     "source": {
       "minutes": "Data 1 menit",
-      "alarms": "Alarm"
+      "alarms": "Alarm",
+      "reports": "Laporan (METAR, MET REPORT, TAF)"
     },
-    "sourcesHint": "Membaca ulang alarm saja berlangsung cepat dan tidak mengubah angka."
+    "sourcesHint": "Membaca ulang alarm atau laporan saja berlangsung cepat dan tidak mengubah angka."
   },
   "settings": {
     "subtitle": "Cara SIMOLA menampilkan dan menilai data. Setiap bagian disimpan sendiri dan dicatat di log audit; menit yang tersimpan tidak pernah berubah.",
@@ -1243,5 +1246,44 @@
       "saved": "Tersimpan",
       "note": "Setiap perubahan tercatat di log audit."
     }
+  },
+  "reports": {
+    "title": "METAR, MET REPORT dan TAF",
+    "subtitle": "Laporan yang diterbitkan AWOS, persis seperti dikirim, dibaca dari log kedua CDP. Waktu dalam UTC.",
+    "tab": {
+      "latest": "Terbaru",
+      "archive": "Arsip harian",
+      "search": "Cari"
+    },
+    "type": {
+      "metar": "METAR / SPECI",
+      "metreport": "MET REPORT / SPECIAL",
+      "taf": "TAF"
+    },
+    "logged": "tercatat {time}",
+    "ago": "{age} lalu",
+    "copy": "Salin",
+    "copied": "Tersalin",
+    "note": "Catatan AWOS untuk laporan ini",
+    "runway": "RWY {rwy}",
+    "runwayTitle": "Landasan yang digunakan saat laporan diterbitkan",
+    "earlier": "Sebelumnya",
+    "none": "Belum ada laporan.",
+    "stale": "Yang terbaru sudah {age}: seharusnya ada setiap 30 menit.",
+    "day": "Hari (UTC)",
+    "prev": "Hari sebelumnya",
+    "next": "Hari berikutnya",
+    "kind": "Laporan",
+    "specialsOnly": "Hanya SPECI / SPECIAL",
+    "amendmentsOnly": "Hanya amandemen",
+    "count": "{n} laporan | {n} laporan",
+    "noneDay": "Tidak ada laporan jenis ini pada hari ini.",
+    "period": "Periode (hari UTC)",
+    "text": "Teks",
+    "textHint": "mis. SPECI, TS, BKN0",
+    "tooLong": "Pilih paling lama {n} hari.",
+    "found": "{n} laporan ditemukan | {n} laporan ditemukan",
+    "noneFound": "Tidak ada laporan yang cocok.",
+    "more": "Tampilkan lagi ({n} tersisa)"
   }
 }

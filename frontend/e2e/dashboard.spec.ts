@@ -14,14 +14,14 @@ test.describe('Dashboard and system menu', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText(t('board.title'))
   })
 
-  test('the system menu lists the board, the sites and what comes later', async ({ page, t, isMobile }) => {
+  test('the system menu lists the board, the sites and the reports', async ({ page, t, isMobile }) => {
     await page.goto(BOARD)
     if (isMobile) await page.getByRole('button', { name: t('nav.menu'), exact: true }).click()
     else await page.getByTestId('system-menu').getByRole('button').click()
     const menu = isMobile ? page.locator('#mobile-nav') : page.getByRole('menu')
     await expect(menu.locator(`a[href="${BOARD}"]`)).toHaveText(t('nav.system'))
     await expect(menu.locator(`a[href^="${BOARD}/sites/"]`)).toHaveCount(3)
-    await expect(menu.getByText(t('nav.metar'))).toBeVisible()
+    await expect(menu.locator(`a[href="${BOARD}/reports"]`)).toHaveText(t('nav.reports'))
     await menu.locator(`a[href="${site('22')}"]`).click()
     await expect(page).toHaveURL(new RegExp(`${site('22')}(\\?.*)?$`))
   })

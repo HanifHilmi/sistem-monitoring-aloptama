@@ -3,6 +3,7 @@ import type { MatrixBucket } from '@/api/types'
 import { accountsRoute, currentUser, signedIn } from './accounts'
 import { adminRoute, assets, calibrationProblems, recalculating, trace } from './admin'
 import * as alarms from './alarms'
+import * as reports from './reports'
 import * as data from './data'
 import { dqRoute, isAdmin, pendingSuspects, publicDetections } from './dq'
 import { flagsRoute, publicFlags } from './flags'
@@ -56,6 +57,11 @@ function route(url: URL, method: string, body: unknown): Response {
   if (p.endsWith('/flags')) return publicFlags(url)
   if (p.endsWith('/detections')) return publicDetections(url)
   if (p.endsWith('/assets')) return json(assets(signedIn(), now))
+  // METAR, MET REPORT and TAF are public (FR-RPT).
+  if (p.endsWith('/reports/latest')) return json(reports.latest(now))
+  if (p.endsWith('/reports/search')) return json(reports.search(now, q))
+  if (p.endsWith('/reports'))
+    return json(reports.day(now, q.get('day') ?? '', (q.get('type') ?? 'metar') as never))
   // The alarm viewer is for signed-in users; the public sees only the count in the Problems panel (OPEN-13).
   if (/\/alarms(\/active)?$/.test(p)) {
     if (!signedIn()) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)

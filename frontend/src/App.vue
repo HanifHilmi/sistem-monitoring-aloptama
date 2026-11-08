@@ -65,10 +65,11 @@ const menus = computed(() =>
     items: [
       { to: boardPath(s.code), label: t('nav.system'), exact: true },
       ...s.sites.map((x) => ({ to: sitePath(s.code, x.slug), label: x.name[lc.value] })),
+      { to: `/systems/${s.code}/reports`, label: t('nav.reports') },
       // The alarm viewer is for signed-in users (OPEN-13).
       ...(auth.canView ? [{ to: `/systems/${s.code}/alarms`, label: t('nav.alarms') }] : []),
     ] as MenuItem[],
-    later: [t('nav.metar')],
+    later: [] as string[],
   })),
 )
 // Systems SIMOLA will monitor later: greyed out in the menu, with a "coming soon" note.

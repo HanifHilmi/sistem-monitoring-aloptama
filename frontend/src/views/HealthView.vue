@@ -9,6 +9,16 @@ import { int, num } from '@/utils/format'
 import { formatUtc } from '@/utils/time'
 
 // Viewer-level diagnostics (FR-ADM-004). Protected by Cloudflare Access until accounts exist (R2).
+/** A file reader of one CDP: alarms (R3.1) or reports (R3.2). */
+interface FileSource {
+  cdp: string | null
+  available: boolean
+  lag_min: number | null
+  last_record_time: string | null
+  parse_warnings: number
+  path: string | null
+  last_error: string | null
+}
 interface Health {
   version: string
   environment: string
@@ -36,16 +46,9 @@ interface Health {
       path: string | null
       last_error: string | null
     }[]
-    /** the alarm file readers (R3.1); absent on an older API */
-    alarm_files?: {
-      cdp: string | null
-      available: boolean
-      lag_min: number | null
-      last_record_time: string | null
-      parse_warnings: number
-      path: string | null
-      last_error: string | null
-    }[]
+    /** the alarm (R3.1) and report (R3.2) file readers; absent on an older API */
+    alarm_files?: FileSource[]
+    report_files?: FileSource[]
     cdps: {
       code: string
       data_flow: string
@@ -127,21 +130,32 @@ const mb = (b: number | null | undefined) => (b == null ? '—' : `${num(b / 1_0
             </tr>
           </tbody>
         </table>
-        <template v-if="s.alarm_files?.length">
-          <h3 class="eyebrow border-t border-line px-3 py-2">{{ t('health.alarmFiles') }}</h3>
-          <table class="w-full min-w-[640px] text-xs" data-testid="health-alarm-files">
+        <template
+          v-for="f in [
+            { key: 'alarm', rows: s.alarm_files ?? [], title: 'health.alarmFiles', last: 'health.lastAlarm' },
+            {
+              key: 'report',
+              rows: s.report_files ?? [],
+              title: 'health.reportFiles',
+              last: 'health.lastReport',
+            },
+          ].filter((x) => x.rows.length)"
+          :key="f.key"
+        >
+          <h3 class="eyebrow border-t border-line px-3 py-2">{{ t(f.title) }}</h3>
+          <table class="w-full min-w-[640px] text-xs" :data-testid="`health-${f.key}-files`">
             <thead class="text-left text-[0.625rem] text-ink-3">
               <tr>
                 <th class="px-3 py-1 font-normal">{{ t('health.source') }}</th>
                 <th class="font-normal">{{ t('health.available') }}</th>
                 <th class="font-normal">{{ t('health.lag') }}</th>
-                <th class="font-normal">{{ t('health.lastAlarm') }}</th>
+                <th class="font-normal">{{ t(f.last) }}</th>
                 <th class="font-normal">{{ t('health.parseWarnings') }}</th>
                 <th class="font-normal">{{ t('health.path') }}</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="i in s.alarm_files" :key="i.cdp ?? ''" class="border-t border-line">
+              <tr v-for="i in f.rows" :key="i.cdp ?? ''" class="border-t border-line">
                 <td class="num px-3 py-1.5">{{ i.cdp }}</td>
                 <td :class="i.available ? 'text-ok' : 'text-bad'">
                   {{ i.available ? t('health.yes') : t('health.no') }}
@@ -151,7 +165,7 @@ const mb = (b: number | null | undefined) => (b == null ? '—' : `${num(b / 1_0
                 <td class="num">{{ int(i.parse_warnings, lc) }}</td>
                 <td class="num text-ink-3">{{ i.path ?? '—' }}</td>
               </tr>
-              <tr v-for="i in s.alarm_files.filter((x) => x.last_error)" :key="`ae-${i.cdp}`">
+              <tr v-for="i in f.rows.filter((x) => x.last_error)" :key="`e-${i.cdp}`">
                 <td colspan="6" class="px-3 pb-1.5 text-bad">{{ i.cdp }}: {{ i.last_error }}</td>
               </tr>
             </tbody>

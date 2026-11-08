@@ -470,7 +470,7 @@ export interface JobDetail extends JobRow {
   log: string
 }
 
-export const JOB_SOURCES = ['minutes', 'alarms'] as const
+export const JOB_SOURCES = ['minutes', 'alarms', 'reports'] as const
 export type JobSource = (typeof JOB_SOURCES)[number]
 
 export interface NewJob {
@@ -962,4 +962,48 @@ export interface AlarmName {
   last_seen: string
   updated_by: string | null
   updated_at: string | null
+}
+
+// ---------------------------------------------------------------- AWOS reports (R3.2, FR-ING-009, FR-RPT)
+
+export const REPORT_TYPES = ['metar', 'metreport', 'taf'] as const
+/** metar: METAR and SPECI; metreport: MET REPORT and SPECIAL; taf: TAF and its amendments */
+export type ReportType = (typeof REPORT_TYPES)[number]
+
+/** One report as the AWOS issued it (never decoded, FR-RPT-004). */
+export interface ReportEntry {
+  id: number
+  type: ReportType
+  /** the report's first word(s): METAR, SPECI, MET REPORT, SPECIAL, TAF, TAF AMD, TAF COR */
+  kind: string
+  /** when the AWOS logged it (UTC) */
+  logged_at: string
+  /** the report as issued, up to its "="; a TAF spans several lines */
+  text: string
+  /** the AWOS's own notes after the report, e.g. why a SPECI was issued */
+  notes: string[]
+  /** runway in use, from the AWOS's note "(04)" */
+  runway: string | null
+  /** TAF: the bulletin heading it was sent under, e.g. "FTID32 WIDN 071100" */
+  bulletin: string | null
+  /** the CDPs whose log has it (CDP2 logs only some reports) */
+  cdps: string[]
+}
+
+/** The newest reports of each type, newest first. */
+export type LatestReports = Record<ReportType, ReportEntry[]>
+
+export interface ReportDay {
+  day: string
+  type: ReportType
+  /** reports of each type that day */
+  counts: Record<ReportType, number>
+  /** in the order they were logged */
+  reports: ReportEntry[]
+}
+
+export interface ReportSearch {
+  total: number
+  /** newest first */
+  reports: ReportEntry[]
 }

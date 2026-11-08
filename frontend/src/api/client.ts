@@ -1,5 +1,9 @@
 import type {
   ActiveAlarms,
+  LatestReports,
+  ReportDay,
+  ReportSearch,
+  ReportType,
   AlarmFilter,
   AlarmName,
   AlarmPage,
@@ -186,6 +190,13 @@ export const api = {
       `/admin/alarm-names/${encodeURIComponent(name)}?system=${encodeURIComponent(system)}`,
       place,
     ),
+
+  // AWOS reports (R3.2, public)
+  latestReports: (code: string) => get<LatestReports>(`/systems/${encodeURIComponent(code)}/reports/latest`),
+  reportDay: (code: string, day: string, type: ReportType) =>
+    get<ReportDay>(`/systems/${encodeURIComponent(code)}/reports`, { day, type }),
+  searchReports: (code: string, q: { type: ReportType; from: string; to: string; q: string }, offset = 0) =>
+    get<ReportSearch>(`/systems/${encodeURIComponent(code)}/reports/search`, { ...q, offset, limit: 50 }),
 
   // Accounts (R2.1)
   /** null for a visitor */

@@ -28,6 +28,12 @@ export const router = createRouter({
     },
     // Wall screen / TV: current month, no controls, larger type, refreshes itself.
     {
+      path: '/systems/:code/reports',
+      name: 'reports',
+      component: () => import('@/views/ReportsView.vue'),
+      props: true,
+    },
+    {
       path: '/systems/:code/alarms',
       name: 'alarms',
       component: () => import('@/views/AlarmsView.vue'),
@@ -103,7 +109,7 @@ export const router = createRouter({
     { path: '/cat3/system', redirect: boardPath(DEFAULT_SYSTEM) },
     { path: '/cat3/runway/:slug', redirect: (to) => site(to.params.slug) },
     { path: '/runway/:slug', redirect: (to) => site(to.params.slug) },
-    { path: '/cat3/metar', redirect: boardPath(DEFAULT_SYSTEM) },
+    { path: '/cat3/metar', redirect: `${boardPath(DEFAULT_SYSTEM)}/reports` },
     { path: '/dashboard', redirect: '/' },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

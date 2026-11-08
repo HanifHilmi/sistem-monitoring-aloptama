@@ -16,7 +16,6 @@
     "switchTo": "Bahasa Indonesia",
     "dashboard": "Dashboard",
     "system": "System",
-    "metar": "METAR and METREPORT",
     "later": "later",
     "alarms": "Alarms",
     "comingSoon": "Coming soon",
@@ -25,7 +24,8 @@
       "cat1": "AWOS CAT.I",
       "awsDigi": "AWS Digi",
       "awsArg": "AWS / ARG"
-    }
+    },
+    "reports": "METAR, MET REPORT and TAF"
   },
   "common": {
     "close": "Close",
@@ -263,6 +263,8 @@
     "ingestion": "Ingestion",
     "alarmFiles": "Alarm files",
     "lastAlarm": "Last alarm row",
+    "reportFiles": "Report files",
+    "lastReport": "Last report",
     "source": "Source",
     "available": "Available",
     "lag": "Lag",
@@ -683,9 +685,10 @@
     "sources": "Files to read again",
     "source": {
       "minutes": "1-minute data",
-      "alarms": "Alarms"
+      "alarms": "Alarms",
+      "reports": "Reports (METAR, MET REPORT, TAF)"
     },
-    "sourcesHint": "Reading only the alarms is quick and leaves the figures as they are."
+    "sourcesHint": "Reading only alarms or reports is quick and leaves the figures as they are."
   },
   "settings": {
     "subtitle": "How SIMOLA shows and judges data. Each section is saved on its own and recorded in the audit log; stored minutes never change.",
@@ -1243,5 +1246,44 @@
       "saved": "Saved",
       "note": "Every change is in the audit log."
     }
+  },
+  "reports": {
+    "title": "METAR, MET REPORT and TAF",
+    "subtitle": "The reports the AWOS issued, exactly as sent, read from both CDPs' logs. Times are UTC.",
+    "tab": {
+      "latest": "Latest",
+      "archive": "Daily archive",
+      "search": "Search"
+    },
+    "type": {
+      "metar": "METAR / SPECI",
+      "metreport": "MET REPORT / SPECIAL",
+      "taf": "TAF"
+    },
+    "logged": "logged {time}",
+    "ago": "{age} ago",
+    "copy": "Copy",
+    "copied": "Copied",
+    "note": "The AWOS's note on this report",
+    "runway": "RWY {rwy}",
+    "runwayTitle": "Runway in use when the report was issued",
+    "earlier": "Earlier",
+    "none": "No report yet.",
+    "stale": "The newest is {age} old: one is expected every 30 minutes.",
+    "day": "Day (UTC)",
+    "prev": "Previous day",
+    "next": "Next day",
+    "kind": "Report",
+    "specialsOnly": "Only SPECI / SPECIAL",
+    "amendmentsOnly": "Only amendments",
+    "count": "{n} report | {n} reports",
+    "noneDay": "No report of this kind on this day.",
+    "period": "Period (UTC days)",
+    "text": "Text",
+    "textHint": "e.g. SPECI, TS, BKN0",
+    "tooLong": "Choose at most {n} days.",
+    "found": "{n} report found | {n} reports found",
+    "noneFound": "No report matches.",
+    "more": "Show more ({n} left)"
   }
 }
