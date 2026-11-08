@@ -1,6 +1,7 @@
 {
   "app": {
-    "footer": "SIMOLA · Sistem Monitoring ALOPTAMA · all times UTC"
+    "footer": "SIMOLA · Sistem Monitoring ALOPTAMA · all times UTC",
+    "definitions": "How the figures are calculated"
   },
   "nav": {
     "board": "Performance",
@@ -25,7 +26,9 @@
       "awsDigi": "AWS Digi",
       "awsArg": "AWS / ARG"
     },
-    "reports": "METAR, MET REPORT and TAF"
+    "reports": "METAR, MET REPORT and TAF",
+    "quality": "Data quality",
+    "definitions": "Definitions"
   },
   "common": {
     "close": "Close",
@@ -1285,5 +1288,120 @@
     "found": "{n} report found | {n} reports found",
     "noneFound": "No report matches.",
     "more": "Show more ({n} left)"
+  },
+  "quality": {
+    "title": "Data quality",
+    "subtitle": "What manual flags and confirmed detections cost each sensor in the period. These minutes are already left out of every figure.",
+    "tooLong": "Choose a period of at most 93 days (a month or a quarter).",
+    "asOf": "Period still running: counted up to {time}.",
+    "flagged": "Flagged by an Admin",
+    "detected": "Removed by confirmed detections",
+    "flaggedShort": "Flags",
+    "detectedShort": "Detections",
+    "flags": "{n} flag | {n} flags",
+    "detections": "{n} detection | {n} detections",
+    "hours": "about {h} h",
+    "suspects": "Suspects waiting for review",
+    "suspectsNote": "They change no figure until confirmed.",
+    "review": "Review queue",
+    "none": "No flag or confirmed detection cost a minute in this period: every lost minute had another cause (no data, or a mandatory field missing).",
+    "bySensor": "By sensor",
+    "byFlagReason": "Flags by reason",
+    "byRule": "Detections by rule",
+    "noneOfKind": "None in this period.",
+    "rule": "{type} rule",
+    "share": "{pct} % of its minutes",
+    "note": "Minutes that a flag or detection covers but that were already lost for another reason are counted under that reason, as in the outage list.",
+    "definitionsLink": "How the figures are calculated (definitions {v})"
+  },
+  "definitions": {
+    "title": "How the figures are calculated",
+    "subtitle": "The definitions behind every availability figure in SIMOLA: the same for the dashboards, the site pages, the exports and the monthly report.",
+    "version": "Definitions version {v} · in force from {date} · written down in {source}",
+    "versionNote": "The monthly report and the exports carry this version. A change to a formula gets a new version; a change to the mandatory fields does not (it is a setting, recorded in the audit log).",
+    "counting": {
+      "title": "How minutes are counted",
+      "items": [
+        "Everything is counted in whole minutes, in UTC. A minute stands for its 60 seconds: 10:42 means 10:42:00 to 10:42:59.",
+        "A period runs from its start up to, but not including, its end. A 30-day month has exactly 43,200 minutes.",
+        "For a period still running, counting stops {grace} minutes before now, because the newest minutes may still be arriving.",
+        "These are the expected minutes. Minutes before the data coverage start ({coverage}) are not expected, and neither are a sensor's minutes outside its in-service period.",
+        "Each minute has one merged record: CDP1's, or CDP2's when CDP1 has none or every field of CDP1's is missing.",
+        "When no minute is expected, a figure shows “—”, never 0 % or 100 %."
+      ]
+    },
+    "kpi": {
+      "title": "The figures",
+      "sla": {
+        "name": "SLA (system availability)",
+        "what": "The share of minutes in which at least one CDP produced data. A minute is lost only when both CDPs produced none.",
+        "formula": "minutes with data from any CDP ÷ expected minutes × 100",
+        "note": "Network probes never change SLA."
+      },
+      "uptime": {
+        "name": "CDP uptime",
+        "what": "The share of minutes in which one CDP's 1-minute file has a record for that minute. A record whose fields are all missing still counts.",
+        "formula": "minutes with a record in this CDP's file ÷ expected minutes × 100"
+      },
+      "reach": {
+        "name": "Network reachability",
+        "what": "The share of probed minutes in which the CDP answered a network probe. For information only: it is not part of SLA or OLA.",
+        "formula": "minutes with an answer ÷ minutes with a probe × 100",
+        "note": "Always shown with its probe coverage: the share of minutes that had a probe at all."
+      },
+      "component": {
+        "name": "Sensor availability",
+        "what": "The share of minutes in which the merged record has a value in every mandatory field of the sensor, and no manual flag or confirmed detection covers the minute.",
+        "formula": "valid minutes ÷ expected minutes × 100"
+      },
+      "dcp": {
+        "name": "DCP availability",
+        "what": "A DCP minute is valid when the merged record exists and at least one field of another sensor at the site has a value.",
+        "formula": "valid minutes ÷ expected minutes × 100",
+        "note": "Flags and detections never change the DCP."
+      },
+      "site": {
+        "name": "Site availability",
+        "what": "The share of all the site's sensor-minutes, DCP included, that were valid.",
+        "formula": "valid sensor-minutes ÷ (sensors × expected minutes) × 100"
+      },
+      "ola": {
+        "name": "OLA",
+        "what": "The average of the sites' availabilities: Runway 04, Runway Middle and Runway 22 weigh the same.",
+        "formula": "sum of the site availabilities ÷ number of sites"
+      },
+      "pooled": {
+        "name": "All components",
+        "what": "All sensor-minutes of every site together, so a site with more sensors weighs more than in OLA.",
+        "formula": "valid sensor-minutes of all sites ÷ (all sensors × expected minutes) × 100"
+      }
+    },
+    "mandatory": {
+      "title": "Mandatory fields now",
+      "intro": "A sensor counts as available in a minute only when every one of its mandatory fields has a value. These are the mandatory fields today. An Admin can change them; the figures are then worked out again and the change is recorded in the audit log.",
+      "sensor": "Sensor",
+      "required": "Mandatory",
+      "other": "Other fields it reports",
+      "dcp": "The merged record and any field of another sensor at the site"
+    },
+    "changes": {
+      "title": "What else changes a figure",
+      "items": [
+        "Manual flags: an Admin marks a sensor's minutes as not valid, with a reason (sensor fault, maintenance, calibration, environmental, other). A flag costs only minutes that would otherwise be valid.",
+        "Confirmed detections: a validity rule (out of range, stuck value or spike) found a stretch of doubtful values in a mandatory field, and an Admin confirmed it. Suspects waiting for review change nothing.",
+        "In-service periods: minutes when a sensor was not yet installed, or removed, are not expected.",
+        "Reading the CDP files again (a reprocess) brings in data that arrived late or was corrected.",
+        "Every such change is recorded in the audit log, and the figures follow within minutes."
+      ],
+      "link": "Data quality: what flags and detections cost each sensor"
+    },
+    "rounding": {
+      "title": "Rounding and colours",
+      "items": [
+        "Figures are worked out from whole minute counts and shown with two decimals, rounded half up. They are never capped: more than 100 % cannot happen.",
+        "The valid and expected minutes are shown with every figure.",
+        "Colours: {good} % or more is good, {warning} % or more is a warning, and below that is bad. The darkest colour means no minute was lost, so a figure that rounds to 100.00 % but lost a minute is shown one step lighter."
+      ]
+    }
   }
 }

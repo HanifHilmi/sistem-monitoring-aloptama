@@ -325,6 +325,13 @@ export function publicDetections(url: URL): Response {
   )
 }
 
+/** Suspects waiting for review that overlap [from, to) (the data-quality summary's period). */
+export function pendingSuspectsIn(from: number, to: number): number {
+  return dqState().detections.filter(
+    (d) => d.status === 'suspect' && Date.parse(d.start) < to && Date.parse(d.end) > from,
+  ).length
+}
+
 /** Pending suspects, for the Problems panel (signed-in users only). */
 export function pendingSuspects(): number {
   return dqState().detections.filter((d) => d.status === 'suspect').length

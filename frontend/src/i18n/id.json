@@ -1,6 +1,7 @@
 {
   "app": {
-    "footer": "SIMOLA · Sistem Monitoring ALOPTAMA · semua waktu dalam UTC"
+    "footer": "SIMOLA · Sistem Monitoring ALOPTAMA · semua waktu dalam UTC",
+    "definitions": "Cara angka dihitung"
   },
   "nav": {
     "board": "Kinerja",
@@ -25,7 +26,9 @@
       "awsDigi": "AWS Digi",
       "awsArg": "AWS / ARG"
     },
-    "reports": "METAR, MET REPORT dan TAF"
+    "reports": "METAR, MET REPORT dan TAF",
+    "quality": "Kualitas data",
+    "definitions": "Definisi"
   },
   "common": {
     "close": "Tutup",
@@ -1285,5 +1288,120 @@
     "found": "{n} laporan ditemukan | {n} laporan ditemukan",
     "noneFound": "Tidak ada laporan yang cocok.",
     "more": "Tampilkan lagi ({n} tersisa)"
+  },
+  "quality": {
+    "title": "Kualitas data",
+    "subtitle": "Berapa menit setiap sensor hilang karena penandaan manual dan deteksi yang dikonfirmasi pada periode ini. Menit-menit ini sudah tidak dihitung dalam setiap angka.",
+    "tooLong": "Pilih periode paling lama 93 hari (satu bulan atau satu triwulan).",
+    "asOf": "Periode masih berjalan: dihitung sampai {time}.",
+    "flagged": "Ditandai oleh Admin",
+    "detected": "Dihapus oleh deteksi yang dikonfirmasi",
+    "flaggedShort": "Penandaan",
+    "detectedShort": "Deteksi",
+    "flags": "{n} penandaan | {n} penandaan",
+    "detections": "{n} deteksi | {n} deteksi",
+    "hours": "sekitar {h} jam",
+    "suspects": "Dugaan yang menunggu tinjauan",
+    "suspectsNote": "Tidak mengubah angka sebelum dikonfirmasi.",
+    "review": "Antrean tinjauan",
+    "none": "Tidak ada penandaan atau deteksi yang dikonfirmasi yang menghilangkan menit pada periode ini: setiap menit yang hilang punya penyebab lain (tidak ada data, atau field wajib kosong).",
+    "bySensor": "Per sensor",
+    "byFlagReason": "Penandaan per alasan",
+    "byRule": "Deteksi per aturan",
+    "noneOfKind": "Tidak ada pada periode ini.",
+    "rule": "aturan {type}",
+    "share": "{pct} % dari menitnya",
+    "note": "Menit yang tercakup penandaan atau deteksi tetapi sudah hilang karena sebab lain dihitung pada sebab itu, sama seperti di daftar gangguan.",
+    "definitionsLink": "Cara angka dihitung (definisi {v})"
+  },
+  "definitions": {
+    "title": "Cara angka dihitung",
+    "subtitle": "Definisi di balik setiap angka ketersediaan di SIMOLA: sama untuk dasbor, halaman lokasi, ekspor, dan laporan bulanan.",
+    "version": "Definisi versi {v} · berlaku sejak {date} · tertulis di {source}",
+    "versionNote": "Laporan bulanan dan ekspor mencantumkan versi ini. Perubahan rumus mendapat versi baru; perubahan field wajib tidak (itu pengaturan, tercatat di log audit).",
+    "counting": {
+      "title": "Cara menit dihitung",
+      "items": [
+        "Semua dihitung dalam menit utuh, dalam UTC. Satu menit mewakili 60 detiknya: 10:42 berarti 10:42:00 sampai 10:42:59.",
+        "Sebuah periode berjalan dari awalnya sampai, tetapi tidak termasuk, akhirnya. Bulan 30 hari tepat 43.200 menit.",
+        "Untuk periode yang masih berjalan, penghitungan berhenti {grace} menit sebelum sekarang, karena menit terbaru mungkin masih sedang masuk.",
+        "Inilah menit yang diharapkan. Menit sebelum awal cakupan data ({coverage}) tidak diharapkan, begitu pula menit sensor di luar masa operasinya.",
+        "Setiap menit punya satu rekaman gabungan: milik CDP1, atau milik CDP2 bila CDP1 tidak punya atau semua field CDP1 kosong.",
+        "Bila tidak ada menit yang diharapkan, angka ditampilkan “—”, tidak pernah 0 % atau 100 %."
+      ]
+    },
+    "kpi": {
+      "title": "Angka-angka",
+      "sla": {
+        "name": "SLA (ketersediaan sistem)",
+        "what": "Porsi menit ketika paling sedikit satu CDP menghasilkan data. Satu menit hilang hanya bila kedua CDP tidak menghasilkan data.",
+        "formula": "menit dengan data dari CDP mana pun ÷ menit yang diharapkan × 100",
+        "note": "Uji jaringan (probe) tidak pernah mengubah SLA."
+      },
+      "uptime": {
+        "name": "Uptime CDP",
+        "what": "Porsi menit ketika berkas 1 menit sebuah CDP berisi rekaman untuk menit itu. Rekaman yang semua field-nya kosong tetap dihitung.",
+        "formula": "menit dengan rekaman di berkas CDP ini ÷ menit yang diharapkan × 100"
+      },
+      "reach": {
+        "name": "Keterjangkauan jaringan",
+        "what": "Porsi menit yang diuji ketika CDP menjawab uji jaringan. Hanya informasi: tidak termasuk SLA maupun OLA.",
+        "formula": "menit dengan jawaban ÷ menit dengan uji × 100",
+        "note": "Selalu ditampilkan bersama cakupan ujinya: porsi menit yang diuji sama sekali."
+      },
+      "component": {
+        "name": "Ketersediaan sensor",
+        "what": "Porsi menit ketika rekaman gabungan berisi nilai di setiap field wajib sensor, dan tidak ada penandaan manual atau deteksi yang dikonfirmasi pada menit itu.",
+        "formula": "menit valid ÷ menit yang diharapkan × 100"
+      },
+      "dcp": {
+        "name": "Ketersediaan DCP",
+        "what": "Satu menit DCP valid bila rekaman gabungan ada dan paling sedikit satu field sensor lain di lokasi itu berisi nilai.",
+        "formula": "menit valid ÷ menit yang diharapkan × 100",
+        "note": "Penandaan dan deteksi tidak pernah mengubah DCP."
+      },
+      "site": {
+        "name": "Ketersediaan lokasi",
+        "what": "Porsi semua menit-sensor di lokasi itu, termasuk DCP, yang valid.",
+        "formula": "menit-sensor valid ÷ (jumlah sensor × menit yang diharapkan) × 100"
+      },
+      "ola": {
+        "name": "OLA",
+        "what": "Rata-rata ketersediaan lokasi: Landasan 04, Landasan Tengah, dan Landasan 22 berbobot sama.",
+        "formula": "jumlah ketersediaan lokasi ÷ jumlah lokasi"
+      },
+      "pooled": {
+        "name": "Semua komponen",
+        "what": "Semua menit-sensor dari setiap lokasi digabung, sehingga lokasi dengan lebih banyak sensor berbobot lebih besar daripada di OLA.",
+        "formula": "menit-sensor valid semua lokasi ÷ (semua sensor × menit yang diharapkan) × 100"
+      }
+    },
+    "mandatory": {
+      "title": "Field wajib saat ini",
+      "intro": "Sebuah sensor dihitung tersedia pada suatu menit hanya bila setiap field wajibnya berisi nilai. Inilah field wajib hari ini. Admin dapat mengubahnya; angka kemudian dihitung ulang dan perubahannya tercatat di log audit.",
+      "sensor": "Sensor",
+      "required": "Wajib",
+      "other": "Field lain yang dilaporkan",
+      "dcp": "Rekaman gabungan dan field mana pun dari sensor lain di lokasi itu"
+    },
+    "changes": {
+      "title": "Hal lain yang mengubah angka",
+      "items": [
+        "Penandaan manual: Admin menandai menit sebuah sensor sebagai tidak valid, dengan alasan (kerusakan sensor, pemeliharaan, kalibrasi, lingkungan, lainnya). Penandaan hanya menghilangkan menit yang sebenarnya valid.",
+        "Deteksi yang dikonfirmasi: aturan validitas (di luar rentang, nilai macet, atau lonjakan) menemukan rentang nilai yang meragukan pada field wajib, dan Admin mengonfirmasinya. Dugaan yang menunggu tinjauan tidak mengubah apa pun.",
+        "Masa operasi: menit ketika sensor belum dipasang, atau sudah dilepas, tidak diharapkan.",
+        "Membaca ulang berkas CDP (proses ulang) memasukkan data yang terlambat atau diperbaiki.",
+        "Setiap perubahan seperti itu tercatat di log audit, dan angka menyesuaikan dalam beberapa menit."
+      ],
+      "link": "Kualitas data: berapa menit setiap sensor hilang karena penandaan dan deteksi"
+    },
+    "rounding": {
+      "title": "Pembulatan dan warna",
+      "items": [
+        "Angka dihitung dari jumlah menit utuh dan ditampilkan dengan dua desimal, dibulatkan setengah ke atas. Angka tidak pernah dipotong: lebih dari 100 % tidak mungkin terjadi.",
+        "Menit valid dan menit yang diharapkan ditampilkan bersama setiap angka.",
+        "Warna: {good} % atau lebih berarti baik, {warning} % atau lebih berarti peringatan, di bawahnya buruk. Warna tergelap berarti tidak ada menit yang hilang, sehingga angka yang dibulatkan menjadi 100,00 % tetapi kehilangan satu menit ditampilkan satu tingkat lebih terang."
+      ]
+    }
   }
 }

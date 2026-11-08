@@ -66,6 +66,8 @@ const menus = computed(() =>
       { to: boardPath(s.code), label: t('nav.system'), exact: true },
       ...s.sites.map((x) => ({ to: sitePath(s.code, x.slug), label: x.name[lc.value] })),
       { to: `/systems/${s.code}/reports`, label: t('nav.reports') },
+      { to: `/systems/${s.code}/data-quality`, label: t('nav.quality') },
+      { to: `/systems/${s.code}/definitions`, label: t('nav.definitions') },
       // The alarm viewer is for signed-in users (OPEN-13).
       ...(auth.canView ? [{ to: `/systems/${s.code}/alarms`, label: t('nav.alarms') }] : []),
     ] as MenuItem[],
@@ -221,7 +223,10 @@ const upcoming = computed(() => [
       <RouterView />
     </main>
     <footer v-if="!wall" class="border-t border-line px-5 py-2.5 text-center text-[0.6875rem] text-ink-3">
-      {{ t('app.footer') }}
+      {{ t('app.footer') }} ·
+      <RouterLink to="/definitions" class="hover:text-accent hover:underline">{{
+        t('app.definitions')
+      }}</RouterLink>
     </footer>
     <ProblemsDrawer :open="problemsOpen" @close="problemsOpen = false" />
   </div>

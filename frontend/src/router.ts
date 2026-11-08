@@ -28,6 +28,19 @@ export const router = createRouter({
     },
     // Wall screen / TV: current month, no controls, larger type, refreshes itself.
     {
+      path: '/systems/:code/data-quality',
+      name: 'quality',
+      component: () => import('@/views/DataQualityView.vue'),
+      props: true,
+    },
+    {
+      path: '/systems/:code/definitions',
+      name: 'definitions',
+      component: () => import('@/views/DefinitionsView.vue'),
+      props: true,
+    },
+    { path: '/definitions', redirect: `${boardPath(DEFAULT_SYSTEM)}/definitions` },
+    {
       path: '/systems/:code/reports',
       name: 'reports',
       component: () => import('@/views/ReportsView.vue'),

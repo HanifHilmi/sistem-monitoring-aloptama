@@ -3,9 +3,10 @@ import type { MatrixBucket } from '@/api/types'
 import { accountsRoute, currentUser, signedIn } from './accounts'
 import { adminRoute, assets, calibrationProblems, recalculating, trace } from './admin'
 import * as alarms from './alarms'
+import * as quality from './quality'
 import * as reports from './reports'
 import * as data from './data'
-import { dqRoute, isAdmin, pendingSuspects, publicDetections } from './dq'
+import { dqRoute, isAdmin, pendingSuspects, pendingSuspectsIn, publicDetections } from './dq'
 import { flagsRoute, publicFlags } from './flags'
 
 function json(body: unknown, status = 200): Response {
@@ -57,6 +58,12 @@ function route(url: URL, method: string, body: unknown): Response {
   if (p.endsWith('/flags')) return publicFlags(url)
   if (p.endsWith('/detections')) return publicDetections(url)
   if (p.endsWith('/assets')) return json(assets(signedIn(), now))
+  // Data quality is public; the pending suspect count only for signed-in users (D7). Definitions are public.
+  if (p === '/definitions') return json(quality.DEFINITIONS)
+  if (p.endsWith('/data-quality')) {
+    const s = quality.summary(from, to, now, signedIn() ? pendingSuspectsIn(from, to) : null)
+    return typeof s === 'string' ? json({ code: s, title: s, status: 422 }, 422) : json(s)
+  }
   // METAR, MET REPORT and TAF are public (FR-RPT).
   if (p.endsWith('/reports/latest')) return json(reports.latest(now))
   if (p.endsWith('/reports/search')) return json(reports.search(now, q))

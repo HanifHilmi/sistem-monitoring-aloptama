@@ -1007,3 +1007,52 @@ export interface ReportSearch {
   /** newest first */
   reports: ReportEntry[]
 }
+
+// ---------------------------------------------------------------- data quality and definitions (R3.3)
+
+/** Minutes lost to one reason: a flag reason, or a detection rule type. */
+export interface DqReason {
+  kind: 'flag' | 'detection'
+  /** FlagReason for a flag, RuleType for a detection */
+  reason: string
+  minutes: number
+  /** flags or confirmed detections behind those minutes */
+  count: number
+}
+
+export interface DqComponent {
+  site: string
+  component: string
+  flagged_minutes: number
+  flags: number
+  detection_minutes: number
+  detections: number
+  /** the component's expected minutes in the period */
+  expected: number
+  reasons: DqReason[]
+}
+
+/** FR-DQ-008: what manual flags and confirmed detections cost a period, as the outage list counts it. */
+export interface DataQualitySummary {
+  system: string
+  period: OutagesResponse['period']
+  definitions_version: string
+  flagged_minutes: number
+  flags: number
+  detection_minutes: number
+  detections: number
+  /** suspect detections waiting for review: signed-in users only, null for the public (D7) */
+  pending_suspects: number | null
+  /** components with any flagged or detection minute, most first */
+  components: DqComponent[]
+  reasons: DqReason[]
+}
+
+/** FR-KPI-010: the version of the KPI definitions in force (exports and the monthly report carry it). */
+export interface Definitions {
+  version: string
+  /** the first day it applies to */
+  effective_from: string
+  /** where the definitions are written down */
+  source: string
+}

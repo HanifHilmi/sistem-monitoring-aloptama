@@ -1,5 +1,7 @@
 import type {
   ActiveAlarms,
+  DataQualitySummary,
+  Definitions,
   LatestReports,
   ReportDay,
   ReportSearch,
@@ -190,6 +192,11 @@ export const api = {
       `/admin/alarm-names/${encodeURIComponent(name)}?system=${encodeURIComponent(system)}`,
       place,
     ),
+
+  // Data quality and definitions (R3.3, public; the suspect count only for signed-in users)
+  dataQuality: (code: string, from: Date, to: Date) =>
+    get<DataQualitySummary>(`/systems/${encodeURIComponent(code)}/data-quality`, period(from, to)),
+  definitions: () => get<Definitions>('/definitions'),
 
   // AWOS reports (R3.2, public)
   latestReports: (code: string) => get<LatestReports>(`/systems/${encodeURIComponent(code)}/reports/latest`),
