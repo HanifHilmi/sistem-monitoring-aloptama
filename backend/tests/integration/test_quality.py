@@ -34,11 +34,11 @@ async def marked(engine: AsyncEngine) -> AsyncIterator[dict[str, int]]:
         system = await load_system(conn, "WIDN-CAT3")
     assert system is not None
     await Cat3Ingestor(engine, system, get_settings()).reprocess_day(date(2026, 11, 3), now=NOW)
-    await _add_user(engine, "dq-admin", "admin")
-    await _add_user(engine, "dq-viewer", "viewer")
+    await _add_user(engine, "qs-admin", "admin")
+    await _add_user(engine, "qs-viewer", "viewer")
     ids: dict[str, int] = {}
     async with Browser() as admin:
-        assert (await admin.login("dq-admin")).status_code == 200
+        assert (await admin.login("qs-admin")).status_code == 200
         comps = {
             f"{c['site']}:{c['type']}": c["id"] for c in (await admin.get("/api/v1/admin/components")).json()
         }
@@ -57,7 +57,7 @@ async def marked(engine: AsyncEngine) -> AsyncIterator[dict[str, int]]:
         ids["flag"] = r.json()["flag"]["id"] if "flag" in r.json() else r.json()["id"]
     yield ids
     async with Browser() as admin:
-        assert (await admin.login("dq-admin")).status_code == 200
+        assert (await admin.login("qs-admin")).status_code == 200
         await admin.send("DELETE", f"/api/v1/admin/flags/{ids['flag']}")
     async with engine.begin() as conn:
         await conn.execute(text("UPDATE job SET status = 'cancelled' WHERE status IN ('queued', 'running')"))
@@ -86,7 +86,7 @@ async def test_the_summary_equals_the_outage_list(marked: dict[str, int]) -> Non
 
 async def test_signed_in_users_see_the_suspects_and_long_periods_are_refused(marked: dict[str, int]) -> None:
     async with Browser() as viewer:
-        assert (await viewer.login("dq-viewer")).status_code == 200
+        assert (await viewer.login("qs-viewer")).status_code == 200
         s = (await viewer.get(f"{SYS}/data-quality?{Q}")).json()
         assert isinstance(s["pending_suspects"], int)
         long = await viewer.get(f"{SYS}/data-quality?from=2026-01-01T00:00:00Z&to=2026-11-01T00:00:00Z")
