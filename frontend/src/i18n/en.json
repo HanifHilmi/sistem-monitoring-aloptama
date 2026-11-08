@@ -18,7 +18,14 @@
     "system": "System",
     "metar": "METAR and METREPORT",
     "later": "later",
-    "alarms": "Alarms"
+    "alarms": "Alarms",
+    "comingSoon": "Coming soon",
+    "comingSoonNote": "{system} is not monitored in SIMOLA yet. It will be added in a later release.",
+    "upcoming": {
+      "cat1": "AWOS CAT.I",
+      "awsDigi": "AWS Digi",
+      "awsArg": "AWS / ARG"
+    }
   },
   "common": {
     "close": "Close",

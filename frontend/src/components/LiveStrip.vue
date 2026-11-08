@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useLiveStore } from '@/stores/live'
-import { formatUtc } from '@/utils/time'
 
-// Live state in one line (FR-DSH-003/010): secondary to the month, but always visible.
+// The Problems button (FR-DSH-010), always in the top bar. A system's live state sits at the top of its menu
+// (SystemStatus); the wall screen has no menus, so there ("compact") the CDPs and valid components show here too.
 defineProps<{ compact?: boolean }>()
 const emit = defineEmits<{ problems: [] }>()
 const live = useLiveStore()
@@ -25,12 +25,11 @@ const problemTone = computed(() =>
       ? 'border-bad/50 bg-bad/10 text-bad'
       : 'border-warn/50 bg-warn/10 text-warn',
 )
-const lastData = computed(() => live.status?.last_data_minute ?? null)
 </script>
 
 <template>
   <div class="flex min-w-0 items-center gap-3 text-xs text-ink-2">
-    <template v-if="live.status">
+    <template v-if="compact && live.status">
       <span
         v-for="c in live.status.cdps"
         :key="c.code"
@@ -45,9 +44,6 @@ const lastData = computed(() => live.status?.last_data_minute ?? null)
         <span class="num">{{ live.componentsValid }}/{{ live.componentsTotal }}</span>
         <span>{{ t('live.components') }}</span>
       </span>
-      <span v-if="!compact" class="hidden xl:inline">{{
-        t('live.lastData', { time: formatUtc(lastData) })
-      }}</span>
     </template>
     <span v-else-if="live.error" class="text-warn">{{ t('live.unavailable') }}</span>
     <button

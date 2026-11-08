@@ -92,7 +92,7 @@ test.describe('AWOS alarms', () => {
       await page.locator('[aria-controls="mobile-nav"]').click()
       await page.locator('#mobile-nav').getByRole('link', { name: MIDDLE }).click()
     } else {
-      await page.getByRole('button', { name: /AWOS (CAT|KAT)/ }).click()
+      await page.getByTestId('system-menu').getByRole('button').click()
       await page.getByRole('menu').getByRole('menuitem', { name: MIDDLE }).click()
     }
     await expect(page).toHaveURL(/\/sites\/middle$/)
@@ -107,7 +107,7 @@ test.describe('AWOS alarms', () => {
     await page.goto(`/login?next=${encodeURIComponent(`${BOARD}/sites/22`)}`)
     await signIn(page, t)
     await expect(page.getByTestId('site-alarms')).toBeVisible() // the page has loaded
-    await page.getByRole('button', { name: /AWOS (CAT|KAT)/ }).click()
+    await page.getByTestId('system-menu').getByRole('button').click()
     for (const item of await page.getByRole('menu').getByRole('menuitem').all()) {
       const box = (await item.boundingBox())!
       const onTop = await page.evaluate(

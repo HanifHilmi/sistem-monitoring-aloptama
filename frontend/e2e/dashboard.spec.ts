@@ -17,13 +17,48 @@ test.describe('Dashboard and system menu', () => {
   test('the system menu lists the board, the sites and what comes later', async ({ page, t, isMobile }) => {
     await page.goto(BOARD)
     if (isMobile) await page.getByRole('button', { name: t('nav.menu'), exact: true }).click()
-    else await page.getByRole('button', { name: /AWOS/ }).click()
+    else await page.getByTestId('system-menu').getByRole('button').click()
     const menu = isMobile ? page.locator('#mobile-nav') : page.getByRole('menu')
     await expect(menu.locator(`a[href="${BOARD}"]`)).toHaveText(t('nav.system'))
     await expect(menu.locator(`a[href^="${BOARD}/sites/"]`)).toHaveCount(3)
     await expect(menu.getByText(t('nav.metar'))).toBeVisible()
     await menu.locator(`a[href="${site('22')}"]`).click()
     await expect(page).toHaveURL(new RegExp(`${site('22')}(\\?.*)?$`))
+  })
+
+  test("the system's live state is in its menu; systems still to come are greyed out", async ({
+    page,
+    t,
+    isMobile,
+  }) => {
+    await page.goto(BOARD)
+    const bar = page.getByRole('banner')
+    await expect(bar.getByRole('button', { name: t('problems.open') })).toBeVisible()
+    if (isMobile) {
+      await page.getByRole('button', { name: t('nav.menu'), exact: true }).click()
+      const nav = page.locator('#mobile-nav')
+      await expect(nav.getByTestId('system-status')).toContainText('CDP1')
+      await expect(nav.getByTestId('system-soon')).toHaveCount(3)
+      await expect(nav.getByTestId('system-soon').first()).toContainText(t('nav.comingSoon'))
+      return
+    }
+    await expect(bar.getByText('CDP1')).toHaveCount(0) // not in the bar itself any more
+    await page.getByTestId('system-menu').getByRole('button').click()
+    const status = page.getByRole('menu').getByTestId('system-status')
+    await expect(status).toContainText('CDP1')
+    await expect(status).toContainText(t('live.components'))
+    await page.keyboard.press('Escape')
+
+    const soon = page.getByTestId('system-soon')
+    await expect(soon).toHaveCount(3)
+    await expect(soon.getByRole('button')).toHaveText([
+      new RegExp(t('nav.upcoming.cat1').replace('.', '\\.')),
+      /AWS Digi/,
+      /AWS \/ ARG/,
+    ])
+    await soon.first().getByRole('button').click()
+    await expect(page.getByRole('dialog')).toContainText(t('nav.comingSoon'))
+    await expectNoPageScroll(page)
   })
 
   test('old links still work', async ({ page }) => {

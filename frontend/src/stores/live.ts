@@ -35,6 +35,13 @@ export const useLiveStore = defineStore('live', () => {
     (status.value?.sites ?? []).reduce((n, s) => n + s.components.length, 0),
   )
   const worst = computed(() => problems.value[0]?.severity ?? null)
+  /** One colour for the system's menu button: a CDP not producing data, some components not valid, or all well. */
+  const tone = computed<'ok' | 'warn' | 'bad' | null>(() => {
+    if (error.value) return 'bad'
+    if (!status.value) return null
+    if (status.value.cdps.some((c) => c.data_flow === 'not_producing')) return 'bad'
+    return componentsValid.value < componentsTotal.value ? 'warn' : 'ok'
+  })
 
   function componentStatus(site: string, type: string): string {
     return (
@@ -53,6 +60,7 @@ export const useLiveStore = defineStore('live', () => {
     componentsValid,
     componentsTotal,
     worst,
+    tone,
     componentStatus,
   }
 })

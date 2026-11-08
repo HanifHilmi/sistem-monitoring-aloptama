@@ -18,7 +18,14 @@
     "system": "Sistem",
     "metar": "METAR dan METREPORT",
     "later": "menyusul",
-    "alarms": "Alarm"
+    "alarms": "Alarm",
+    "comingSoon": "Segera hadir",
+    "comingSoonNote": "{system} belum dipantau di SIMOLA. Sistem ini akan ditambahkan pada rilis berikutnya.",
+    "upcoming": {
+      "cat1": "AWOS KAT. I",
+      "awsDigi": "AWS Digi",
+      "awsArg": "AWS / ARG"
+    }
   },
   "common": {
     "close": "Tutup",

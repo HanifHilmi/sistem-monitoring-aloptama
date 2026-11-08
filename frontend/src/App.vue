@@ -6,6 +6,7 @@ import { api } from '@/api/client'
 import LiveStrip from '@/components/LiveStrip.vue'
 import ProblemsDrawer from '@/components/ProblemsDrawer.vue'
 import SystemMenu, { type MenuItem } from '@/components/SystemMenu.vue'
+import SystemStatus from '@/components/SystemStatus.vue'
 import UserMenu from '@/components/UserMenu.vue'
 import { usePolling } from '@/composables/usePolling'
 import { setLocale, type Locale } from '@/i18n'
@@ -70,6 +71,12 @@ const menus = computed(() =>
     later: [t('nav.metar')],
   })),
 )
+// Systems SIMOLA will monitor later: greyed out in the menu, with a "coming soon" note.
+const upcoming = computed(() => [
+  { code: 'soon-cat1', label: t('nav.upcoming.cat1') },
+  { code: 'soon-aws-digi', label: t('nav.upcoming.awsDigi') },
+  { code: 'soon-aws-arg', label: t('nav.upcoming.awsArg') },
+])
 </script>
 
 <template>
@@ -101,10 +108,21 @@ const menus = computed(() =>
           <SystemMenu
             v-for="m in menus"
             :key="m.code"
+            :code="m.code"
             :label="m.label"
             :active="route.params.code === m.code"
             :items="m.items"
             :later="m.later"
+          />
+          <SystemMenu
+            v-for="u in upcoming"
+            :key="u.code"
+            :code="u.code"
+            :label="u.label"
+            :active="false"
+            :items="[]"
+            :later="[]"
+            soon
           />
           <RouterLink
             v-if="auth.isAdmin"
@@ -160,6 +178,7 @@ const menus = computed(() =>
         }}</RouterLink>
         <div v-for="m in menus" :key="m.code" class="border-t border-line py-1">
           <p class="eyebrow pb-1 pt-2">{{ m.label }}</p>
+          <div v-if="live.systemCode === m.code" class="pb-1.5 pl-3"><SystemStatus /></div>
           <RouterLink
             v-for="i in m.items"
             :key="i.to"
@@ -170,6 +189,17 @@ const menus = computed(() =>
           >
           <p v-for="l in m.later" :key="l" class="py-2 pl-3 text-sm text-ink-3">
             {{ l }} <span class="text-[0.625rem]">· {{ t('nav.later') }}</span>
+          </p>
+        </div>
+        <div class="border-t border-line py-1">
+          <p
+            v-for="u in upcoming"
+            :key="u.code"
+            class="flex items-center justify-between py-2 text-sm text-ink-3"
+            data-testid="system-soon"
+          >
+            {{ u.label }}
+            <span class="rounded bg-sunken px-1.5 py-0.5 text-[0.625rem]">{{ t('nav.comingSoon') }}</span>
           </p>
         </div>
         <RouterLink

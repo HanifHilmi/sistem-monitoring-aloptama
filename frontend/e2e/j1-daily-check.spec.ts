@@ -81,7 +81,7 @@ test.describe('J1 daily check', () => {
     // Sites are in the system's menu in the top bar; on a phone, in the ☰ menu.
     const menu = page.getByRole('button', { name: t('nav.menu'), exact: true })
     if (await menu.isVisible()) await menu.click()
-    else await page.getByRole('button', { name: /AWOS/ }).click()
+    else await page.getByTestId('system-menu').getByRole('button').click()
     await page.locator(`a[href^="${BOARD}/sites/"]:visible`).first().click()
     await expect(page).toHaveURL(/\/sites\/[^/]+$/)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
