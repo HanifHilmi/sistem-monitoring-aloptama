@@ -5,6 +5,7 @@ import { BOARD, expect, expectNoPageScroll, signIn, test } from './fixtures'
 test.skip(!!process.env.SIMOLA_E2E_URL, 'sample data only: never re-maps alarms on a deployed site')
 
 const ALARMS = `${BOARD}/alarms`
+const MIDDLE = /Runway Middle|Landasan Tengah/
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 test.describe('AWOS alarms', () => {
@@ -69,5 +70,78 @@ test.describe('AWOS alarms', () => {
     await expect(
       page.getByTestId('alarm-name').filter({ hasText: 'AMHSGatewayTimeoutWarning' }),
     ).toContainText(t('alarms.mapping.byAdmin').split('{who}')[0]!.trim())
+  })
+
+  test('a site lists only its own alarms, also after moving to another site', async ({
+    page,
+    t,
+    isMobile,
+  }) => {
+    await page.goto(`/login?next=${encodeURIComponent(`${BOARD}/sites/22`)}`)
+    await signIn(page, t)
+    const chip = page.getByTestId('site-alarms')
+    await chip.click()
+    const list = page.getByTestId('site-alarm-list')
+    await expect(list).toContainText('Sensor 22')
+    await expect(list).not.toContainText('Lightning')
+    await page.keyboard.press('Escape')
+    await expect(list).toHaveCount(0)
+
+    // Move within the app (the page stays mounted): Runway Middle shows its own alarm, not Runway 22's.
+    if (isMobile) {
+      await page.locator('[aria-controls="mobile-nav"]').click()
+      await page.locator('#mobile-nav').getByRole('link', { name: MIDDLE }).click()
+    } else {
+      await page.getByRole('button', { name: /AWOS (CAT|KAT)/ }).click()
+      await page.getByRole('menu').getByRole('menuitem', { name: MIDDLE }).click()
+    }
+    await expect(page).toHaveURL(/\/sites\/middle$/)
+    await chip.click()
+    await expect(list).toContainText('Lightning')
+    await expect(list).not.toContainText('Sensor 22')
+    await expectNoPageScroll(page)
+  })
+
+  test('menus open above the cards', async ({ page, t, isMobile }) => {
+    test.skip(isMobile, 'phones use the full-width menu')
+    await page.goto(`/login?next=${encodeURIComponent(`${BOARD}/sites/22`)}`)
+    await signIn(page, t)
+    await expect(page.getByTestId('site-alarms')).toBeVisible() // the page has loaded
+    await page.getByRole('button', { name: /AWOS (CAT|KAT)/ }).click()
+    for (const item of await page.getByRole('menu').getByRole('menuitem').all()) {
+      const box = (await item.boundingBox())!
+      const onTop = await page.evaluate(
+        ([x, y]) => !!document.elementFromPoint(x!, y!)?.closest('[role=menu]'),
+        [box.x + 12, box.y + box.height / 2],
+      )
+      expect(onTop, await item.innerText()).toBe(true)
+    }
+  })
+
+  test('the place filter picks a site, then one of its sensors', async ({ page, t, isMobile }) => {
+    await page.goto(`/login?next=${encodeURIComponent(`${ALARMS}?tab=history`)}`)
+    await signIn(page, t)
+    await expect(page.getByTestId('alarm-sensor')).toHaveCount(0)
+    const place = page.getByTestId('alarm-place')
+    // runways first, then the station and alarms not assigned yet; sensors only once a runway is chosen
+    await expect(place.locator('option')).toHaveCount(6)
+    const values = await place
+      .locator('option')
+      .evaluateAll((o) => o.map((x) => (x as HTMLOptionElement).value))
+    expect(values).toEqual(['', 'site:04', 'site:middle', 'site:22', 'station', 'unmapped'])
+    await place.selectOption('site:22')
+    const sensor = page.getByTestId('alarm-sensor')
+    await expect(sensor.locator('option').first()).toHaveText(t('alarms.filter.allSensors'))
+    await sensor.selectOption('PWX')
+    const rows = isMobile
+      ? page.getByTestId('alarm-history-list').locator('li')
+      : page.getByTestId('alarm-history').locator('tbody tr')
+    const elsewhere = async () =>
+      (await rows.allInnerTexts()).filter((r) => !(r.includes('Present Weather Sensor') && r.includes('22')))
+        .length
+    await expect.poll(elsewhere).toBe(0) // once the list has reloaded, every row is that sensor's
+    expect(await rows.count()).toBeGreaterThan(0)
+    await place.selectOption('station')
+    await expect(page.getByTestId('alarm-sensor')).toHaveCount(0)
   })
 })

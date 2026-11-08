@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import Dropdown from './Dropdown.vue'
 
 // Top bar: "Sign in" for the public; the signed-in user's name with a menu otherwise (FR-AUTH-002).
 const { t } = useI18n()
@@ -10,7 +11,6 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const open = ref(false)
-const root = ref<HTMLElement | null>(null)
 
 const initials = computed(() =>
   (auth.me?.display_name || auth.me?.username || '?')
@@ -18,15 +18,6 @@ const initials = computed(() =>
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? '')
     .join(''),
-)
-const onPointer = (e: PointerEvent) => {
-  if (open.value && root.value && !root.value.contains(e.target as Node)) open.value = false
-}
-onMounted(() => document.addEventListener('pointerdown', onPointer))
-onUnmounted(() => document.removeEventListener('pointerdown', onPointer))
-watch(
-  () => route.fullPath,
-  () => (open.value = false),
 )
 
 async function signOut() {
@@ -43,28 +34,26 @@ async function signOut() {
     class="rounded-md px-2.5 py-1.5 text-sm text-ink-2 hover:bg-sunken hover:text-ink"
     >{{ t('auth.signIn') }}</RouterLink
   >
-  <div v-else ref="root" class="relative" @keydown.escape="open = false">
-    <button
-      type="button"
-      class="flex items-center gap-2 rounded-md py-1 pl-1 pr-2 text-sm text-ink-2 hover:bg-sunken hover:text-ink"
-      aria-haspopup="menu"
-      :aria-expanded="open"
-      :aria-label="t('auth.menu', { name: auth.me.display_name })"
-      @click="open = !open"
-    >
-      <span
-        class="flex h-6 w-6 items-center justify-center rounded-full bg-accent-soft text-[0.625rem] font-semibold text-accent"
-        aria-hidden="true"
-        >{{ initials }}</span
+  <Dropdown v-else v-model:open="open" align="right" panel-class="w-64 p-1">
+    <template #trigger="{ toggle }">
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-md py-1 pl-1 pr-2 text-sm text-ink-2 hover:bg-sunken hover:text-ink"
+        aria-haspopup="menu"
+        :aria-expanded="open"
+        :aria-label="t('auth.menu', { name: auth.me.display_name })"
+        @click="toggle"
       >
-      <span class="hidden max-w-36 truncate sm:inline">{{ auth.me.display_name }}</span>
-      <span class="text-[0.625rem]" aria-hidden="true">▾</span>
-    </button>
-    <div
-      v-if="open"
-      role="menu"
-      class="absolute right-0 top-full z-40 mt-1.5 w-64 rounded-lg border border-line bg-surface p-1 shadow-lg"
-    >
+        <span
+          class="flex h-6 w-6 items-center justify-center rounded-full bg-accent-soft text-[0.625rem] font-semibold text-accent"
+          aria-hidden="true"
+          >{{ initials }}</span
+        >
+        <span class="hidden max-w-36 truncate sm:inline">{{ auth.me.display_name }}</span>
+        <span class="text-[0.625rem]" aria-hidden="true">▾</span>
+      </button>
+    </template>
+    <template #default>
       <div class="border-b border-line px-3 pb-2.5 pt-2">
         <p class="truncate text-sm font-medium text-ink">{{ auth.me.display_name }}</p>
         <p class="truncate text-xs text-ink-3">{{ auth.me.username }} · {{ t(`role.${auth.me.role}`) }}</p>
@@ -96,6 +85,6 @@ async function signOut() {
       >
         {{ t('auth.signOut') }}
       </button>
-    </div>
-  </div>
+    </template>
+  </Dropdown>
 </template>

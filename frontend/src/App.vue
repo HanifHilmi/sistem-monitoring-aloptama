@@ -77,7 +77,7 @@ const menus = computed(() =>
     <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-surface focus:p-2">{{
       t('nav.skip')
     }}</a>
-    <header class="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur">
+    <header class="sticky top-0 z-30 border-b border-line bg-surface">
       <div
         class="mx-auto flex h-12 items-center gap-3 px-3 sm:px-5"
         :class="wall ? 'max-w-none' : 'max-w-[100rem]'"

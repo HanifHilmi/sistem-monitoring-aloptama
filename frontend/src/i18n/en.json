@@ -1195,6 +1195,8 @@
       "lastDays": "Last day | Last {n} days",
       "type": "Type",
       "place": "Place",
+      "sensor": "Sensor",
+      "allSensors": "Whole site",
       "change": "Change",
       "search": "Search",
       "searchHint": "Name or message, e.g. Missing",
@@ -1221,6 +1223,7 @@
     },
     "more": "Show more ({n} left)",
     "atSite": "Active AWOS alarms",
+    "chip": "{n} AWOS alarm | {n} AWOS alarms",
     "historyLink": "Alarm history",
     "mapping": {
       "title": "Alarm mapping",

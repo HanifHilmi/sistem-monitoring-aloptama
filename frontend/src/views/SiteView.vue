@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api/client'
 import type { ActiveAlarm, Assets, ComponentInfo, FlagRow, SystemInfo } from '@/api/types'
-import ActiveAlarms from '@/components/alarms/ActiveAlarms.vue'
+import SiteAlarmChip from '@/components/alarms/SiteAlarmChip.vue'
 import FlagForm from '@/components/flags/FlagForm.vue'
 import SensorBlock from '@/components/SensorBlock.vue'
 import SidePanel from '@/components/SidePanel.vue'
@@ -49,13 +49,24 @@ const alarms = ref<ActiveAlarm[] | null>(null)
 const alarmsAt = ref(Date.now())
 async function loadAlarms() {
   if (!auth.canView) return
+  const slug = props.slug
   try {
-    alarms.value = (await api.activeAlarms(props.code, `site:${props.slug}`)).active
+    const found = (await api.activeAlarms(props.code, `site:${slug}`)).active
+    if (slug !== props.slug) return // the page moved to another site meanwhile
+    alarms.value = found
     alarmsAt.value = Date.now()
   } catch {
     /* the page works without them */
   }
 }
+// The page stays mounted when moving between sites: never show the previous site's alarms.
+watch(
+  () => props.slug,
+  () => {
+    alarms.value = null
+    void loadAlarms()
+  },
+)
 const dcp = computed(() => site.value?.components.find((c) => c.is_dcp) ?? null)
 
 // Rolling windows move with time; refresh every 60 s (FR-DSH-011).
@@ -97,7 +108,7 @@ function flagDone() {
             >← {{ t('board.title') }}</RouterLink
           >
           <h1 class="text-lg font-semibold">{{ site.name[lc] }}</h1>
-          <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.6875rem] text-ink-3">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.6875rem] text-ink-3">
             <span class="num">{{ t('live.lastData', { time: formatUtc(liveSite?.last_data_minute) }) }}</span>
             <span v-if="liveSite" class="num">{{
               t('site.componentsValid', { n: liveSite.components_online, total: liveSite.components_total })
@@ -105,34 +116,24 @@ function flagDone() {
             <span v-if="dcp" class="flex items-center gap-1"
               >DCP <StatusPill :status="live.componentStatus(slug, dcp.type)"
             /></span>
+            <SiteAlarmChip
+              v-if="alarms?.length"
+              :alarms="alarms"
+              :info="info"
+              :code="code"
+              :slug="slug"
+              :now="alarmsAt"
+            />
             <span v-if="siteMeta && siteMeta.lat !== null && siteMeta.lon !== null" class="num">
               {{ siteMeta.lat.toFixed(4) }}, {{ siteMeta.lon.toFixed(4) }}
               <template v-if="siteMeta.elevation_m !== null">
                 · {{ t('records.place.elevationShort', { m: siteMeta.elevation_m }) }}</template
               >
             </span>
-          </p>
+          </div>
         </div>
         <WindowBar v-model="chartWindow" />
       </header>
-
-      <section
-        v-if="alarms?.length"
-        class="rounded-lg border border-line bg-surface px-4 py-2"
-        :aria-label="t('alarms.atSite')"
-        data-testid="site-alarms"
-      >
-        <header class="flex flex-wrap items-center gap-x-3 pt-1">
-          <h2 class="text-sm font-semibold">{{ t('alarms.atSite') }}</h2>
-          <span class="num text-xs text-ink-3">{{ alarms.length }}</span>
-          <RouterLink
-            :to="{ path: `/systems/${code}/alarms`, query: { tab: 'history', scope: `site:${slug}` } }"
-            class="ml-auto text-xs text-accent hover:underline"
-            >{{ t('alarms.historyLink') }} →</RouterLink
-          >
-        </header>
-        <ActiveAlarms :alarms="alarms" :info="info" :now="alarmsAt" compact />
-      </section>
 
       <div class="grid items-start gap-3 xl:grid-cols-2">
         <SensorBlock

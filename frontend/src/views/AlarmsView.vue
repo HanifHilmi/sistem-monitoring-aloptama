@@ -64,21 +64,35 @@ const DAY = 86_400_000
 const today = new Date().toISOString().slice(0, 10)
 const dayBefore = (n: number) =>
   new Date(Date.parse(`${today}T00:00:00Z`) - n * DAY).toISOString().slice(0, 10)
+/** "component:04:RVR" → site:04 + RVR; "site:04", "station", "unmapped" as they are. */
+function placeFromScope(v: string): { place: string; sensor: string } {
+  const [kind, site, component] = v.split(':')
+  if (kind === 'component' && site && component) return { place: `site:${site}`, sensor: component }
+  return { place: v, sensor: '' }
+}
 const f = reactive({
   from: dayBefore(29),
   to: today,
   type: '' as AlarmType | '',
-  scope: typeof route.query.scope === 'string' ? route.query.scope : '',
+  // Where: a site (then optionally one of its sensors), the station, or not assigned
+  ...placeFromScope(typeof route.query.scope === 'string' ? route.query.scope : ''),
   name: '',
   change: '' as '' | 'raised' | 'cleared',
   order: 'desc' as 'asc' | 'desc',
 })
+const scope = computed(() =>
+  f.place.startsWith('site:') && f.sensor ? `component:${f.place.slice(5)}:${f.sensor}` : f.place,
+)
+watch(
+  () => f.place,
+  () => (f.sensor = ''),
+)
 const preset = (days: number) => Object.assign(f, { from: dayBefore(days - 1), to: today })
 const filter = computed<AlarmFilter>(() => ({
   from: `${f.from}T00:00:00Z`,
   to: new Date(Date.parse(`${f.to}T00:00:00Z`) + DAY).toISOString(),
   type: f.type || undefined,
-  scope: f.scope || undefined,
+  scope: scope.value || undefined,
   name: f.name.trim() || undefined,
   active: f.change === '' ? undefined : f.change === 'raised',
   order: f.order,
@@ -112,20 +126,19 @@ watch(
   { immediate: true },
 )
 
-const scopes = computed(() => {
-  const out: { value: string; label: string }[] = []
-  for (const s of info.value?.sites ?? []) {
-    out.push({ value: `site:${s.slug}`, label: s.name[lc.value] })
-    for (const c of s.components)
-      out.push({
-        value: `component:${s.slug}:${c.type}`,
-        label: `  ${s.name[lc.value]} · ${c.name[lc.value]}`,
-      })
-  }
-  out.push({ value: 'station', label: t('alarms.place.station') })
-  out.push({ value: 'unmapped', label: t('alarms.place.unmapped') })
-  return out
-})
+const places = computed(() => [
+  ...(info.value?.sites ?? []).map((s) => ({ value: `site:${s.slug}`, label: s.name[lc.value] })),
+  { value: 'station', label: t('alarms.place.station') },
+  { value: 'unmapped', label: t('alarms.place.unmapped') },
+])
+const sensors = computed(() =>
+  f.place.startsWith('site:')
+    ? (info.value?.sites.find((s) => s.slug === f.place.slice(5))?.components ?? []).map((c) => ({
+        value: c.type,
+        label: c.name[lc.value],
+      }))
+    : [],
+)
 
 const chart = computed<EChartsCoreOption | null>(() => {
   const days = page.value?.per_day
@@ -270,9 +283,16 @@ const raisedTotal = computed(() => page.value?.per_day.reduce((n, d) => n + d.er
         </label>
         <label class="flex flex-col gap-1">
           <span class="label">{{ t('alarms.filter.place') }}</span>
-          <select v-model="f.scope" class="input max-w-60 py-1 text-xs">
+          <select v-model="f.place" class="input max-w-48 py-1 text-xs" data-testid="alarm-place">
             <option value="">{{ t('alarms.filter.all') }}</option>
-            <option v-for="s in scopes" :key="s.value" :value="s.value">{{ s.label }}</option>
+            <option v-for="s in places" :key="s.value" :value="s.value">{{ s.label }}</option>
+          </select>
+        </label>
+        <label v-if="sensors.length" class="flex flex-col gap-1">
+          <span class="label">{{ t('alarms.filter.sensor') }}</span>
+          <select v-model="f.sensor" class="input max-w-60 py-1 text-xs" data-testid="alarm-sensor">
+            <option value="">{{ t('alarms.filter.allSensors') }}</option>
+            <option v-for="c in sensors" :key="c.value" :value="c.value">{{ c.label }}</option>
           </select>
         </label>
         <label class="flex flex-col gap-1">

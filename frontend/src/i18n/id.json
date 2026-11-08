@@ -1195,6 +1195,8 @@
       "lastDays": "1 hari terakhir | {n} hari terakhir",
       "type": "Jenis",
       "place": "Lokasi",
+      "sensor": "Sensor",
+      "allSensors": "Seluruh lokasi",
       "change": "Perubahan",
       "search": "Cari",
       "searchHint": "Nama atau pesan, mis. Missing",
@@ -1221,6 +1223,7 @@
     },
     "more": "Tampilkan lagi ({n} tersisa)",
     "atSite": "Alarm AWOS aktif",
+    "chip": "{n} alarm AWOS | {n} alarm AWOS",
     "historyLink": "Riwayat alarm",
     "mapping": {
       "title": "Pemetaan alarm",
