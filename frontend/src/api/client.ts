@@ -197,6 +197,21 @@ export const api = {
   dataQuality: (code: string, from: Date, to: Date) =>
     get<DataQualitySummary>(`/systems/${encodeURIComponent(code)}/data-quality`, period(from, to)),
   definitions: () => get<Definitions>('/definitions'),
+  /** Monthly PDF (R3.5, Viewers and Admins): drawn on the server for one UTC month, in Indonesian or English. */
+  monthlyReport: async (system: string, month: string, lang: 'id' | 'en'): Promise<Blob> => {
+    const res = await fetch(`${BASE}/systems/${encodeURIComponent(system)}/exports/monthly-report`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/pdf, application/problem+json',
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken(),
+      },
+      body: JSON.stringify({ month, lang }),
+      credentials: 'same-origin',
+    })
+    if (!res.ok) throw await problem(res)
+    return res.blob()
+  },
 
   // AWOS reports (R3.2, public)
   latestReports: (code: string) => get<LatestReports>(`/systems/${encodeURIComponent(code)}/reports/latest`),

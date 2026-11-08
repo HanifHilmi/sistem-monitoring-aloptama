@@ -12,6 +12,8 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "argon2-cffi>=23.1",
+    "weasyprint>=66",
+    "jinja2>=3.1",
 ]
 
 [dependency-groups]
@@ -70,5 +72,5 @@ plugins = ["pydantic.mypy"]
 packages = ["simola"]
 
 [[tool.mypy.overrides]]
-module = ["asyncpg.*"]
+module = ["asyncpg.*", "weasyprint.*"]
 ignore_missing_imports = true

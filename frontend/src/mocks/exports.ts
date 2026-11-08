@@ -54,6 +54,14 @@ export interface SampleFile {
 const recent: number[] = []
 const PER_MINUTE = 10
 
+/** False when the person already took ten files this minute; otherwise counts this one. */
+function allowed(now: number): boolean {
+  while (recent.length && recent[0]! <= now - MIN) recent.shift()
+  if (recent.length >= PER_MINUTE) return false
+  recent.push(now)
+  return true
+}
+
 /** The file for `/systems/{code}/exports/{kind}.csv?…`, or a problem code. */
 export function exportFile(kind: string, q: URLSearchParams, now: number): SampleFile | string {
   if (!(kind in MAX_DAYS)) return 'not_found'
@@ -63,9 +71,7 @@ export function exportFile(kind: string, q: URLSearchParams, now: number): Sampl
   if (!(from < to)) return 'invalid_period'
   if (to - from > MAX_DAYS[k] * DAY) return 'period_too_long'
   if (k === 'minutes' && !SYSTEM.sites.some((s) => s.slug === q.get('site'))) return 'site_not_found'
-  while (recent.length && recent[0]! <= now - MIN) recent.shift()
-  if (recent.length >= PER_MINUTE) return 'too_many_exports'
-  recent.push(now)
+  if (!allowed(now)) return 'too_many_exports'
   const stamp = [DEFINITIONS.version, iso(Math.floor(now / 1000) * 1000)]
   const out: string[] = []
   let site: string | undefined
@@ -214,4 +220,57 @@ export function exportFile(kind: string, q: URLSearchParams, now: number): Sampl
     name: exportFileName(SYSTEM.code, k, new Date(from), new Date(to), site ? siteCode(site) : undefined),
     body: BOM + out.join(''),
   }
+}
+
+// ---- monthly PDF (R3.5) -------------------------------------------------------------------------
+
+/**
+ * POST `/systems/{code}/exports/monthly-report` in sample mode. The real report is drawn by the server
+ * (backend/simola/report, WeasyPrint), which sample mode does not have: this answers with a one-page PDF that
+ * says so, under the name and limits the server uses.
+ */
+export function reportFile(body: unknown, now: number): SampleFile | string {
+  const { month, lang } = (body ?? {}) as { month?: string; lang?: string }
+  if (typeof month !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return 'invalid_month'
+  if (lang !== 'id' && lang !== 'en') return 'invalid_language'
+  if (Date.parse(`${month}-01T00:00:00Z`) > now) return 'month_in_future'
+  if (!allowed(now)) return 'too_many_exports'
+  const lines =
+    lang === 'id'
+      ? [
+          'SIMOLA - data contoh',
+          `Laporan bulanan ${SYSTEM.code} ${month}`,
+          'Laporan sebenarnya disusun oleh server.',
+        ]
+      : [
+          'SIMOLA - sample data',
+          `Monthly report ${SYSTEM.code} ${month}`,
+          'The real report is drawn by the server.',
+        ]
+  return { name: `SIMOLA_${SYSTEM.code}_${month}_${lang}.pdf`, body: onePagePdf(lines) }
+}
+
+/** A minimal valid PDF with a few lines of ASCII text. */
+export function onePagePdf(lines: string[]): string {
+  const text = lines
+    .map((l, i) => `BT /F1 ${i ? 11 : 16} Tf 56 ${780 - i * 24} Td (${l.replace(/[\\()]/g, '\\$&')}) Tj ET`)
+    .join('\n')
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+  ]
+  let out = '%PDF-1.4\n'
+  const offsets: number[] = []
+  objects.forEach((o, i) => {
+    offsets.push(out.length)
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`
+  })
+  const xref = out.length
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  out += offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
+  return out
 }

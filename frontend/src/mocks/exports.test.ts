@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ALARM_COLUMNS, DAILY_COLUMNS, QUALITY_COLUMNS, minuteHeader, minuteLayout } from '@/utils/exports'
 import { SYSTEM, kpis } from './data'
-import { exportFile, type SampleFile } from './exports'
+import { exportFile, onePagePdf, reportFile, type SampleFile } from './exports'
 
 const NOW = Date.parse('2026-11-08T06:00:00Z')
 const OCT = { from: '2026-10-01T00:00:00.000Z', to: '2026-11-01T00:00:00.000Z' }
@@ -69,5 +69,25 @@ describe('sample CSV exports (R3.4)', () => {
       exportFile('minutes', new URLSearchParams({ ...OCT, to: '2026-11-02T00:00:00Z', site: '04' }), NOW),
     ).toBe('period_too_long')
     expect(exportFile('minutes', new URLSearchParams({ ...OCT, site: 'x' }), NOW)).toBe('site_not_found')
+  })
+
+  it('the monthly PDF: named as the server names it, refused for a month to come (R3.5)', () => {
+    const later = NOW + 5 * 60_000 // past the minute the files above were taken in
+    const f = reportFile({ month: '2026-10', lang: 'id' }, later) as SampleFile
+    expect(f.name).toBe('SIMOLA_WIDN-CAT3_2026-10_id.pdf')
+    expect(f.body.startsWith('%PDF-1.4')).toBe(true)
+    expect(f.body.trimEnd().endsWith('%%EOF')).toBe(true)
+    expect(reportFile({ month: '2026-12', lang: 'en' }, later)).toBe('month_in_future')
+    expect(reportFile({ month: '2026-13', lang: 'en' }, later)).toBe('invalid_month')
+    expect(reportFile({ month: '2026-10', lang: 'fr' }, later)).toBe('invalid_language')
+  })
+
+  it('a placeholder PDF whose cross-reference table points at its objects', () => {
+    const pdf = onePagePdf(['a (b)', 'c'])
+    const start = Number(pdf.match(/startxref\n(\d+)/)![1])
+    expect(pdf.slice(start).startsWith('xref')).toBe(true)
+    const offsets = [...pdf.matchAll(/^(\d{10}) 00000 n $/gm)].map((m) => Number(m[1]))
+    offsets.forEach((o, i) => expect(pdf.slice(o).startsWith(`${i + 1} 0 obj`)).toBe(true))
+    expect(pdf).toContain('(a \\(b\\)) Tj')
   })
 })

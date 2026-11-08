@@ -1415,7 +1415,11 @@
       "what": "Cover, KPI summary, site and sensor table, daily SLA and OLA chart, longest outages, alarms, data quality and calibration, for one UTC month, in Bahasa Indonesia or English.",
       "month": "Month",
       "language": "Language",
-      "download": "Download PDF"
+      "download": "Download PDF",
+      "preparing": "Drawing the report… {s} s",
+      "how": "Drawn on the server from the dashboard's figures for the month; it takes up to a minute. The download is recorded in the audit log.",
+      "open": "This month is still running: the report counts up to the moment it is made.",
+      "partial": "The data starts on {date}: the report says the days before it have no data coverage."
     },
     "csv": {
       "title": "CSV files",
@@ -1533,7 +1537,8 @@
       "too_many_exports": "Ten files a minute at most. Wait a moment and try again.",
       "not_authenticated": "Your session has ended. Sign in again to download.",
       "period_too_long": "This period is too long for one file.",
-      "other": "The file could not be made. Try again; if it keeps failing, tell an Admin."
+      "other": "The file could not be made. Try again; if it keeps failing, tell an Admin.",
+      "report_busy": "Another report is being drawn. Try again in a minute."
     }
   }
 }

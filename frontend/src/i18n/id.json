@@ -1415,7 +1415,11 @@
       "what": "Sampul, ringkasan KPI, tabel lokasi dan sensor, grafik SLA dan OLA harian, gangguan terlama, alarm, kualitas data dan kalibrasi, untuk satu bulan UTC, dalam Bahasa Indonesia atau Inggris.",
       "month": "Bulan",
       "language": "Bahasa",
-      "download": "Unduh PDF"
+      "download": "Unduh PDF",
+      "preparing": "Menyusun laporan… {s} d",
+      "how": "Disusun di server dari angka dasbor untuk bulan itu; paling lama satu menit. Unduhan dicatat di log audit.",
+      "open": "Bulan ini masih berjalan: laporan menghitung sampai saat laporan dibuat.",
+      "partial": "Data dimulai {date}: laporan menyatakan hari-hari sebelumnya tidak memiliki cakupan data."
     },
     "csv": {
       "title": "Berkas CSV",
@@ -1533,7 +1537,8 @@
       "too_many_exports": "Paling banyak sepuluh berkas per menit. Tunggu sebentar lalu coba lagi.",
       "not_authenticated": "Sesi Anda telah berakhir. Masuk lagi untuk mengunduh.",
       "period_too_long": "Periode ini terlalu panjang untuk satu berkas.",
-      "other": "Berkas tidak dapat dibuat. Coba lagi; bila terus gagal, beri tahu Admin."
+      "other": "Berkas tidak dapat dibuat. Coba lagi; bila terus gagal, beri tahu Admin.",
+      "report_busy": "Laporan lain sedang disusun. Coba lagi dalam satu menit."
     }
   }
 }

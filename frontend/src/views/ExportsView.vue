@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { api } from '@/api/client'
+import { ApiProblem, api } from '@/api/client'
 import { ALARM_TYPES, type AlarmType, type SystemInfo } from '@/api/types'
 import PeriodBar from '@/components/PeriodBar.vue'
 import { usePeriodQuery } from '@/composables/useUrlState'
@@ -16,12 +16,15 @@ import {
   MAX_DAYS,
   MINUTE_STATUSES,
   QUALITY_COLUMNS,
+  defaultReportMonth,
   estimateBytes,
   estimateRows,
   exportFileName,
   exportUrl,
   minuteHeader,
   minuteLayout,
+  reportFileName,
+  reportMonths,
   type Column,
   type ExportKind,
 } from '@/utils/exports'
@@ -139,19 +142,22 @@ async function download() {
       failed.value = (await problemCode(res)) ?? 'http_error'
       return
     }
-    const url = URL.createObjectURL(await res.blob())
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName.value
-    document.body.append(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    save(await res.blob(), fileName.value)
   } catch {
     failed.value = 'network_error'
   } finally {
     busy.value = false
   }
+}
+function save(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  document.body.append(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 async function problemCode(res: Response): Promise<string | null> {
   try {
@@ -219,20 +225,48 @@ const about = computed(() => {
 })
 
 // ---- monthly PDF (R3.5) ---------------------------------------------------------------------------
-const months = computed(() => {
-  const now = new Date()
-  return Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))
-    return {
-      value: d.toISOString().slice(0, 7),
-      label: new Intl.DateTimeFormat(lc.value === 'id' ? 'id-ID' : 'en-GB', {
-        month: 'long',
-        year: 'numeric',
-        timeZone: 'UTC',
-      }).format(d),
-    }
-  })
-})
+// One UTC month, drawn on the server from the dashboard's figures (FR-EXP-001). Last month by default.
+const reportList = computed(() => (info.value ? reportMonths(info.value.coverage_start, new Date()) : []))
+const reportMonth = ref('')
+watch(
+  reportList,
+  (list) => {
+    if (!list.includes(reportMonth.value)) reportMonth.value = defaultReportMonth(list)
+  },
+  { immediate: true },
+)
+const reportLang = ref<'id' | 'en'>(lc.value === 'en' ? 'en' : 'id')
+function monthLabel(m: string): string {
+  return new Intl.DateTimeFormat(lc.value === 'id' ? 'id-ID' : 'en-GB', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(`${m}-01T00:00:00Z`))
+}
+const reportName = computed(() => reportFileName(props.code, reportMonth.value, reportLang.value))
+const reportOpen = computed(() => !!reportMonth.value && reportMonth.value === reportList.value[0])
+const reportPartial = computed(
+  () => !!info.value && reportMonth.value === info.value.coverage_start.slice(0, 7),
+)
+const reportBusy = ref(false)
+const reportFailed = ref<string | null>(null)
+const elapsed = ref(0)
+async function downloadReport() {
+  reportBusy.value = true
+  reportFailed.value = null
+  elapsed.value = 0
+  const started = Date.now()
+  const tick = setInterval(() => (elapsed.value = Math.round((Date.now() - started) / 1000)), 1000)
+  try {
+    save(await api.monthlyReport(props.code, reportMonth.value, reportLang.value), reportName.value)
+  } catch (e) {
+    reportFailed.value = e instanceof ApiProblem ? e.code : 'network_error'
+  } finally {
+    clearInterval(tick)
+    reportBusy.value = false
+  }
+}
+watch([reportMonth, reportLang], () => (reportFailed.value = null))
 </script>
 
 <template>
@@ -242,37 +276,79 @@ const months = computed(() => {
       <p class="text-sm text-ink-2">{{ t('exports.subtitle') }}</p>
     </header>
 
-    <!-- Monthly report (PDF): built in R3.5 -->
+    <!-- Monthly report (PDF, R3.5) -->
     <section
-      class="rounded-lg border border-dashed border-line bg-surface px-4 py-3"
+      class="rounded-lg border border-line bg-surface px-4 py-3.5"
       data-testid="export-pdf"
-      :aria-label="t('exports.pdf.title')"
+      aria-labelledby="pdf-title"
     >
-      <div class="flex flex-wrap items-center gap-x-5 gap-y-3 opacity-60">
-        <div class="min-w-0 flex-1 basis-72">
-          <h2 class="flex flex-wrap items-center gap-2 text-sm font-semibold">
-            {{ t('exports.pdf.title') }}
-            <span class="rounded bg-sunken px-1.5 py-0.5 text-[0.625rem] font-normal text-ink-2">{{
-              t('nav.comingSoon')
-            }}</span>
-          </h2>
+      <div class="flex flex-wrap items-end gap-x-5 gap-y-3">
+        <div class="min-w-0 flex-1 basis-72 self-start">
+          <h2 id="pdf-title" class="text-sm font-semibold">{{ t('exports.pdf.title') }}</h2>
           <p class="mt-0.5 text-xs text-ink-2">{{ t('exports.pdf.what') }}</p>
         </div>
         <label class="flex flex-col gap-1">
           <span class="label">{{ t('exports.pdf.month') }}</span>
-          <select class="input py-1 text-xs" disabled>
-            <option v-for="m in months" :key="m.value">{{ m.label }}</option>
+          <select
+            v-model="reportMonth"
+            class="input py-1 text-xs"
+            data-testid="report-month"
+            :disabled="reportBusy"
+          >
+            <option v-for="m in reportList" :key="m" :value="m">{{ monthLabel(m) }}</option>
           </select>
         </label>
         <div class="flex flex-col gap-1">
-          <span class="label">{{ t('exports.pdf.language') }}</span>
-          <div class="seg">
-            <button type="button" disabled :aria-pressed="lc === 'id'">Bahasa Indonesia</button>
-            <button type="button" disabled :aria-pressed="lc === 'en'">English</button>
+          <span id="report-lang" class="label">{{ t('exports.pdf.language') }}</span>
+          <div class="seg" role="group" aria-labelledby="report-lang">
+            <button
+              type="button"
+              :aria-pressed="reportLang === 'id'"
+              :disabled="reportBusy"
+              data-testid="report-lang-id"
+              @click="reportLang = 'id'"
+            >
+              Bahasa Indonesia
+            </button>
+            <button
+              type="button"
+              :aria-pressed="reportLang === 'en'"
+              :disabled="reportBusy"
+              data-testid="report-lang-en"
+              @click="reportLang = 'en'"
+            >
+              English
+            </button>
           </div>
         </div>
-        <button type="button" class="btn self-end" disabled>⤓ {{ t('exports.pdf.download') }}</button>
+        <button
+          type="button"
+          class="btn-primary"
+          :disabled="!reportMonth || reportBusy"
+          :aria-busy="reportBusy"
+          data-testid="report-download"
+          @click="downloadReport"
+        >
+          ⤓ {{ reportBusy ? t('exports.pdf.preparing', { s: elapsed }) : t('exports.pdf.download') }}
+        </button>
       </div>
+      <div
+        class="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-line pt-2.5 text-xs text-ink-2"
+      >
+        <span class="num font-medium break-all text-ink" data-testid="report-filename">{{ reportName }}</span>
+        <span>{{ t('exports.pdf.how') }}</span>
+      </div>
+      <p v-if="reportOpen" class="mt-1.5 text-xs text-ink-2" data-testid="report-open">
+        {{ t('exports.pdf.open') }}
+      </p>
+      <p v-if="reportPartial && info" class="mt-1.5 text-xs text-ink-2" data-testid="report-partial">
+        {{ t('exports.pdf.partial', { date: formatUtc(info.coverage_start) }) }}
+      </p>
+      <p v-if="reportFailed" class="mt-2 text-sm text-warn" role="alert" data-testid="report-failed">
+        {{
+          te(`exports.error.${reportFailed}`) ? t(`exports.error.${reportFailed}`) : t('exports.error.other')
+        }}
+      </p>
     </section>
 
     <!-- CSV files -->

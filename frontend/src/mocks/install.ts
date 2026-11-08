@@ -6,7 +6,7 @@ import * as alarms from './alarms'
 import * as quality from './quality'
 import * as reports from './reports'
 import * as data from './data'
-import { exportFile } from './exports'
+import { exportFile, reportFile } from './exports'
 import { dqRoute, isAdmin, pendingSuspects, pendingSuspectsIn, publicDetections } from './dq'
 import { flagsRoute, publicFlags } from './flags'
 
@@ -56,6 +56,21 @@ function route(url: URL, method: string, body: unknown): Response {
     return new Response(file.body, {
       headers: {
         'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="${file.name}"`,
+      },
+    })
+  }
+  // The monthly PDF (R3.5): signed-in users; the server draws it, sample mode answers with a placeholder.
+  if (/^\/systems\/[^/]+\/exports\/monthly-report$/.test(p) && method === 'POST') {
+    if (!signedIn()) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
+    const file = reportFile(body, now)
+    if (typeof file === 'string') {
+      const status = file === 'too_many_exports' ? 429 : 422
+      return json({ code: file, title: file, status }, status)
+    }
+    return new Response(file.body, {
+      headers: {
+        'content-type': 'application/pdf',
         'content-disposition': `attachment; filename="${file.name}"`,
       },
     })
@@ -190,7 +205,9 @@ export function installMocks(): void {
       window.location.origin,
     )
     if (!url.pathname.startsWith('/api/v1/')) return real(input, init)
-    await new Promise((r) => setTimeout(r, 80))
+    // a report takes a moment on the server too, so the page's progress shows
+    const slow = url.pathname.endsWith('/monthly-report')
+    await new Promise((r) => setTimeout(r, slow ? 1500 : 80))
     const method = (init?.method ?? 'GET').toUpperCase()
     let body: unknown = undefined
     try {

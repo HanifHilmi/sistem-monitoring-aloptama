@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<title>SIMOLA · {{ cover.system }} · {{ cover.month }}</title>
+<meta name="author" content="SIMOLA">
+<meta name="description" content="{{ cover.report }}">
+<style>
+{{ css }}
+@page {
+  @bottom-left { content: {{ footer.left | css_string }}; }
+  @bottom-center { content: {{ footer.right | css_string }}; }
+  @bottom-right { content: {{ w('page') | css_string }} " " counter(page) " " {{ w('of') | css_string }} " " counter(pages); }
+}
+</style>
+</head>
+<body>
+
+{# ---------------------------------------------------------------- cover #}
+<section class="cover">
+  <p class="brand">SIMOLA · Sistem Monitoring ALOPTAMA</p>
+  <p class="kicker">{{ cover.report }}</p>
+  <h1>{{ cover.system }}</h1>
+  <p class="month">{{ cover.month }}</p>
+  <p class="station">{{ cover.station }}</p>
+
+  {% if cover.open %}<p class="callout">{{ cover.open }}</p>{% endif %}
+
+  <div class="tiles">
+    {% for t in headline %}
+    <div class="tile lvb-{{ t.level }}">
+      <p class="tile-label">{{ t.label }}</p>
+      <p class="tile-value">{{ t.pct }}<span class="unit"> %</span></p>
+      {% if t.lost is not none %}<p class="tile-sub">{{ w('lost_min') }}: {{ t.lost }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <table class="facts">
+    <tr><th>{{ w('period') }}</th><td>{{ cover.period }}</td></tr>
+    <tr><th>{{ w('coverage') }}</th><td>{{ cover.coverage }}</td></tr>
+    <tr><th>{{ w('generated') }}</th><td>{{ cover.generated }}</td></tr>
+    <tr><th>{{ w('generated_by') }}</th><td>{{ cover.generated_by }}</td></tr>
+    <tr><th>{{ w('definitions') }}</th><td>{{ cover.definitions }}</td></tr>
+  </table>
+
+  <h2 class="toc-title">{{ w('contents') }}</h2>
+  <ol class="toc">
+    {% for id, title in sections %}
+    <li><a href="#{{ id }}"><span class="toc-n">{{ loop.index }}</span>{{ title }}</a></li>
+    {% endfor %}
+  </ol>
+  <div class="signs">
+    <div class="sign">
+      <p>{{ w('prepared_by') }}</p>
+      <div class="sign-space"></div>
+      <p class="sign-line">{{ w('name') }}:</p>
+    </div>
+    <div class="sign">
+      <p>{{ w('acknowledged_by') }}</p>
+      <div class="sign-space"></div>
+      <p class="sign-line">{{ w('name') }}:</p>
+    </div>
+  </div>
+</section>
+
+{# ---------------------------------------------------------------- 1 KPI summary #}
+<section>
+  <h2 id="kpi"><span class="num">1</span>{{ w('s_kpi') }}</h2>
+  <table class="t kpi">
+    <thead><tr>
+      <th>{{ w('figure') }}</th><th class="n">{{ w('availability') }}</th>
+      <th class="n">{{ w('valid_min') }}</th><th class="n">{{ w('expected_min') }}</th><th class="n">{{ w('lost_min') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in kpi_rows %}
+      <tr>
+        <td><strong>{{ r.label }}</strong><br><span class="hint">{{ r.hint }}</span></td>
+        <td class="n big"><span class="lv lv-{{ r.level }}"></span>{{ r.pct }} %</td>
+        <td class="n">{{ r.valid }}</td><td class="n">{{ r.expected }}</td><td class="n">{{ r.lost }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>{{ w('reach') }}</h3>
+  <p class="note">{{ w('reach_note') }}</p>
+  <table class="t narrow">
+    <thead><tr><th>CDP</th><th class="n">{{ w('reach_pct') }}</th><th class="n">{{ w('probed_min') }}</th><th class="n">{{ w('probe_coverage') }}</th></tr></thead>
+    <tbody>
+    {% for r in reach_rows %}
+      <tr><td>{{ r.cdp }}</td><td class="n">{{ r.pct }} %</td><td class="n">{{ r.probed }}</td><td class="n">{{ r.coverage }} %</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+{# ---------------------------------------------------------------- 2 sites and sensors #}
+  <h2 id="sites"><span class="num">2</span>{{ w('s_sites') }}</h2>
+  <p class="note">{{ w('site_note') }}</p>
+  <table class="t sites">
+    <thead><tr>
+      <th>{{ w('site_sensor') }}</th><th class="n">{{ w('availability') }}</th>
+      <th class="n">{{ w('valid_min') }}</th><th class="n">{{ w('expected_min') }}</th><th class="n">{{ w('lost_min') }}</th>
+    </tr></thead>
+    {% for s in site_groups %}
+    <tbody class="site">
+      <tr class="site-row">
+        <td>{{ s.name }}</td>
+        <td class="n"><span class="lv lv-{{ s.level }}"></span>{{ s.pct }} %</td>
+        <td class="n">{{ s.valid }}</td><td class="n">{{ s.expected }}</td><td class="n">{{ s.lost }}</td>
+      </tr>
+      {% for c in s.components %}
+      <tr>
+        <td class="indent"><span class="code">{{ c.type }}</span> {{ c.name }}</td>
+        <td class="n"><span class="lv lv-{{ c.level }}"></span>{{ c.pct }} %</td>
+        <td class="n">{{ c.valid }}</td><td class="n">{{ c.expected }}</td><td class="n">{{ c.lost }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% endfor %}
+  </table>
+</section>
+
+{# ---------------------------------------------------------------- 3 day by day #}
+<section class="page">
+  <h2 id="days"><span class="num">3</span>{{ w('s_days') }}</h2>
+  <h3>{{ w('daily_chart') }}</h3>
+  <div class="chart-box">{{ days.chart }}</div>
+
+  {% macro day_cells(d) %}
+    {% if d is none %}<td colspan="{{ 4 + days.cdp_codes | length }}"></td>
+    {% else %}
+    <td class="date">{{ d.date }}</td>
+    {% if d.note %}
+    <td class="n muted" colspan="{{ 3 + days.cdp_codes | length }}">{{ d.note }}</td>
+    {% else %}
+    <td class="n"><span class="lv lv-{{ d.sla_level }}"></span>{{ d.sla }}</td>
+    <td class="n"><span class="lv lv-{{ d.ola_level }}"></span>{{ d.ola }}</td>
+    {% for c in d.cdps %}<td class="n">{{ c.pct }}</td>{% endfor %}
+    <td class="n">{{ d.lost }}</td>
+    {% endif %}
+    {% endif %}
+  {% endmacro %}
+  {% macro day_heads() %}
+    <th>{{ w('date') }}</th><th class="n">{{ w('sla') }}</th><th class="n">{{ w('ola') }}</th>
+    {% for c in days.cdp_codes %}<th class="n">{{ c }}</th>{% endfor %}
+    <th class="n">{{ w('lost_sla') }}</th>
+  {% endmacro %}
+  <table class="t daily">
+    <thead><tr>{{ day_heads() }}<th class="gap"></th>{{ day_heads() }}</tr></thead>
+    <tbody>
+    {% for left, right in days.pairs %}
+      <tr>{{ day_cells(left) }}<td class="gap"></td>{{ day_cells(right) }}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="page">
+  <h3 class="first">{{ w('matrix') }}</h3>
+  <table class="matrix">
+    <thead><tr>
+      <th class="label"></th>
+      {% for d in days.matrix.days %}<th>{{ d }}</th>{% endfor %}
+      <th class="total">{{ w('total') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in days.matrix.rows %}
+      <tr class="k-{{ r.kind }}">
+        <td class="label">{{ r.label }}</td>
+        {% for c in r.cells %}<td class="c lvc-{{ c }}"></td>{% endfor %}
+        <td class="total"><span class="lv lv-{{ r.total_level }}"></span>{{ r.total }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="legend">
+    {% for key, label in days.matrix.legend %}<span class="key"><span class="sw lvc-{{ key }}"></span>{{ label }}</span>{% endfor %}
+  </p>
+</section>
+
+{# ---------------------------------------------------------------- 4 outages #}
+<section class="page">
+  <h2 id="outages"><span class="num">4</span>{{ w('s_outages') }}</h2>
+  <p>{{ outages.intro }}</p>
+  <p>{{ outages.sla }}</p>
+
+  {% if outages.causes %}
+  <h3>{{ w('by_cause') }}</h3>
+  <table class="causes">
+    {% for c in outages.causes %}
+    <tr>
+      <td class="cause-label"><span class="dot cause-{{ c.key }}"></span>{{ c.label }}</td>
+      <td class="n">{{ c.minutes }}</td>
+      <td class="bar"><span class="fill cause-{{ c.key }}" style="width: {{ '%.1f' % c.share }}%"></span></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if outages.rows %}
+  <p class="note">{{ outages.list }}</p>
+  <table class="t outages">
+    <thead><tr>
+      <th class="n">#</th><th>{{ w('start') }}</th><th>{{ w('end') }}</th><th class="n">{{ w('duration') }}</th>
+      <th>{{ w('cause') }}</th><th>{{ w('where') }}</th><th>{{ w('detail') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for o in outages.rows %}
+      <tr>
+        <td class="n muted">{{ o.n }}</td><td class="time">{{ o.start }}</td><td class="time">{{ o.end }}</td>
+        <td class="n">{{ o.duration }}</td>
+        <td class="cause"><span class="dot cause-{{ o.cause }}"></span>{{ o.cause_label }}</td>
+        <td>{{ o.where }}</td><td>{{ o.detail }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+{# ---------------------------------------------------------------- 5 alarms #}
+<section class="page">
+  <h2 id="alarms"><span class="num">5</span>{{ w('s_alarms') }}</h2>
+  <p class="note">{{ w('alarms_note') }}</p>
+  <div class="tiles small">
+    {% for label, value, kind in alarms.tiles %}
+    <div class="tile{% if kind %} tk-{{ kind }}{% endif %}">
+      <p class="tile-label">{{ label }}</p>
+      <p class="tile-value">{{ value }}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% if alarms.none %}
+  <p>{{ alarms.none }}</p>
+  {% else %}
+  <h3>{{ w('per_day') }}</h3>
+  <div class="chart-box">{{ alarms.chart }}</div>
+  <h3>{{ w('top_alarms') }}</h3>
+  <table class="t">
+    <thead><tr>
+      <th>{{ w('alarm') }}</th><th>{{ w('type') }}</th><th>{{ w('place') }}</th>
+      <th class="n">{{ w('times') }}</th><th>{{ w('last_raised') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for a in alarms.rows %}
+      <tr>
+        <td class="code">{{ a.name }}</td>
+        <td><span class="dot alarm-{{ a.type }}"></span>{{ a.type_label }}</td>
+        <td>{{ a.place }}</td><td class="n">{{ a.raised }}</td><td class="time">{{ a.last }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+{# ---------------------------------------------------------------- 6 data quality #}
+<section class="page">
+  <h2 id="quality"><span class="num">6</span>{{ w('s_quality') }}</h2>
+  <p class="note">{{ w('quality_intro') }}</p>
+  <div class="tiles small">
+    {% for label, minutes, count, kind in quality.totals %}
+    <div class="tile q-{{ kind }}">
+      <p class="tile-label">{{ label }}</p>
+      <p class="tile-value">{{ minutes }}</p>
+      <p class="tile-sub">{{ count }}</p>
+    </div>
+    {% endfor %}
+    {% if quality.suspects is not none %}
+    <div class="tile">
+      <p class="tile-label">{{ w('suspects') }}</p>
+      <p class="tile-value">{{ quality.suspects }}</p>
+      <p class="tile-sub">{{ w('suspects_note') }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if quality.none %}
+  <p>{{ quality.none }}</p>
+  {% else %}
+  <table class="t">
+    <thead><tr>
+      <th>{{ w('sensor') }}</th><th class="n">{{ w('flagged_min') }}</th><th class="n">{{ w('detection_min') }}</th>
+      <th class="n">{{ w('share') }}</th><th>{{ w('reasons') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for q in quality.rows %}
+      <tr>
+        <td>{{ q.sensor }}</td><td class="n">{{ q.flagged }}</td><td class="n">{{ q.detected }}</td>
+        <td class="n">{{ q.share }} %</td><td>{{ q.reasons }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="halves">
+    <div>
+      <h3>{{ w('by_flag_reason') }}</h3>
+      <table class="t">
+        {% for label, minutes, count in quality.flag_reasons %}
+        <tr><td>{{ label }}</td><td class="n">{{ minutes }}</td><td class="n muted">{{ count }}</td></tr>
+        {% else %}<tr><td class="muted">—</td></tr>{% endfor %}
+      </table>
+    </div>
+    <div>
+      <h3>{{ w('by_rule') }}</h3>
+      <table class="t">
+        {% for label, minutes, count in quality.rules %}
+        <tr><td>{{ label }}</td><td class="n">{{ minutes }}</td><td class="n muted">{{ count }}</td></tr>
+        {% else %}<tr><td class="muted">—</td></tr>{% endfor %}
+      </table>
+    </div>
+  </div>
+  <p class="note after">{{ w('quality_note') }}</p>
+  {% endif %}
+
+</section>
+
+{# ---------------------------------------------------------------- 7 calibration #}
+<section class="page">
+  <h2 id="calibration"><span class="num">7</span>{{ w('s_calibration') }}</h2>
+  <p class="note">{{ calibration.intro }}</p>
+  <p class="counts">
+    {% for key, label, n in calibration.counts %}<span class="key"><span class="dot cal-{{ key }}"></span>{{ label }} <strong>{{ n }}</strong></span>{% endfor %}
+  </p>
+  <table class="t cal">
+    <thead><tr>
+      <th>{{ w('sensor') }}</th><th>{{ w('last_calibration') }}</th>
+      <th>{{ w('next_due') }}</th><th class="n">{{ w('days_left') }}</th><th>{{ w('status') }}</th><th>{{ w('certificate') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for c in calibration.rows %}
+      <tr>
+        <td class="site">{{ c.site }} · <span class="code">{{ c.type }}</span></td>
+        <td class="time">{{ c.last }}</td><td class="time">{{ c.next_due }}</td><td class="n">{{ c.days }}</td>
+        <td class="st"><span class="dot cal-{{ c.status }}"></span>{{ c.status_label }}</td>
+        <td class="cert">{{ c.certificate }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="note after">{{ w('dcp_note') }}</p>
+</section>
+
+{# ---------------------------------------------------------------- 8 definitions #}
+<section class="keep">
+  <h2 id="definitions"><span class="num">8</span>{{ w('s_definitions') }}</h2>
+  <p class="note">{{ definitions.version }}</p>
+  <table class="t defs">
+    {% for name, formula in definitions['items'] %}
+    <tr><th>{{ name }}</th><td>{{ formula }}</td></tr>
+    {% endfor %}
+  </table>
+  <p class="note after">{{ definitions.note }}</p>
+
+</section>
+
+</body>
+</html>

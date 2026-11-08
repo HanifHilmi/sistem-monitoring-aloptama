@@ -77,10 +77,6 @@ test.describe('Exports', () => {
     await expect(page.getByTestId('export-size')).toContainText('837') // 31 days × 27 scopes
     await expect(page.getByTestId('export-columns').locator('tbody tr')).toHaveCount(13)
     await expect(page.getByTestId('export-recompute')).toContainText('expected_min')
-    // the monthly PDF arrives with R3.5
-    await expect(
-      page.getByTestId('export-pdf').getByRole('button', { name: t('exports.pdf.download') }),
-    ).toBeDisabled()
     await expectNoPageScroll(page)
   })
 
@@ -128,6 +124,32 @@ test.describe('Exports', () => {
     }
     await button.click()
     await expect(page.getByTestId('export-failed')).toHaveText(t('exports.error.too_many_exports'))
+  })
+
+  test('the monthly PDF: last month by default, in the chosen language', async ({ page, t }) => {
+    await page.goto(`/login?next=${encodeURIComponent(EXPORTS)}`)
+    await signIn(page, t, 'siti')
+    const card = page.getByTestId('export-pdf')
+    const month = page.getByTestId('report-month')
+    const now = new Date()
+    const last = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString().slice(0, 7)
+    await expect(month).toHaveValue(last)
+    await month.selectOption('2026-10')
+    await page.getByTestId('report-lang-en').click()
+    await expect(page.getByTestId('report-filename')).toHaveText('SIMOLA_WIDN-CAT3_2026-10_en.pdf')
+    await expect(page.getByTestId('report-open')).toHaveCount(0)
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('report-download').click(),
+    ])
+    await expect(page.getByTestId('report-download')).toBeEnabled()
+    expect(download.suggestedFilename()).toBe('SIMOLA_WIDN-CAT3_2026-10_en.pdf')
+    expect((await readFile((await download.path())!, 'latin1')).startsWith('%PDF-')).toBe(true)
+    // the month the data starts in says the days before it have no coverage (PRD E11)
+    await month.selectOption('2025-12')
+    await expect(page.getByTestId('report-partial')).toBeVisible()
+    await expect(card.getByRole('alert')).toHaveCount(0)
+    await expectNoPageScroll(page)
   })
 
   test('flags and detections: at least one kind of record', async ({ page, t }) => {

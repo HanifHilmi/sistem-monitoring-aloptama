@@ -5,11 +5,14 @@ import {
   DAILY_COLUMNS,
   QUALITY_COLUMNS,
   dailyRowsPerDay,
+  defaultReportMonth,
   estimateRows,
   exportFileName,
   exportUrl,
   minuteHeader,
   minuteLayout,
+  reportFileName,
+  reportMonths,
 } from './exports'
 
 const at = (iso: string) => new Date(iso)
@@ -83,5 +86,16 @@ describe('CSV exports (FR-EXP-002)', () => {
       // header names are plain: a spreadsheet never reads them as formulas
       expect(names.every((n) => /^[a-z_]+$/.test(n))).toBe(true)
     }
+  })
+
+  it('offers a report for every month from the start of the data, last month first (R3.5)', () => {
+    const months = reportMonths('2025-12-24T03:40:00Z', at('2026-03-05T10:00:00Z'))
+    expect(months).toEqual(['2026-03', '2026-02', '2026-01', '2025-12'])
+    expect(defaultReportMonth(months)).toBe('2026-02')
+    // the data started this month: only this month
+    expect(defaultReportMonth(reportMonths('2026-03-02T00:00:00Z', at('2026-03-05T10:00:00Z')))).toBe(
+      '2026-03',
+    )
+    expect(reportFileName('WIDN-CAT3', '2026-10', 'id')).toBe('SIMOLA_WIDN-CAT3_2026-10_id.pdf')
   })
 })

@@ -199,3 +199,32 @@ export function exportUrl(
   }
   return `/api/v1/systems/${encodeURIComponent(system)}/exports/${kind}.csv?${q.toString()}`
 }
+
+// ---- monthly PDF (R3.5, FR-EXP-001) -------------------------------------------------------------
+
+/** SIMOLA_<system>_<YYYY-MM>_<lang>.pdf, as the server names it. */
+export function reportFileName(system: string, month: string, lang: 'id' | 'en'): string {
+  return `SIMOLA_${system}_${month}_${lang}.pdf`
+}
+
+/** The UTC months a report can be made for, newest first: this month back to the month the data starts. */
+export function reportMonths(coverageStart: string, now: Date): string[] {
+  const start = new Date(coverageStart)
+  const out: string[] = []
+  let y = now.getUTCFullYear()
+  let m = now.getUTCMonth()
+  while (y > start.getUTCFullYear() || (y === start.getUTCFullYear() && m >= start.getUTCMonth())) {
+    out.push(`${y}-${String(m + 1).padStart(2, '0')}`)
+    m -= 1
+    if (m < 0) {
+      m = 11
+      y -= 1
+    }
+  }
+  return out
+}
+
+/** Last month, the one a monthly report is usually for; this month when the data started this month. */
+export function defaultReportMonth(months: string[]): string {
+  return months[1] ?? months[0] ?? ''
+}
