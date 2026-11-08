@@ -28,7 +28,8 @@
     },
     "reports": "METAR, MET REPORT dan TAF",
     "quality": "Kualitas data",
-    "definitions": "Definisi"
+    "definitions": "Definisi",
+    "exports": "Ekspor"
   },
   "common": {
     "close": "Tutup",
@@ -553,7 +554,8 @@
       "calibration_added": "Mencatat kalibrasi",
       "calibration_changed": "Mengubah kalibrasi",
       "calibration_removed": "Menghapus kalibrasi",
-      "alarm_mapping_changed": "Mengubah pemetaan alarm"
+      "alarm_mapping_changed": "Mengubah pemetaan alarm",
+      "export": "Mengunduh ekspor"
     },
     "entity": {
       "user": "pengguna",
@@ -569,7 +571,8 @@
       "station": "stasiun",
       "site": "lokasi",
       "calibration": "kalibrasi",
-      "alarm": "alarm"
+      "alarm": "alarm",
+      "export": "ekspor"
     },
     "yes": "ya",
     "no": "tidak",
@@ -1402,6 +1405,135 @@
         "Menit valid dan menit yang diharapkan ditampilkan bersama setiap angka.",
         "Warna: {good} % atau lebih berarti baik, {warning} % atau lebih berarti peringatan, di bawahnya buruk. Warna tergelap berarti tidak ada menit yang hilang, sehingga angka yang dibulatkan menjadi 100,00 % tetapi kehilangan satu menit ditampilkan satu tingkat lebih terang."
       ]
+    }
+  },
+  "exports": {
+    "title": "Ekspor",
+    "subtitle": "Bawa angka dan catatan sebagai berkas. Hanya pengguna yang sudah masuk yang dapat mengunduhnya, dan setiap unduhan dicatat di log audit.",
+    "pdf": {
+      "title": "Laporan bulanan (PDF)",
+      "what": "Sampul, ringkasan KPI, tabel lokasi dan sensor, grafik SLA dan OLA harian, gangguan terlama, alarm, kualitas data dan kalibrasi, untuk satu bulan UTC, dalam Bahasa Indonesia atau Inggris.",
+      "month": "Bulan",
+      "language": "Bahasa",
+      "download": "Unduh PDF"
+    },
+    "csv": {
+      "title": "Berkas CSV",
+      "kind": "Berkas"
+    },
+    "kind": {
+      "daily": {
+        "name": "Ketersediaan harian",
+        "what": "Menit valid dan menit yang diharapkan per hari untuk sistem, tiap CDP, lokasi dan sensor.",
+        "rows": "Satu baris per hari UTC dan cakupan: sistem (SLA), tiap CDP (uptime dan keterjangkauan), tiap lokasi dan tiap sensor."
+      },
+      "minutes": {
+        "name": "Data 1 menit",
+        "what": "Setiap menit satu lokasi: nilai gabungan dan status tiap sensor. Paling lama 31 hari.",
+        "rows": "Satu baris per menit dalam periode. Untuk tiap sensor: statusnya pada menit itu, lalu field-nya hasil gabungan dari kedua CDP, dengan satuan di judul kolom."
+      },
+      "alarms": {
+        "name": "Riwayat alarm",
+        "what": "Setiap perubahan di berkas alarm AWOS, sesuai laporan.",
+        "rows": "Satu baris per perubahan (muncul, dikonfirmasi atau berakhir) seperti dicatat AWOS, dengan filter yang sama seperti riwayat alarm."
+      },
+      "quality": {
+        "name": "Penandaan dan deteksi",
+        "what": "Penandaan manual dan deteksi aturan yang menyentuh periode.",
+        "rows": "Satu baris per penandaan dan sensor, dan satu per deteksi. Catatan utuh, juga bila melewati batas periode."
+      }
+    },
+    "period": "Periode",
+    "site": "Lokasi",
+    "records": "Catatan",
+    "quality": {
+      "flags": "Penandaan manual",
+      "detections": "Deteksi yang dikonfirmasi",
+      "all": "Juga deteksi dugaan dan yang ditolak",
+      "none": "Pilih paling sedikit satu jenis catatan."
+    },
+    "tooLong": {
+      "minutes": "Data 1 menit paling lama {n} hari per berkas. Pilih periode yang lebih pendek, misalnya satu bulan.",
+      "other": "Satu berkas paling lama {n} hari. Pilih periode yang lebih pendek."
+    },
+    "open": {
+      "figures": "Periode ini belum selesai: berkas menghitung menit sampai saat dibuat. Unduh lagi nanti untuk sisanya.",
+      "records": "Periode ini belum selesai: berkas memuat yang tercatat sampai saat dibuat."
+    },
+    "coverage": "Data SIMOLA dimulai pada {time}; menit sebelum itu tidak dihitung.",
+    "counting": "Menghitung…",
+    "rows": "sekitar {n} baris | sekitar {n} baris",
+    "columns": "{n} kolom | {n} kolom",
+    "download": "Unduh CSV",
+    "inFile": "Isi berkas",
+    "statuses": "Kolom status berisi salah satu dari: {list}. Menit sebelum awal cakupan, di luar masa operasi, atau yang belum lewat bernilai not_counted.",
+    "col": {
+      "header": "Kolom",
+      "meaning": "Arti",
+      "example": "Contoh",
+      "date_utc": "Hari UTC (00.00–24.00 UTC).",
+      "scope": "Yang dihitung baris ini: system (SLA), cdp (uptime), site (lokasi) atau component (sensor).",
+      "cdp": "CDP-nya, pada baris cdp.",
+      "site": "Kode lokasi.",
+      "component": "Jenis sensor.",
+      "expected_min": "Menit yang dihitung hari itu: setelah awal cakupan, selama beroperasi, sampai saat berkas dibuat. Untuk lokasi: menit × jumlah sensornya.",
+      "valid_min": "Menit valid. Untuk CDP: menit saat CDP menghasilkan data. Untuk sistem: menit saat paling sedikit satu CDP menghasilkan data.",
+      "missing_min": "expected_min − valid_min.",
+      "availability_pct": "valid_min ÷ expected_min × 100, dua desimal; kosong bila tidak ada menit yang diharapkan.",
+      "reachable_min": "Baris cdp: menit dengan probe jaringan yang berhasil (sebagai informasi).",
+      "probed_min": "Baris cdp: menit yang punya hasil probe.",
+      "definitions_version": "Versi definisi yang diikuti angka-angkanya.",
+      "generated_at_utc": "Waktu berkas dibuat, UTC.",
+      "minute_time": "Awal menit, UTC.",
+      "minute_cdps": "CDP yang berkasnya memuat menit ini; kosong bila tidak ada.",
+      "sensor": "statusnya pada menit itu, lalu nilai gabungan tiap field; kosong bila hilang.",
+      "dcp": "statusnya pada menit itu (valid bila ada field dari sensor lokasi itu yang masuk).",
+      "alarm_time": "Waktu AWOS mencatat perubahan, UTC.",
+      "alarm_name": "Nama alarm AWOS.",
+      "alarm_type": "error atau warning.",
+      "alarm_change": "raised (muncul), acknowledged (dikonfirmasi) atau cleared (berakhir).",
+      "alarm_state": "Kata status dari AWOS sendiri.",
+      "alarm_place": "Tempat alarm: component, site, station atau unmapped (Admin → Pemetaan alarm).",
+      "alarm_message": "Pesan seperti tercatat.",
+      "alarm_cdps": "CDP yang berkas alarmnya memuat baris ini.",
+      "q_kind": "flag (penandaan) atau detection (deteksi).",
+      "q_id": "Nomor penandaan atau deteksi di SIMOLA.",
+      "q_field": "Baris deteksi: field yang diperiksa aturan.",
+      "q_start": "Mulai, UTC.",
+      "q_end": "Selesai, UTC (tidak termasuk).",
+      "q_minutes": "Panjangnya dalam menit.",
+      "q_reason": "Penandaan: alasannya. Deteksi: jenis aturan (range, stuck atau spike).",
+      "q_status": "Penandaan: active. Deteksi: confirmed, suspect atau rejected.",
+      "q_counts": "true bila mengurangi menit dari angka: penandaan, atau deteksi yang dikonfirmasi pada field wajib.",
+      "q_rule": "Baris deteksi: nomor aturan.",
+      "q_rule_version": "Baris deteksi: versi aturan saat terpicu.",
+      "q_note": "Catatan yang ditulis bersamanya.",
+      "q_by": "Siapa yang membuat penandaan, atau memutuskan deteksi.",
+      "q_at": "Kapan, UTC."
+    },
+    "recompute": {
+      "title": "Mendapatkan kembali angka bulanan dari berkas ini",
+      "sla": "SLA: Σ valid_min ÷ Σ expected_min pada baris system × 100.",
+      "uptime": "Uptime CDP: cara yang sama pada baris cdp-nya.",
+      "reach": "Keterjangkauan CDP: Σ reachable_min ÷ Σ probed_min; cakupan probe: Σ probed_min ÷ Σ expected_min.",
+      "site": "Ketersediaan lokasi: cara yang sama pada baris site-nya; sensor: pada baris component-nya.",
+      "ola": "OLA: rata-rata ketersediaan lokasi untuk satu bulan penuh (jumlahkan harinya dulu, lalu rata-ratakan lokasinya).",
+      "pooled": "Semua komponen: Σ valid_min ÷ Σ expected_min pada seluruh baris component."
+    },
+    "format": {
+      "title": "Tentang berkas",
+      "encoding": "UTF-8 dengan byte-order mark (agar Excel menampilkan ° dan teks Indonesia dengan benar), dipisah koma, satu baris judul, “.” sebagai pemisah desimal, satuan di judul kolom.",
+      "times": "Waktu dalam ISO 8601 UTC (2026-11-01T00:00:00Z). Periode berlaku dari awalnya sampai, tidak termasuk, akhirnya.",
+      "safe": "Teks yang akan dijalankan spreadsheet sebagai rumus (diawali = + - {'@'}) diberi tanda petik di depannya. Angka ditulis apa adanya.",
+      "version": "Dua kolom terakhir berisi versi definisi (saat ini {v}) dan waktu berkas dibuat.",
+      "audit": "Setiap unduhan dicatat di log audit beserta periode dan pilihannya."
+    },
+    "preparing": "Menyiapkan…",
+    "error": {
+      "too_many_exports": "Paling banyak sepuluh berkas per menit. Tunggu sebentar lalu coba lagi.",
+      "not_authenticated": "Sesi Anda telah berakhir. Masuk lagi untuk mengunduh.",
+      "period_too_long": "Periode ini terlalu panjang untuk satu berkas.",
+      "other": "Berkas tidak dapat dibuat. Coba lagi; bila terus gagal, beri tahu Admin."
     }
   }
 }

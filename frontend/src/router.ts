@@ -54,6 +54,13 @@ export const router = createRouter({
       meta: { role: 'viewer' },
     },
     {
+      path: '/systems/:code/exports',
+      name: 'exports',
+      component: () => import('@/views/ExportsView.vue'),
+      props: true,
+      meta: { role: 'viewer' },
+    },
+    {
       path: '/wall',
       name: 'wall',
       component: () => import('@/views/BoardView.vue'),

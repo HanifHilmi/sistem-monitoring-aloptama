@@ -202,14 +202,14 @@ export function active(now: number, scope?: string | null): ActiveAlarms {
   }
 }
 
-/** FR-ALM-002: changes in [from, to), filtered, 50 a page, with alarms raised per day. */
-export function history(now: number, q: URLSearchParams): AlarmPage {
+/** The changes the history's filters keep, oldest first (also the alarm export). */
+export function filtered(now: number, q: URLSearchParams): AlarmEvent[] {
   const from = Date.parse(q.get('from') ?? '')
   const to = Date.parse(q.get('to') ?? '')
   const type = q.get('type')
   const name = (q.get('name') ?? '').toLowerCase()
   const act = q.get('active')
-  const list = events(now).filter((e) => {
+  return events(now).filter((e) => {
     const t = Date.parse(e.time)
     return (
       t >= from &&
@@ -220,6 +220,13 @@ export function history(now: number, q: URLSearchParams): AlarmPage {
       (act === null || String(e.active) === act)
     )
   })
+}
+
+/** FR-ALM-002: changes in [from, to), filtered, 50 a page, with alarms raised per day. */
+export function history(now: number, q: URLSearchParams): AlarmPage {
+  const from = Date.parse(q.get('from') ?? '')
+  const to = Date.parse(q.get('to') ?? '')
+  const list = filtered(now, q)
   const days = new Map<string, { day: string; error: number; warning: number }>()
   for (let d = Math.floor(from / DAY) * DAY; d < to; d += DAY) {
     const day = new Date(d).toISOString().slice(0, 10)

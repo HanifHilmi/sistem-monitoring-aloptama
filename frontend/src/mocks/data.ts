@@ -740,6 +740,13 @@ function textVal(code: string, t: number): string | null {
   return null
 }
 
+/** One field's sample value in the minute starting at ``t`` (the 1-minute export). */
+export function minuteValue(slug: string, type: string, code: string, t: number): number | string | null {
+  const info = SYSTEM.fields[code]
+  if (!info) return null
+  return info.type === 'numeric' ? detectedValue(slug, type, code, t, numeric(code, t)) : textVal(code, t)
+}
+
 export function series(slug: string, type: string, from: number, to: number, now: number): SeriesResponse {
   const comp = SYSTEM.sites.find((s) => s.slug === slug)!.components.find((c) => c.type === type)!
   const end = Math.min(to, now)

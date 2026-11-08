@@ -70,6 +70,8 @@ const menus = computed(() =>
       { to: `/systems/${s.code}/definitions`, label: t('nav.definitions') },
       // The alarm viewer is for signed-in users (OPEN-13).
       ...(auth.canView ? [{ to: `/systems/${s.code}/alarms`, label: t('nav.alarms') }] : []),
+      // Exports are for signed-in users (FR-EXP-003).
+      ...(auth.canView ? [{ to: `/systems/${s.code}/exports`, label: t('nav.exports') }] : []),
     ] as MenuItem[],
     later: [] as string[],
   })),

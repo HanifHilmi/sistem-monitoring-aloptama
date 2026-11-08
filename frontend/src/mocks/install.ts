@@ -6,6 +6,7 @@ import * as alarms from './alarms'
 import * as quality from './quality'
 import * as reports from './reports'
 import * as data from './data'
+import { exportFile } from './exports'
 import { dqRoute, isAdmin, pendingSuspects, pendingSuspectsIn, publicDetections } from './dq'
 import { flagsRoute, publicFlags } from './flags'
 
@@ -43,6 +44,22 @@ function route(url: URL, method: string, body: unknown): Response {
   const q = url.searchParams
   const from = Date.parse(q.get('from') ?? '')
   const to = Date.parse(q.get('to') ?? '')
+  // CSV exports are for signed-in users (FR-EXP-003).
+  const ex = p.match(/^\/systems\/[^/]+\/exports\/([a-z]+)\.csv$/)
+  if (ex) {
+    if (!signedIn()) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
+    const file = exportFile(ex[1]!, q, now)
+    if (typeof file === 'string') {
+      const status = file.endsWith('not_found') ? 404 : file === 'too_many_exports' ? 429 : 422
+      return json({ code: file, title: file, status }, status)
+    }
+    return new Response(file.body, {
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="${file.name}"`,
+      },
+    })
+  }
   if (p === '/settings/display')
     return json({ color_thresholds: { good: 99, warning: 95 }, grace_minutes: 3 })
   if (p === '/systems') return json(data.systems(now))

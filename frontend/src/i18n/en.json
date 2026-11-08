@@ -28,7 +28,8 @@
     },
     "reports": "METAR, MET REPORT and TAF",
     "quality": "Data quality",
-    "definitions": "Definitions"
+    "definitions": "Definitions",
+    "exports": "Exports"
   },
   "common": {
     "close": "Close",
@@ -553,7 +554,8 @@
       "calibration_added": "Recorded calibration",
       "calibration_changed": "Changed calibration",
       "calibration_removed": "Removed calibration",
-      "alarm_mapping_changed": "Changed alarm mapping"
+      "alarm_mapping_changed": "Changed alarm mapping",
+      "export": "Downloaded an export"
     },
     "entity": {
       "user": "user",
@@ -569,7 +571,8 @@
       "station": "station",
       "site": "site",
       "calibration": "calibration",
-      "alarm": "alarm"
+      "alarm": "alarm",
+      "export": "export"
     },
     "yes": "yes",
     "no": "no",
@@ -1402,6 +1405,135 @@
         "The valid and expected minutes are shown with every figure.",
         "Colours: {good} % or more is good, {warning} % or more is a warning, and below that is bad. The darkest colour means no minute was lost, so a figure that rounds to 100.00 % but lost a minute is shown one step lighter."
       ]
+    }
+  },
+  "exports": {
+    "title": "Exports",
+    "subtitle": "Take the figures and records away as files. Only signed-in users can download them, and every download is recorded in the audit log.",
+    "pdf": {
+      "title": "Monthly report (PDF)",
+      "what": "Cover, KPI summary, site and sensor table, daily SLA and OLA chart, longest outages, alarms, data quality and calibration, for one UTC month, in Bahasa Indonesia or English.",
+      "month": "Month",
+      "language": "Language",
+      "download": "Download PDF"
+    },
+    "csv": {
+      "title": "CSV files",
+      "kind": "File"
+    },
+    "kind": {
+      "daily": {
+        "name": "Daily availability",
+        "what": "Valid and expected minutes per day for the system, each CDP, site and sensor.",
+        "rows": "One row per UTC day and scope: the system (SLA), each CDP (uptime and reachability), each site and each sensor."
+      },
+      "minutes": {
+        "name": "1-minute data",
+        "what": "Every minute of one site: the merged values and each sensor’s status. Up to 31 days.",
+        "rows": "One row per minute of the period. For each sensor: its status that minute, then its fields as merged from the CDPs, with the unit in the header."
+      },
+      "alarms": {
+        "name": "Alarm history",
+        "what": "Every change in the AWOS alarm files, as reported.",
+        "rows": "One row per change (raised, acknowledged or cleared) as the AWOS logged it, filtered as in the alarm history."
+      },
+      "quality": {
+        "name": "Flags and detections",
+        "what": "Manual flags and rule detections touching the period.",
+        "rows": "One row per flag and sensor, and one per detection. Whole records, also where they reach past the period."
+      }
+    },
+    "period": "Period",
+    "site": "Site",
+    "records": "Records",
+    "quality": {
+      "flags": "Manual flags",
+      "detections": "Confirmed detections",
+      "all": "Also suspect and rejected detections",
+      "none": "Pick at least one kind of record."
+    },
+    "tooLong": {
+      "minutes": "1-minute data goes up to {n} days per file. Pick a shorter period, such as a month.",
+      "other": "One file covers up to {n} days. Pick a shorter period."
+    },
+    "open": {
+      "figures": "This period is not over yet: the file counts minutes up to the moment it is made. Download it again later for the rest.",
+      "records": "This period is not over yet: the file holds what is recorded up to the moment it is made."
+    },
+    "coverage": "SIMOLA’s data starts at {time}; minutes before that are not counted.",
+    "counting": "Counting…",
+    "rows": "about {n} row | about {n} rows",
+    "columns": "{n} column | {n} columns",
+    "download": "Download CSV",
+    "inFile": "What’s in the file",
+    "statuses": "A status column says one of: {list}. Minutes before the coverage start, out of service or not over yet are not_counted.",
+    "col": {
+      "header": "Column",
+      "meaning": "Meaning",
+      "example": "Example",
+      "date_utc": "The UTC day (00:00–24:00 UTC).",
+      "scope": "What the row counts: system (SLA), cdp (uptime), site or component.",
+      "cdp": "The CDP, on cdp rows.",
+      "site": "The site’s code.",
+      "component": "The sensor type.",
+      "expected_min": "Minutes counted that day: after the coverage start, while in service, up to the moment the file is made. For a site: minutes × its sensors.",
+      "valid_min": "Valid minutes. For a CDP: minutes it produced data. For the system: minutes at least one CDP produced data.",
+      "missing_min": "expected_min − valid_min.",
+      "availability_pct": "valid_min ÷ expected_min × 100, two decimals; empty when nothing was expected.",
+      "reachable_min": "cdp rows: minutes with a successful network probe (for information).",
+      "probed_min": "cdp rows: minutes with a probe result.",
+      "definitions_version": "The definitions the figures follow.",
+      "generated_at_utc": "When the file was made, UTC.",
+      "minute_time": "The minute’s start, UTC.",
+      "minute_cdps": "The CDPs whose files had this minute; empty when neither had it.",
+      "sensor": "its status that minute, then each field’s merged value; empty when missing.",
+      "dcp": "its status that minute (valid when any field of the site’s sensors arrived).",
+      "alarm_time": "When the AWOS logged the change, UTC.",
+      "alarm_name": "The AWOS alarm name.",
+      "alarm_type": "error or warning.",
+      "alarm_change": "raised, acknowledged or cleared.",
+      "alarm_state": "The AWOS’s own state word.",
+      "alarm_place": "Where the alarm belongs: component, site, station or unmapped (Admin → Alarm mapping).",
+      "alarm_message": "The message as logged.",
+      "alarm_cdps": "The CDPs whose alarm files had this row.",
+      "q_kind": "flag or detection.",
+      "q_id": "The flag’s or detection’s number in SIMOLA.",
+      "q_field": "detection rows: the field the rule checks.",
+      "q_start": "Start, UTC.",
+      "q_end": "End, UTC (not included).",
+      "q_minutes": "Its length in minutes.",
+      "q_reason": "Flags: the reason. Detections: the rule type (range, stuck or spike).",
+      "q_status": "Flags: active. Detections: confirmed, suspect or rejected.",
+      "q_counts": "true when it takes minutes out of the figures: a flag, or a confirmed detection on a mandatory field.",
+      "q_rule": "detection rows: the rule’s number.",
+      "q_rule_version": "detection rows: the rule’s version when it fired.",
+      "q_note": "The note written with it.",
+      "q_by": "Who made the flag, or decided on the detection.",
+      "q_at": "When, UTC."
+    },
+    "recompute": {
+      "title": "Getting a month’s figures back from this file",
+      "sla": "SLA: Σ valid_min ÷ Σ expected_min over the system rows × 100.",
+      "uptime": "A CDP’s uptime: the same over its cdp rows.",
+      "reach": "A CDP’s reachability: Σ reachable_min ÷ Σ probed_min; probe coverage: Σ probed_min ÷ Σ expected_min.",
+      "site": "A site’s availability: the same over its site rows; a sensor’s, over its component rows.",
+      "ola": "OLA: the average of the sites’ availabilities for the whole month (sum the days first, then average the sites).",
+      "pooled": "All components: Σ valid_min ÷ Σ expected_min over every component row."
+    },
+    "format": {
+      "title": "About the files",
+      "encoding": "UTF-8 with a byte-order mark (so Excel shows ° and Indonesian text correctly), comma-separated, one header row, “.” as the decimal point, units in the column headers.",
+      "times": "Times in ISO 8601 UTC (2026-11-01T00:00:00Z). A period runs from its start up to, not including, its end.",
+      "safe": "Text a spreadsheet would run as a formula (starting with = + - {'@'}) gets a leading apostrophe. Numbers are written as they are.",
+      "version": "The last two columns give the definitions version (now {v}) and when the file was made.",
+      "audit": "Every download is recorded in the audit log with its period and options."
+    },
+    "preparing": "Preparing…",
+    "error": {
+      "too_many_exports": "Ten files a minute at most. Wait a moment and try again.",
+      "not_authenticated": "Your session has ended. Sign in again to download.",
+      "period_too_long": "This period is too long for one file.",
+      "other": "The file could not be made. Try again; if it keeps failing, tell an Admin."
     }
   }
 }
