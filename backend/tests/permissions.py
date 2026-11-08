@@ -40,6 +40,11 @@ MATRIX: dict[tuple[str, str], Need] = {
     # The public sees only the number of active alarms, in the Problems panel (OPEN-13).
     ("GET", "/api/v1/systems/{code}/alarms/active"): "viewer",
     ("GET", "/api/v1/systems/{code}/alarms"): "viewer",
+    # CSV exports are for Viewers and Admins, and audited (FR-EXP-003).
+    ("GET", "/api/v1/systems/{code}/exports/daily.csv"): "viewer",
+    ("GET", "/api/v1/systems/{code}/exports/minutes.csv"): "viewer",
+    ("GET", "/api/v1/systems/{code}/exports/alarms.csv"): "viewer",
+    ("GET", "/api/v1/systems/{code}/exports/quality.csv"): "viewer",
     ("GET", "/api/v1/auth/me"): "public",  # null when nobody is signed in
     ("POST", "/api/v1/auth/login"): "public",
     ("POST", "/api/v1/auth/logout"): "public",

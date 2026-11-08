@@ -64,6 +64,11 @@ INTERNAL_ROUTES = (
     "/api/v1/systems/{code}/trace",
     "/api/v1/systems/{code}/alarms/active",
     "/api/v1/systems/{code}/alarms",
+    # CSV exports (FR-EXP-003)
+    "/api/v1/systems/{code}/exports/daily.csv",
+    "/api/v1/systems/{code}/exports/minutes.csv",
+    "/api/v1/systems/{code}/exports/alarms.csv",
+    "/api/v1/systems/{code}/exports/quality.csv",
 )
 ADMIN_ROUTES = (
     "/api/v1/admin/users",

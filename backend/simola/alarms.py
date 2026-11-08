@@ -15,7 +15,7 @@ Mapping to sites and sensors is applied when reading, so a change in Admin re-ma
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Literal
@@ -338,7 +338,7 @@ async def rebuild(conn: AsyncConnection, system: System, name: str) -> None:
 
 
 # ------------------------------------------------------------------------------------------ reading
-def _cdp_codes(system: System, ids: Sequence[int]) -> list[str]:
+def cdp_codes(system: System, ids: Sequence[int]) -> list[str]:
     by_id = {c.id: c.code for c in system.cdps}
     return [by_id.get(i, str(i)) for i in ids]
 
@@ -375,7 +375,7 @@ async def current(
             "message": r["message"],
             "since": r["since"] or r["changed"],
             "changed": r["changed"],
-            "cdps": _cdp_codes(system, r["cdp_ids"]),
+            "cdps": cdp_codes(system, r["cdp_ids"]),
             "place": place,
         }
         (active if r["changed"] >= edge else stale).append(item)
@@ -468,7 +468,7 @@ async def history(
             "active": r["active"],
             "raised": r["raised"],
             "message": r["message"],
-            "cdps": _cdp_codes(system, r["cdp_ids"]),
+            "cdps": cdp_codes(system, r["cdp_ids"]),
             "place": place_view(system, r["place_kind"], r["site_id"], r["component_type"]),
         }
         for r in rows
@@ -497,6 +497,24 @@ async def history(
         )
         d += timedelta(days=1)
     return {"total": int(total), "events": events, "per_day": per_day}
+
+
+async def all_changes(
+    conn: AsyncConnection, system: System, f: HistoryFilter
+) -> AsyncIterator[dict[str, Any]]:
+    """Every change in [start, end) the filter keeps, oldest first, with its place (the CSV export, R3.4)."""
+    where, params = _where(system, f)
+    rows = await conn.stream(
+        text(f"""
+        SELECT e.time, e.name, e.type, e.state, e.active, e.raised, e.message, e.cdp_ids,
+               n.place_kind, n.site_id, n.component_type
+        FROM alarm_event e JOIN alarm_name n ON n.system_id = e.system_id AND n.name = e.name
+        WHERE {where} ORDER BY e.time, e.id
+    """),
+        params,
+    )
+    async for r in rows.mappings():
+        yield dict(r)
 
 
 async def names(conn: AsyncConnection, system: System) -> list[dict[str, Any]]:

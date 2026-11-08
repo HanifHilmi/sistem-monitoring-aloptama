@@ -241,6 +241,17 @@ itself (FR-ING-010): after the R3.2 deploy, start one reprocess job with only *r
   (`simola/kpi/definitions.py`). A change to a formula needs a new version there; exports and the monthly report
   carry it. Changing mandatory fields does not change the version.
 
+## CSV exports (Exports page, Viewers and Admins)
+
+- Four files: **daily availability** (system, CDPs, sites and sensors, one row per UTC day and scope; up to a year),
+  **1-minute data** for one site (each sensor's status and merged values per minute; up to 31 days), **alarm
+  history** (type and place filters as on the alarm page; up to a year) and **flags and detections** (active flags
+  and confirmed detections, or every detection; up to a year).
+- Summing a month of the daily file gives the month's figures; the page explains how (UAT U7).
+- Every download is in the audit log as "Downloaded an export", with its period and options. A person gets at most
+  ten files a minute; the eleventh is refused with a message on the page.
+- Files are made on request and never stored. A month of 1-minute data takes a few seconds.
+
 ## How the rest of SIMOLA follows
 
 - The worker checks for registry changes before every rollup (every 30 s) and reloads the rules; recompute jobs
