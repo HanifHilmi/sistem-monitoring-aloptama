@@ -8,13 +8,12 @@ report, that each one is audited, the shared limit of ten files a minute, and th
 
 from __future__ import annotations
 
-import json
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
-from fastapi.encoders import jsonable_encoder
+from pydantic import TypeAdapter
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -37,8 +36,8 @@ LOADED = datetime(2026, 11, 4, 3, 0, tzinfo=UTC)
 
 
 def _json(x: Any) -> Any:
-    """As the API would send it."""
-    return json.loads(json.dumps(jsonable_encoder(x)))
+    """As the API sends it (pydantic: UTC times end in Z)."""
+    return TypeAdapter(Any).dump_python(x, mode="json")
 
 
 @pytest.fixture(scope="module")
@@ -49,8 +48,8 @@ async def loaded(engine: AsyncEngine) -> AsyncIterator[None]:
     ingestor = Cat3Ingestor(engine, system, get_settings())
     await ingestor.reprocess_day(date(2026, 11, 3), now=LOADED)
     await ingestor.alarms.reprocess_day(date(2026, 11, 3), now=LOADED)
-    await _add_user(engine, "rp-admin", "admin")
-    for name in ("rp-figures", "rp-viewer", "rp-busy"):
+    await _add_user(engine, "mr-admin", "admin")
+    for name in ("mr-figures", "mr-viewer", "mr-busy"):
         await _add_user(engine, name, "viewer")
     yield
     async with engine.begin() as conn:
@@ -60,7 +59,7 @@ async def loaded(engine: AsyncEngine) -> AsyncIterator[None]:
 async def test_every_figure_in_the_report_is_the_dashboards(engine: AsyncEngine, loaded: None) -> None:
     """U6: the report's month equals /kpis, /matrix, /outages, /data-quality and the alarm history."""
     async with Browser() as viewer:
-        assert (await viewer.login("rp-figures")).status_code == 200
+        assert (await viewer.login("mr-figures")).status_code == 200
         for _ in range(3):  # all answers counted up to the same minute (the month may still be running)
             kpis = (await viewer.get(f"{SYS}/kpis?{NOVEMBER}")).json()
             matrix = (await viewer.get(f"{SYS}/matrix?{NOVEMBER}&bucket=day")).json()
@@ -118,7 +117,7 @@ async def test_calibration_is_shown_as_it_stood_at_the_end_of_the_month(
 ) -> None:
     """A record dated after the day is left out; a certificate validated after it was still pending then."""
     async with Browser() as admin:
-        assert (await admin.login("rp-admin")).status_code == 200
+        assert (await admin.login("mr-admin")).status_code == 200
         comps = {
             f"{c['site']}:{c['type']}": c["id"] for c in (await admin.get("/api/v1/admin/components")).json()
         }
@@ -170,7 +169,7 @@ async def test_the_report_is_for_viewers_audited_and_drawn_one_at_a_time(
         r = await public.send("POST", REPORT, {"month": "2026-11", "lang": "id"})
         assert r.status_code == 401
     async with Browser() as viewer:
-        assert (await viewer.login("rp-viewer")).status_code == 200
+        assert (await viewer.login("mr-viewer")).status_code == 200
         r = await viewer.send("POST", REPORT, {"month": "2026-11", "lang": "id"}, csrf=False)
         assert (r.status_code, r.json()["code"]) == (403, "csrf_failed")
         assert (await viewer.send("POST", REPORT, {"month": "2026-13", "lang": "id"})).status_code == 422
@@ -197,7 +196,7 @@ async def test_the_report_is_for_viewers_audited_and_drawn_one_at_a_time(
             (
                 await conn.execute(
                     text(
-                        "SELECT entity_id, after FROM audit_event WHERE action = 'export' AND actor = 'rp-viewer'"
+                        "SELECT entity_id, after FROM audit_event WHERE action = 'export' AND actor = 'mr-viewer'"
                     )
                 )
             )
@@ -211,7 +210,7 @@ async def test_the_report_is_for_viewers_audited_and_drawn_one_at_a_time(
 
 async def test_reports_and_csv_files_share_the_limit_of_ten_a_minute(loaded: None) -> None:
     async with Browser() as viewer:
-        assert (await viewer.login("rp-busy")).status_code == 200
+        assert (await viewer.login("mr-busy")).status_code == 200
         for _ in range(9):
             q = "from=2026-11-03T00:00:00Z&to=2026-11-04T00:00:00Z"
             assert (await viewer.get(f"{SYS}/exports/quality.csv?{q}")).status_code == 200
