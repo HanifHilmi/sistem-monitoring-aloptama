@@ -9,6 +9,16 @@ import pytest
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """On GitHub Actions, errors in a test's setup or teardown become annotations too (failures inside a test
+    already do), so they can be read without signing in to GitHub."""
+    if os.environ.get("GITHUB_ACTIONS") and report.failed and report.when != "call":
+        text = str(report.longrepr)[-3000:]
+        msg = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print(f"\n::error title={report.nodeid} ({report.when} error)::{msg}", flush=True)
+
+
 os.environ.setdefault(
     "SIMOLA_DATABASE_URL",
     os.environ.get("SIMOLA_TEST_DATABASE_URL", "postgresql+asyncpg://test:test@localhost:1/test"),
