@@ -289,13 +289,55 @@
   "overview": {
     "title": "Dashboard",
     "subtitle": "Every system at a glance",
+    "updated": "All times UTC · updated {time} · refreshes every minute",
+    "normal": "Normal",
+    "problems": "{n} problem | {n} problems",
+    "open": "Open board",
+    "cdps": "{n} CDP | {n} CDPs",
+    "sites": "{n} site | {n} sites",
+    "now": "Now",
+    "lastData": "Last data",
+    "slaToday": "SLA today",
+    "latestMetar": "Latest METAR",
+    "monthSoFar": "{month} so far",
+    "dayOf": "day {day} of {days}",
     "slaMonth": "SLA this month",
     "olaMonth": "OLA this month",
-    "slaToday": "SLA today",
-    "problems": "{n} problem | {n} problems",
-    "noProblems": "No problems",
-    "lastData": "Last data {time}",
-    "open": "Open board"
+    "lost": "{lost} of {expected} min lost",
+    "outages": "{n} outage | {n} outages",
+    "sitesTitle": "Sites",
+    "siteMonth": "{pct} % this month",
+    "signedInOnly": "Viewers and Admins",
+    "day": {
+      "done": "{day}: {name} {pct} %, {lost} min lost",
+      "today": "{day}, today so far: {name} {pct} %, {lost} min lost",
+      "none": "{day}: no {name} minute counted",
+      "future": "{day}: not reached yet",
+      "notYet": "not yet",
+      "hint": "Select a day to open it on the board."
+    },
+    "outagesCard": {
+      "title": "Largest outages · last 7 days",
+      "none": "No minute lost in the last 7 days.",
+      "open": "Open these 7 days on the board"
+    },
+    "calibrationCard": {
+      "next": "Next due {date}: {n} sensor, in {days} days | Next due {date}: {n} sensors, in {days} days",
+      "none": "No due date on record yet.",
+      "open": "Calibration list"
+    },
+    "alarmsCard": {
+      "active": "active right now",
+      "more": "and {n} more",
+      "open": "Alarm page"
+    },
+    "reportCard": {
+      "title": "Monthly report",
+      "ready": "{month} is complete.",
+      "pdf": "PDF · {lang}",
+      "none": "The first month of data is still running.",
+      "open": "All exports"
+    }
   },
   "gust": {
     "title": "Gusts",

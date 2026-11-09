@@ -29,6 +29,7 @@ import {
   type ExportKind,
 } from '@/utils/exports'
 import { int, num } from '@/utils/format'
+import { saveBlob } from '@/utils/download'
 import { formatUtc, isOpen } from '@/utils/time'
 
 // Exports (FR-EXP-001…003, Viewers and Admins): the monthly PDF and four CSV files. The server writes the files,
@@ -142,22 +143,12 @@ async function download() {
       failed.value = (await problemCode(res)) ?? 'http_error'
       return
     }
-    save(await res.blob(), fileName.value)
+    saveBlob(await res.blob(), fileName.value)
   } catch {
     failed.value = 'network_error'
   } finally {
     busy.value = false
   }
-}
-function save(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  document.body.append(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 async function problemCode(res: Response): Promise<string | null> {
   try {
@@ -258,7 +249,7 @@ async function downloadReport() {
   const started = Date.now()
   const tick = setInterval(() => (elapsed.value = Math.round((Date.now() - started) / 1000)), 1000)
   try {
-    save(await api.monthlyReport(props.code, reportMonth.value, reportLang.value), reportName.value)
+    saveBlob(await api.monthlyReport(props.code, reportMonth.value, reportLang.value), reportName.value)
   } catch (e) {
     reportFailed.value = e instanceof ApiProblem ? e.code : 'network_error'
   } finally {

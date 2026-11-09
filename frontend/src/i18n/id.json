@@ -289,13 +289,55 @@
   "overview": {
     "title": "Dasbor",
     "subtitle": "Semua sistem dalam satu tampilan",
+    "updated": "Semua waktu UTC · diperbarui {time} · disegarkan tiap menit",
+    "normal": "Normal",
+    "problems": "{n} masalah",
+    "open": "Buka papan",
+    "cdps": "{n} CDP",
+    "sites": "{n} lokasi",
+    "now": "Saat ini",
+    "lastData": "Data terakhir",
+    "slaToday": "SLA hari ini",
+    "latestMetar": "METAR terakhir",
+    "monthSoFar": "{month} sejauh ini",
+    "dayOf": "hari ke-{day} dari {days}",
     "slaMonth": "SLA bulan ini",
     "olaMonth": "OLA bulan ini",
-    "slaToday": "SLA hari ini",
-    "problems": "{n} masalah",
-    "noProblems": "Tidak ada masalah",
-    "lastData": "Data terakhir {time}",
-    "open": "Buka papan"
+    "lost": "{lost} dari {expected} menit hilang",
+    "outages": "{n} gangguan",
+    "sitesTitle": "Lokasi",
+    "siteMonth": "{pct} % bulan ini",
+    "signedInOnly": "Pemantau dan Admin",
+    "day": {
+      "done": "{day}: {name} {pct} %, {lost} menit hilang",
+      "today": "{day}, hari ini sejauh ini: {name} {pct} %, {lost} menit hilang",
+      "none": "{day}: tidak ada menit {name} yang dihitung",
+      "future": "{day}: belum berjalan",
+      "notYet": "belum berjalan",
+      "hint": "Pilih satu hari untuk membukanya di papan."
+    },
+    "outagesCard": {
+      "title": "Gangguan terbesar · 7 hari terakhir",
+      "none": "Tidak ada menit yang hilang dalam 7 hari terakhir.",
+      "open": "Buka 7 hari ini di papan"
+    },
+    "calibrationCard": {
+      "next": "Jatuh tempo berikutnya {date}: {n} sensor, {days} hari lagi",
+      "none": "Belum ada tanggal jatuh tempo yang tercatat.",
+      "open": "Daftar kalibrasi"
+    },
+    "alarmsCard": {
+      "active": "aktif saat ini",
+      "more": "dan {n} lainnya",
+      "open": "Halaman alarm"
+    },
+    "reportCard": {
+      "title": "Laporan bulanan",
+      "ready": "{month} sudah selesai.",
+      "pdf": "PDF · {lang}",
+      "none": "Bulan pertama data masih berjalan.",
+      "open": "Semua ekspor"
+    }
   },
   "gust": {
     "title": "Hembusan",
