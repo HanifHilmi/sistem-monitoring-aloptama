@@ -6,9 +6,9 @@
 |---|---|
 | **Document title** | Product Requirements Document — Sistem Monitoring ALOPTAMA (SIMOLA) |
 | **Product name** | SIMOLA (Sistem Monitoring ALOPTAMA) |
-| **Version** | 1.1 |
-| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository |
-| **Date** | 2026-11-04 |
+| **Version** | 1.2 |
+| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001) |
+| **Date** | 2026-11-09 |
 | **Product Owner** | Station technician who owns and operates the platform (sole operator) |
 | **Supersedes** | `monitoring-aloptama-v2/PRD.md` v2.1 (legacy; kept unchanged for reference) |
 | **Related documents** | `ASSESSMENT.md` (existing-system assessment; private, not in the public repository) · [`QUESTIONS.md`](QUESTIONS.md) (Stage 3 decisions) |
@@ -21,6 +21,7 @@
 | 0.2 | 2026-11-04 | Claude (with the Product Owner) | Resolved 15 of 18 open items at PRD review. Main changes: cutover moved to after R1; alarm viewer limited to logged-in users; component in-service periods became Must; legacy reachability import added to R1; public repository rules (NFR-SEC-010); targets confirmed; staging hostname; Tambelan is the first post-MVP system; free/existing services only |
 | 1.0 | 2026-11-04 | Product Owner | **Approved.** v0.2 content accepted as the requirements baseline; no content changes. All [P] items approved as written (§1.2). Later changes go through a revision with a new version number |
 | 1.1 | 2026-11-04 | Claude (requested by the Product Owner) | Public-release redaction (NFR-SEC-010): details of open weaknesses in the legacy system and host mount paths replaced by references to the private assessment. **No requirement changes** |
+| 1.2 | 2026-11-09 | Claude (approved by the Product Owner) | FR-DSH-001: the overview's content as approved from screenshots on 2026-11-09 (a panel per system and cards across systems). No other requirement changes |
 
 ### 1.2 How to read this document
 
@@ -658,6 +659,7 @@ For a period, show minutes and counts of confirmed detections and flags by compo
 
 **FR-DSH-001 · Overview** — `Must · R1 · BO-2, BO-3 · [P]`
 The overview lists configured systems with headline status: SLA today and month-to-date, OLA month-to-date, and active problem count. It shows only configured systems, with no "coming soon" placeholders.
+Since v1.2 (dashboard approved by the Product Owner on 2026-11-09), each system has a panel with its current problems, its CDPs' data flow, the last data minute, the latest METAR, the month so far day by day (each day opens the system dashboard on that day) and every site's component status. Cards under the panels cover every system: the largest outages of the last 7 days and calibration status for everyone; active AWOS alarms and last month's report for Viewers and Admins. A new system adds a panel and its share of each card.
 
 **FR-DSH-002 · System dashboard** — `Must · R1 · BO-1, BO-2 · [D:B3]`
 For the selected period, the dashboard shows SLA, per-node uptime, reachability (informational), OLA and pooled availability. Each figure can show its valid / expected / missing minutes. One period selector controls the whole page [P] (v2 had three independent pickers).

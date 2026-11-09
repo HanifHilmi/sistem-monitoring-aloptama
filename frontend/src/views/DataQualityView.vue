@@ -92,7 +92,8 @@ const hours = (m: number) => (m >= 120 ? t('quality.hours', { h: num(m / 60, lc.
         <section class="rounded-lg border border-line bg-surface px-4 py-3" data-testid="quality-flagged">
           <h2 class="text-xs text-ink-2">{{ t('quality.flagged') }}</h2>
           <p class="num mt-1 text-2xl font-semibold">
-            {{ int(summary.flagged_minutes, lc) }}<span class="ml-1 text-sm font-normal text-ink-3">min</span>
+            {{ int(summary.flagged_minutes, lc)
+            }}<span class="ml-1 text-sm font-normal text-ink-3">{{ t('common.minUnit') }}</span>
           </p>
           <p class="text-xs text-ink-3">
             {{ t('quality.flags', { n: summary.flags }, summary.flags) }}
@@ -103,7 +104,7 @@ const hours = (m: number) => (m >= 120 ? t('quality.hours', { h: num(m / 60, lc.
           <h2 class="text-xs text-ink-2">{{ t('quality.detected') }}</h2>
           <p class="num mt-1 text-2xl font-semibold">
             {{ int(summary.detection_minutes, lc)
-            }}<span class="ml-1 text-sm font-normal text-ink-3">min</span>
+            }}<span class="ml-1 text-sm font-normal text-ink-3">{{ t('common.minUnit') }}</span>
           </p>
           <p class="text-xs text-ink-3">
             {{ t('quality.detections', { n: summary.detections }, summary.detections) }}
@@ -157,14 +158,14 @@ const hours = (m: number) => (m >= 120 ? t('quality.hours', { h: num(m / 60, lc.
                 <p class="num text-xs">
                   <span class="block text-ink-3 md:hidden">{{ t('quality.flaggedShort') }}</span>
                   <span :class="c.flagged_minutes ? 'text-ink' : 'text-ink-3'"
-                    >{{ int(c.flagged_minutes, lc) }} min</span
+                    >{{ int(c.flagged_minutes, lc) }} {{ t('common.minUnit') }}</span
                   >
                   <span class="block text-ink-3">{{ t('quality.flags', { n: c.flags }, c.flags) }}</span>
                 </p>
                 <p class="num text-xs">
                   <span class="block text-ink-3 md:hidden">{{ t('quality.detectedShort') }}</span>
                   <span :class="c.detection_minutes ? 'text-ink' : 'text-ink-3'"
-                    >{{ int(c.detection_minutes, lc) }} min</span
+                    >{{ int(c.detection_minutes, lc) }} {{ t('common.minUnit') }}</span
                   >
                   <span class="block text-ink-3">{{
                     t('quality.detections', { n: c.detections }, c.detections)
@@ -177,7 +178,8 @@ const hours = (m: number) => (m >= 120 ? t('quality.hours', { h: num(m / 60, lc.
                   :key="`${r.kind}:${r.reason}`"
                   class="rounded border px-1.5 py-px text-[0.6875rem]"
                   :class="r.kind === 'flag' ? 'border-flag/40 bg-flag/10' : 'border-bad/30 bg-bad/10'"
-                  >{{ reasonLabel(r) }} · <span class="num">{{ int(r.minutes, lc) }} min</span></span
+                  >{{ reasonLabel(r) }} ·
+                  <span class="num">{{ int(r.minutes, lc) }} {{ t('common.minUnit') }}</span></span
                 >
                 <span class="num ml-auto text-[0.6875rem] text-ink-3">{{ shareLabel(c) }}</span>
               </div>
@@ -203,7 +205,7 @@ const hours = (m: number) => (m >= 120 ? t('quality.hours', { h: num(m / 60, lc.
                 <p class="flex items-baseline justify-between gap-2">
                   <span>{{ reasonLabel(r) }}</span>
                   <span class="num text-ink-2"
-                    >{{ int(r.minutes, lc) }} min ·
+                    >{{ int(r.minutes, lc) }} {{ t('common.minUnit') }} ·
                     {{
                       t(g.key === 'flags' ? 'quality.flags' : 'quality.detections', { n: r.count }, r.count)
                     }}</span

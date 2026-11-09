@@ -141,15 +141,25 @@ jobs:
           mkdir -p zap && chmod a+rwx zap
           docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py -t "http://$web:8080" -J zap.json -r zap.html -I
+      - name: ZAP scan of every API route (R3.6)
+        # The page scan cannot see the API routes the pages call, so ZAP also reads the OpenAPI document (served
+        # outside production) and requests every route in it. Safe mode (-S): passive checks only, no attacks.
+        run: |
+          web=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$(docker compose ps -q web)")
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap-api-scan.py -t "http://$web:8080/api/v1/openapi.json" -f openapi -S -J zap-api.json -r zap-api.html -I
       - name: Fail on High-risk alerts
         run: |
           python3 - <<'PY'
           import json, sys
-          alerts = [a for s in json.load(open("zap/zap.json"))["site"] for a in s["alerts"]]
-          for a in sorted(alerts, key=lambda a: -int(a["riskcode"])):
-              print(f'{a["riskdesc"]:<24} {a["alert"]}')
-          high = [a for a in alerts if int(a["riskcode"]) >= 3]
-          sys.exit(f"{len(high)} High-risk alert(s)" if high else 0)
+          high = 0
+          for name in ("zap.json", "zap-api.json"):
+              alerts = [a for s in json.load(open(f"zap/{name}"))["site"] for a in s["alerts"]]
+              print(f"{name}: {len(alerts)} alert type(s)")
+              for a in sorted(alerts, key=lambda a: -int(a["riskcode"])):
+                  print(f'  {a["riskdesc"]:<24} {a["alert"]}')
+              high += sum(1 for a in alerts if int(a["riskcode"]) >= 3)
+          sys.exit(f"{high} High-risk alert(s)" if high else 0)
           PY
       - name: Back up and check the restore on the runner (deploy/backup)
         run: |

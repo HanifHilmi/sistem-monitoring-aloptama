@@ -44,7 +44,8 @@
     "allUtc": "Semua waktu dalam UTC.",
     "durH": "{h} jam",
     "durHM": "{h} jam {m} mnt",
-    "durM": "{m} mnt"
+    "durM": "{m} mnt",
+    "minUnit": "mnt"
   },
   "period": {
     "label": "Periode",

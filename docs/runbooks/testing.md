@@ -1,4 +1,4 @@
-# Runbook: R1 checks (browser, security, load)
+# Runbook: checks against a running site (browser, language, security, load)
 
 PRD §15.3–15.5. Unit and integration tests are in CI (`.github/workflows/ci.yml`); this page covers the checks that
 need a running site. Everything here only **reads** from staging. Never commit the addresses you use: the
@@ -39,6 +39,12 @@ the backend's integration test (`tests/integration/test_records.py`, in CI) and 
 Against a deployed site this also measures NFR-PERF-003 (largest contentful paint ≤ 2.5 s, initial JS ≤ 400 KB
 gzip). It is measured from the host, so it leaves out the Cloudflare leg.
 
+**U9, language** (`e2e/u9-language.spec.ts`, desktop): every public page, and on sample data every Viewer and
+Admin page, is opened in each language, and its visible text must hold no phrase that only the other language
+has; switching the language keeps the page and its period. `src/i18n/i18n.test.ts` (unit test) checks that both
+languages have the same keys, no empty text, the same placeholders, and no Indonesian text left in English
+except a reviewed list of words both languages share (SLA, Status, Admin …).
+
 Playwright 1.62.1 uses the browser cached in `~/.cache/ms-playwright` (`chromium_headless_shell-1234`), so no
 browser download is needed on this host.
 
@@ -56,21 +62,29 @@ address, file path, serial or infrastructure field; that internal and Admin page
 public hostname and the Admin area stays behind Access (D4); and that no SIMOLA container publishes a port on the
 host. Exit code 1 on any failure. Accounts in detail: [accounts.md](accounts.md).
 
-The OWASP ZAP baseline scan runs in CI (`zap` job) against a throwaway stack on GitHub's runner and fails on any
-High-risk alert; its report is kept as the `zap-report` artifact. Account behaviour (CSRF, sessions, lockout, the audit log, the permission matrix) is tested by the
+The OWASP ZAP scans run in CI (`zap` job) against a throwaway stack on GitHub's runner: the baseline scan of the
+pages, and (since R3.6) a scan of every API route listed in the OpenAPI document, in safe mode (passive checks,
+no attacks). The job fails on any High-risk alert; both reports are kept as the `zap-report` artifact.
+
+The permission matrix (every route, its least role and its PRD §5.4 capability) is written out in
+[../design/permissions.md](../design/permissions.md); a unit test keeps it equal to the table the tests use. Account behaviour (CSRF, sessions, lockout, the audit log, the permission matrix) is tested by the
 backend's integration tests in CI (`tests/integration/test_accounts.py`).
 
 ## Load test (§15.5)
 
-20 virtual users, J1-style navigation, 1–3 s between pages, 5 minutes:
+20 virtual users, J1-style navigation, 1–3 s between pages, 5 minutes. Since R3.6 each user also opens the
+dashboard (summary, latest reports, the month by day, outages, calibration) and now and then the METAR archive, a
+report search, the data-quality summary and the definitions. Signed-in pages (alarms, exports) are not in it:
 
 ```bash
 uvx --from 'locust>=2.30' locust -f tools/load/locustfile.py --headless -u 20 -r 2 -t 5m \
     --host http://<address>:8080 --csv /tmp/simola-load
 ```
 
-It prints PASS/FAIL for NFR-PERF-001 (KPI and status p95 ≤ 1.0 s) and NFR-PERF-002 (31-day chart p95 ≤ 1.5 s,
-≤ 500 KB) and exits 1 on a miss. The host also runs v2 production: run it at a quiet time and watch the load.
+It prints PASS/FAIL for NFR-PERF-001 (KPI, status and dashboard summary p95 ≤ 1.0 s) and NFR-PERF-002 (31-day
+chart p95 ≤ 1.5 s, ≤ 500 KB), the other routes for information, and exits 1 on a miss. The host also runs v2
+production: run it at a quiet time, watch the load, and run nothing else on the host meanwhile (a browser test
+run during the load test pushes the load past 11 on the 4 CPUs and spoils the figures).
 
 ## Results
 
@@ -91,3 +105,6 @@ It prints PASS/FAIL for NFR-PERF-001 (KPI and status p95 ≤ 1.0 s) and NFR-PERF
 | 2026-11-05 | Load, staging (20fb06b: sensor views + dead-share fix) | **Nearly passed**: 0 errors in 10,638 requests; every target met except the yearly matrix, p95 1.10 s (limit 1.0; 24 ms when idle). KPIs 1 year 1.00 s, status 0.94 s, 31-day chart 1.20 s (limit 1.5), largest chart 103.5 KB. Cause: each 31-day chart is 0.17–0.44 s of Python work inside the API process's request loop, so quick requests wait behind it; the sensor views made charts slightly heavier. Host load ≈ 4.7 on 4 CPUs, the load generator included |
 | 2026-11-05 | Load, staging (6494653: charts built on a thread) | **Passed**: every target met, 0 errors in 10,661 requests. p95: status 0.76 s, problems 0.82 s, KPIs 0.66/0.78 s (month/year), matrix 0.70/0.72 s (month/year), 31-day chart 1.30 s (limit 1.5), largest chart 103.9 KB. Host load ≈ 4.2 on 4 CPUs, the load generator included |
 | 2026-11-05 | Recount, staging (SM-1 and SM-2) | Every figure matches: 12 months (2025-12 to 2026-11 up to the 5th) and all 340 completed days, 24 figures each (`tools/recount.py --daily`) |
+| 2026-11-09 | Browser, staging (281d511: dashboard redesign) | 78 passed (170 skipped: signed-in or sample-only); security 76 passed |
+| 2026-11-09 | Load, staging (281d511, R3.6 load test with the dashboard and R3 pages), first run | Not counted: a browser test run on the same host pushed the load to 11–12 on 4 CPUs; the 31-day chart missed (p95 1.70 s), every other target met, 0 errors in 11,868 requests |
+| 2026-11-09 | Load, staging (same, nothing else running) | **Passed**: every target met, 0 errors in 13,793 requests. p95: dashboard summary 0.86 s, status 0.50 s, problems 0.59 s, KPIs 0.39/0.57 s (month/year), matrix 0.47/0.66 s (month/year), 31-day chart 1.10 s (limit 1.5), largest chart 106.0 KB. For information: outages 7 days 0.97 s, data quality 0.79 s, reports 0.30–0.38 s, assets 0.31 s. Host load ≈ 4–5 on 4 CPUs, the load generator included |

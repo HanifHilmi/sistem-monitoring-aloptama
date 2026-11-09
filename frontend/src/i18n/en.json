@@ -44,7 +44,8 @@
     "allUtc": "All times UTC.",
     "durH": "{h} h",
     "durHM": "{h} h {m} min",
-    "durM": "{m} min"
+    "durM": "{m} min",
+    "minUnit": "min"
   },
   "period": {
     "label": "Period",

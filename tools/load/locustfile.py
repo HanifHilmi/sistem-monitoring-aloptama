@@ -3,9 +3,12 @@
     uvx --from 'locust>=2.30' locust -f tools/load/locustfile.py --headless -u 20 -r 2 -t 5m \
         --host http://<web-container-address>:8080 --csv <out-dir>/load
 
-Each user opens the board (this month), sometimes switches to the year, opens a site (3-hour charts) and
-sometimes widens it to 31 days, with a 1-3 s pause between pages, like the browser does. At the end the
-targets are checked and the exit code is 1 if one is missed:
+Each user opens the dashboard (as its panel and cards ask: summary, latest reports, the month by day, outages,
+calibration), the board (this month), sometimes switches to the year, opens a site (3-hour charts) and
+sometimes widens it to 31 days, and now and then reads the METAR archive, a report search, the data-quality
+summary and the definitions (R3), with a 1-3 s pause between pages, like the browser does. Signed-in pages
+(alarms, exports) are not in it: the test runs without an account. At the end the targets are checked and the
+exit code is 1 if one is missed:
   NFR-PERF-001  KPI summary and status: p95 <= 1.0 s for periods up to 1 year
   NFR-PERF-002  sensor chart, 31-day window, one component: p95 <= 1.5 s and response <= 500 KB
 Never commit the address you test against: the repository is public (NFR-SEC-010).
@@ -21,7 +24,17 @@ from typing import Any
 import requests
 from locust import HttpUser, between, events, task
 
-PERF_001 = {"display", "system", "status", "problems", "kpis 1 month", "kpis 1 year", "matrix 1 month", "matrix 1 year"}
+PERF_001 = {
+    "display",
+    "systems",
+    "system",
+    "status",
+    "problems",
+    "kpis 1 month",
+    "kpis 1 year",
+    "matrix 1 month",
+    "matrix 1 year",
+}
 PERF_002 = "series 31 days"
 LIMITS = {"PERF_001_P95_S": 1.0, "PERF_002_P95_S": 1.5, "PERF_002_MAX_BYTES": 500 * 1024}
 
@@ -62,6 +75,37 @@ class DailyCheck(HttpUser):
 
     def api(self, name: str, path: str, **params: str) -> None:
         self.client.get(f"/api/v1/systems/{registry['code']}{path}", params=params or None, name=name)
+
+    @task(5)
+    def dashboard(self) -> None:
+        """What the dashboard asks for on opening (its panel and the public cards)."""
+        now = datetime.now(UTC).replace(second=0, microsecond=0)
+        _, start, nxt = month_bounds(now)
+        self.client.get("/api/v1/settings/display", name="display")
+        self.client.get("/api/v1/systems", name="systems")
+        self.api("system", "")
+        self.api("status", "/status")
+        self.api("problems", "/problems")
+        self.api("reports latest", "/reports/latest")
+        self.api("matrix 1 month", "/matrix", **{"from": iso(start), "to": iso(nxt), "bucket": "day"})
+        self.api("outages 1 month", "/outages", **{"from": iso(start), "to": iso(nxt), "scope": "sla", "limit": "1"})
+        self.api("outages 7 days", "/outages",
+                 **{"from": iso(now - timedelta(days=7)), "to": iso(now), "scope": "ola", "limit": "4"})
+        self.api("assets", "/assets")
+
+    @task(1)
+    def reports_and_quality(self) -> None:
+        """The R3 public pages: METAR archive, a search, the data-quality summary and the definitions."""
+        now = datetime.now(UTC)
+        _, start, nxt = month_bounds(now)
+        day = (now - timedelta(days=random.randint(1, 60))).date().isoformat()
+        self.api("reports latest", "/reports/latest")
+        self.api("reports day", "/reports", day=day, type=random.choice(["metar", "metreport", "taf"]))
+        week = (now - timedelta(days=7)).date().isoformat()
+        self.api("reports search", "/reports/search",
+                 **{"from": week, "to": now.date().isoformat(), "type": "metar", "q": "SPECI"})
+        self.api("data quality", "/data-quality", **{"from": iso(start), "to": iso(nxt)})
+        self.client.get("/api/v1/definitions", name="definitions")
 
     @task(5)
     def board_month(self) -> None:
