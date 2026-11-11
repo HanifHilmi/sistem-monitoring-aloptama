@@ -6,9 +6,9 @@
 |---|---|
 | **Document title** | Product Requirements Document — Sistem Monitoring ALOPTAMA (SIMOLA) |
 | **Product name** | SIMOLA (Sistem Monitoring ALOPTAMA) |
-| **Version** | 1.2 |
-| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001) |
-| **Date** | 2026-11-09 |
+| **Version** | 1.3 |
+| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11) |
+| **Date** | 2026-11-11 |
 | **Product Owner** | Station technician who owns and operates the platform (sole operator) |
 | **Supersedes** | `monitoring-aloptama-v2/PRD.md` v2.1 (legacy; kept unchanged for reference) |
 | **Related documents** | `ASSESSMENT.md` (existing-system assessment; private, not in the public repository) · [`QUESTIONS.md`](QUESTIONS.md) (Stage 3 decisions) |
@@ -22,6 +22,7 @@
 | 1.0 | 2026-11-04 | Product Owner | **Approved.** v0.2 content accepted as the requirements baseline; no content changes. All [P] items approved as written (§1.2). Later changes go through a revision with a new version number |
 | 1.1 | 2026-11-04 | Claude (requested by the Product Owner) | Public-release redaction (NFR-SEC-010): details of open weaknesses in the legacy system and host mount paths replaced by references to the private assessment. **No requirement changes** |
 | 1.2 | 2026-11-09 | Claude (approved by the Product Owner) | FR-DSH-001: the overview's content as approved from screenshots on 2026-11-09 (a panel per system and cards across systems). No other requirement changes |
+| 1.3 | 2026-11-11 | Product Owner (recorded by Claude) | **Go/no-go for the cutover (§14.5): GO.** UAT U1–U5 and U7–U10 passed on staging; production recount exact for every month and day since coverage start. Changes accepted with it: backups run only on request (replaces the nightly backup of NFR-BAK-001 and SM-5); the v2 figure comparison of §14.5 is dropped, v2 is a reference only; the one-month parallel run of §14.5 is waived: the switch follows as soon as production checks out, and v2 is stopped (not removed) after it; U6: the Product Owner reviews the monthly PDF instead of the station head; the CDP shares are read-only at the source; load-test margins on this host as recorded in the testing runbook. No requirement IDs change |
 
 ### 1.2 How to read this document
 

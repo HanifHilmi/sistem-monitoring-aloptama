@@ -6,22 +6,21 @@ Every step that changes Coolify, Cloudflare, a database or the host needs the Pr
 
 | When | What |
 |---|---|
-| Until 30 Nov | UAT on staging (U1, U2, U8, U10) and fixes |
-| 1–31 Dec | Live month on staging, alongside v2. v2 is a reference only: its figures are not compared (Product Owner, 2026-11-04) |
-| 1–2 Jan | Verify December on staging: SM-1 recount and SM-2 completeness for every day |
-| Early Jan | Prepare production (A), go/no-go (B), then switch (sections 1–3) |
+| Until 30 Nov | UAT on staging and fixes. Done on 11 Nov: U1–U5 and U7–U10 passed; U6 is reviewed by the Product Owner instead of the station head |
+| 11 Nov | Prepare production (A), with no domain |
+| As soon as production checks out | Go/no-go (B), switch (sections 1–3), then stop v2. The one-month run alongside v2 is waived: v2 is a reference only and its figures are not compared (Product Owner, 2026-11-04 and 2026-11-11) |
+| 1–2 Jan | Recount December on production: SM-1 and SM-2 for every day |
 
 Preconditions for the switch:
 - R1 is accepted (B);
-- the one-month live run is complete;
-- `tools/recount.py` matches for December and two historical months, on staging and on production;
-- every December day is complete (SM-2);
+- `tools/recount.py` matches on production for every month since coverage start (SM-1) and every completed day
+  is complete (SM-2);
 - the R1 UAT scenarios are signed off.
 
 ## A. Prepare production (not public yet)
 
-Production is the Coolify application `simola-production` (branch `main`). It stays behind Cloudflare Access with no
-public route until the switch.
+Production is the Coolify application `simola-production` (branch `main`). It has no domain until the switch, so it
+is reachable only from the host (the web container's address, as for staging's checks).
 
 1. **Host folders:** `/var/lib/simola/production/pg` and `/var/lib/simola/production/backups` must exist
    ([deploy.md](deploy.md), H-2).
@@ -54,21 +53,44 @@ public route until the switch.
    it must end with `PASSED` ([backup-restore.md](backup-restore.md)).
 8. **First Admin:** `simola create-admin` in production's worker ([accounts.md](accounts.md)), then the other
    accounts in Admin → Users.
-9. **Access before the domain:** in Cloudflare Access, protect all of `simola.hilmihanif.my.id` first. Only then
-   set the `web` service's domain in Coolify (`http://simola.hilmihanif.my.id:8080`), redeploy, and check that every
-   path answers 302 to the Access login.
+9. **Rules:** `simola propose-rules` in production's worker (every proposal starts switched off; 33 on 2026-11-11),
+   then in Admin → Rules approve the same rules as on staging, with the same values. On staging, these 14 are
+   switched on (2026-11-11); every other proposal stays off:
+
+   | Sensor | Field | Rule | Sites | Values |
+   |---|---|---|---|---|
+   | ANEM | WD | stuck | all | 60 min, ignore 0 |
+   | ANEM | WS | stuck | all | 360 min, ignore 0 |
+   | ATRH | DEWP | stuck | all | 60 min |
+   | ATRH | RH | stuck | all | 360 min, ignore 97, 98, 99, 100 |
+   | ATRH | TEMP | stuck | all | 60 min |
+   | BARO | DA | stuck | all | 810 min |
+   | BARO | QNH | stuck | all | 360 min |
+   | CEL | LR1 | stuck | all | 540 min, ignore 0 |
+   | PWX | RA | stuck | all | 1440 min, ignore 0 |
+   | RAIN | RA | stuck | middle | 1440 min, ignore 0 |
+   | RVR | ALS | stuck | all | 720 min |
+   | RVR | RVR | stuck | all | 60 min |
+   | RVR | VIS | stuck | all | 60 min |
+   | SOLR | SOL | stuck | all | 720 min, ignore 0 |
+10. **No domain yet:** the tunnel route for `simola.hilmihanif.my.id` already exists without Access, so giving the
+   `web` service that domain makes the site public at once. Leave the domain empty until the switch (section 3).
 
 ## B. Go/no-go (Product Owner)
 
 - UAT U1, U2, U8 and U10 signed off.
-- December on staging: SM-1 recount exact; SM-2: for every completed day, stored minutes = minutes present in
-  either CDP file. Both come from `tools/recount.py ... --month 2026-12 --daily` ([history.md](history.md), Verify).
-- Production prepared (A): history loaded, recount exact, records imported, `backup-verify` passed.
+- Production prepared (A): history loaded, records imported, `backup-verify` passed, and the recount exact: SM-1
+  for every month since coverage start; SM-2: for every completed day, stored minutes = minutes present in either
+  CDP file (`tools/recount.py ... --daily`, [history.md](history.md), Verify).
 - The decision is recorded in the PRD revision history, together with the changes since v1.1:
   - backups run only on request (replaces the nightly backup of NFR-BAK-001 and SM-5);
   - the v2 figure comparison of §14.5 was dropped; v2 is a reference only;
   - load-test margins on this host (31-day chart p95 1.30 s of 1.5 s, with the load generator on the same 4 CPUs);
-  - the CDP shares are read-only at the source (the CDPs refuse writes).
+  - the CDP shares are read-only at the source (the CDPs refuse writes);
+  - U6: the Product Owner reviewed the monthly PDF instead of the station head; staging had no Viewer account
+    (2026-11-11);
+  - production was prepared in November instead of early January, and the one-month run alongside v2 (§14.5)
+    was waived: the switch follows as soon as production checks out, and v2 is stopped after it (2026-11-11).
 
 ## 1. Export v2 live probe samples (read-only)
 
@@ -97,20 +119,26 @@ SIMOLA's own probe minutes are never overwritten. Affected days are recomputed a
 
 1. Back up production again and check that the backup restores ([backup-restore.md](backup-restore.md)): in the
    production `backup` container run `backup-now`, then `backup-verify`; it must end with `PASSED`.
-2. In Cloudflare Access, remove the policy covering all of `simola.hilmihanif.my.id`. If production already has
-   R2.1 (accounts), keep a policy on `/admin*` and `/api/v1/admin*` only (decision D4; [accounts.md](accounts.md));
-   otherwise keep the `/internal/*` policies until it does.
-3. Add a Cloudflare redirect rule: `rhf-monitoring.hilmihanif.my.id/*` → `https://simola.hilmihanif.my.id/$1` (301). Old v2 paths such as `/cat3/runway/04` are mapped by the SPA router.
-4. Announce the change to users.
+2. Optional second lock (decision D4, [accounts.md](accounts.md)): a Cloudflare Access policy on `/admin*` and
+   `/api/v1/admin*` only. The public pages need none; SIMOLA's sign-in protects the Viewer and Admin areas.
+3. In Coolify, set the `web` service's domain to `http://simola.hilmihanif.my.id:8080` and redeploy (run the
+   network check first, as for every deploy). The site is public as soon as the deploy finishes.
+4. Add a Cloudflare redirect rule: `rhf-monitoring.hilmihanif.my.id/*` → `https://simola.hilmihanif.my.id/$1`
+   (301). Old v2 paths such as `/cat3/runway/04` are mapped by the SPA router.
+5. Announce the change to users.
+6. Take a final read-only `pg_dump` of v2's database (kept for the decommission archive), then stop v2 in Coolify
+   (stop, not delete), after sections 1–2 have read its probe samples. Its configuration and data folder stay
+   untouched for 30 days.
 
 After the switch, staging keeps running: R2 and R3 are verified there before they reach production (PRD §14.6).
 
 ## Rollback (within 30 days)
 
-Remove the redirect rule. v2 is still running unchanged, and SIMOLA keeps ingesting in the background.
+Start v2 again in Coolify and remove the redirect rule. v2's data is untouched (its own backfill can fill the days
+it was stopped), and SIMOLA keeps ingesting in the background.
 
 ## Decommission v2 (after 30 stable days, only with explicit approval)
 
-1. Archive a final read-only `pg_dump` of v2 off-host.
-2. Stop v2 in Coolify.
+1. Archive the final `pg_dump` from the switch off-host.
+2. Remove v2 in Coolify.
 3. Delete v2's data directory only after the archive has been restored successfully once.
