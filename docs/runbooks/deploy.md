@@ -82,6 +82,15 @@ missed minutes from the files once the share answers again.
 
 On first deploy, load history ([history.md](history.md)) and create the first Admin ([accounts.md](accounts.md)).
 
+## When the build fails
+
+- **`npm run build` fails with "Cannot find native binding" (`@rolldown/binding-linux-x64-musl`):** `npm ci` skipped
+  rolldown's optional native package without failing (an npm bug with optional dependencies), and Docker cached that
+  incomplete step, so a plain redeploy failed the same way; a **force rebuild** (no build cache) fixed it. Seen on
+  production on 2026-11-13; the running site was not affected, because Coolify replaces the containers only after a
+  successful build. Since then the web Dockerfile loads that package right after `npm ci`, so a bad install fails at
+  the `npm ci` step and is not cached: a plain redeploy retries it.
+
 ## Rollback
 
 Redeploy the previous commit in Coolify. Migrations are backward-compatible for one release (NFR-OPS-002). Data directories are untouched by deploys.

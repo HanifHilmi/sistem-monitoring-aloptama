@@ -120,3 +120,5 @@ spoils the figures).
 | 2026-11-11 | Security, production (no domain yet) | 62 passed, 0 failed; the Access checks wait for the public hostname |
 | 2026-11-11 | Security, production (public hostname, after the switch) | 74 passed, 0 failed. Found on 2026-11-13: the Admin-area Access lines passed only because Cloudflare refused the script's default User-Agent; production has no Access lock there (D4 is optional). The script now sends its own User-Agent and checks SIMOLA's answer |
 | 2026-11-13 | Security, production (643f219, updated script) | 1 failure, as expected before the fix: the public Problems list held the AWOS alarm count. Every route refuses without a session through the public hostname too |
+| 2026-11-13 | Browser, sample data (5730233: names in English, alarms hidden from the public) | 250 passed (14 skipped by design); CI 6/6 on main and staging |
+| 2026-11-13 | Security, staging and production (5730233) | Staging 76 passed, production 74 passed, 0 failed: the public Problems list holds no alarm count |

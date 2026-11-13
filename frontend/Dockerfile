@@ -2,7 +2,9 @@
 FROM node:24.22.2-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# npm can skip an optional native package without failing (npm/cli#4828), and Docker would then cache the incomplete
+# install. Loading rolldown's Alpine binding in the same step makes such an install fail here, uncached.
+RUN npm ci --no-audit --no-fund && node -e "require('@rolldown/binding-linux-x64-musl')"
 COPY . .
 RUN npm run build
 
