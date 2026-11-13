@@ -187,8 +187,8 @@ acceptance recount counts the raw files). Rejecting is harmless.
 The worker reads `alarm/091ALARM.<date>.dat` from both CDPs every minute (FR-ING-008): today's, and yesterday's for
 the first two hours of the day. Like the report logs, older files are read only by a reprocess job with *alarms*
 ticked (FR-ING-010: a deploy or restart never starts one): use it to load the history on a new server, or for days
-missed while the worker was down. On staging the history since 24 December 2025 is already loaded. The health page
-shows each CDP's alarm reader.
+missed while the worker was down. On staging and production the history since 24 December 2025 is loaded. The
+health page shows each CDP's alarm reader.
 
 - **Each change once.** Each CDP runs its own alarm detection, so both usually log the same change, seconds apart
   (once 85 s apart). Rows with the same name, type, state, active flag and message from different CDPs within
@@ -201,9 +201,9 @@ shows each CDP's alarm reader.
   counted in the Problems panel.
 - **Raised** marks a change that raised the alarm; an acknowledgement of an alarm already active is shown as
   *Acknowledged*. The per-day chart and the day view's minute outlines count raises only.
-- **Who sees what.** The public sees only "N active AWOS alarms" in the Problems panel. The list, the history, the
-  site pages' alarms and the day view's alarms are for signed-in users: one AFTN alarm message contains a network
-  address.
+- **Who sees what.** Alarms are for signed-in users only: the "N active AWOS alarms" item in the Problems panel,
+  the list, the history, the site pages' alarms and the day view's alarms. The public sees none of them, not even
+  the count (Product Owner, 2026-11-13; one AFTN alarm message contains a network address).
 - **Mapping.** A name is placed when it is first seen: the 75 names seen up to 6 November 2026 from their name
   (DCPA = Runway 04, DCPB = Middle, DCPC = Runway 22; the rest of the name gives the sensor; GPS, AFTN and the
   barometer-range alarm are the station; `RLS0_Missing` is Runway 04). A name not seen before arrives **not

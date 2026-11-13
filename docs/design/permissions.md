@@ -9,11 +9,13 @@ The matrix is enforced, not only written down:
   when a route is missing from it, and when this page and that table disagree, so neither can drift.
 - `tests/integration/test_accounts.py` calls every route as the public, a Viewer and an Admin and checks the
   answer (401 without a session, 403 for a Viewer on an Admin route).
-- `tools/security_check.py` repeats the public and signed-out checks against a running site (staging).
+- `tools/security_check.py` repeats the public and signed-out checks against a running site (staging or
+  production).
 
 Routes marked Public still shape their answer by role where §5.4 says so: serial and part numbers (assets),
 suspect detections (detections, data-quality), and flag notes and authors are only in a signed-in user's answer.
-The public sees the number of active AWOS alarms in the Problems panel, never the list or its message text.
+The Problems list holds the number of active AWOS alarms only for signed-in users: the public sees no alarm
+information at all (OPEN-13 as changed on 2026-11-13; until then the public saw the count).
 
 One detail beyond §5.4: a component's **figure change trace** (FR-AUD-003) is open to Viewers, as decided in the R2
 design (§4, R2.5). It lists only the audit entries that changed that component's figures in a period; the
@@ -27,7 +29,7 @@ audit log itself stays Admin-only.
 |  | `POST /api/v1/auth/login` | Public |
 |  | `POST /api/v1/auth/logout` | Public |
 | Change one's own password | `POST /api/v1/auth/password` | Viewer |
-| View dashboards, KPIs, charts, status, Problems panel (incl. the number of active AWOS alarms) | `GET /api/v1/settings/display` | Public |
+| View dashboards, KPIs, charts, status, Problems panel (the number of active AWOS alarms only when signed in) | `GET /api/v1/settings/display` | Public |
 |  | `GET /api/v1/systems` | Public |
 |  | `GET /api/v1/systems/{code}` | Public |
 |  | `GET /api/v1/systems/{code}/kpis` | Public |

@@ -384,10 +384,9 @@ async def current(
     return {"window_hours": OPEN_HOURS, "active": active, "not_cleared": stale}
 
 
-async def problem(
-    conn: AsyncConnection, system: System, now: datetime, *, signed_in: bool
-) -> dict[str, Any] | None:
-    """The Problems panel item: the number of active alarms for everyone; the list is for signed-in users."""
+async def problem(conn: AsyncConnection, system: System, now: datetime) -> dict[str, Any] | None:
+    """The Problems panel item for signed-in users: how many alarms are active, linking to the list. The public sees
+    no alarms at all, not even the count (OPEN-13, changed 2026-11-13)."""
     active = (await current(conn, system, now))["active"]
     if not active:
         return None
@@ -395,7 +394,7 @@ async def problem(
     return {
         "code": "alarms_active",
         "severity": "minor" if errors else "info",
-        "link": f"/systems/{system.code}/alarms" if signed_in else f"/systems/{system.code}",
+        "link": f"/systems/{system.code}/alarms",
         "params": {"n": len(active), "errors": errors},
     }
 

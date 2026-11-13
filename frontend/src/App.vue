@@ -43,6 +43,11 @@ watch(routeCode, (c) => {
   void live.refresh()
 })
 usePolling(() => live.refresh(), 30_000)
+// Signing in or out changes what the Problems list holds (AWOS alarms, pending suspects): refresh it at once.
+watch(
+  () => auth.role,
+  () => void live.refresh(),
+)
 
 const wall = computed(() => route.meta.wall === true)
 watch(wall, (w) => document.documentElement.classList.toggle('wall', w), { immediate: true })

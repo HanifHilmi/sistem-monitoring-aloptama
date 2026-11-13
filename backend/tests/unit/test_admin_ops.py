@@ -29,7 +29,7 @@ def _system() -> System:
             "04",
             "04",
             "Runway 04",
-            "Landasan 04",
+            "Runway 04",
             1,
             (
                 comp(1, 1, "DCP", (), ()),
@@ -43,7 +43,7 @@ def _system() -> System:
             "22",
             "22",
             "Runway 22",
-            "Landasan 22",
+            "Runway 22",
             2,
             (
                 comp(4, 2, "ATRH", ("TEMP", "DEWP", "RH"), ("TEMP", "RH")),

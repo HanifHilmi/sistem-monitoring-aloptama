@@ -5,7 +5,7 @@ import { BOARD, expect, expectNoPageScroll, signIn, test } from './fixtures'
 test.skip(!!process.env.SIMOLA_E2E_URL, 'sample data only: never re-maps alarms on a deployed site')
 
 const ALARMS = `${BOARD}/alarms`
-const MIDDLE = /Runway Middle|Landasan Tengah/
+const MIDDLE = /Runway Middle/
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 test.describe('AWOS alarms', () => {
@@ -44,16 +44,25 @@ test.describe('AWOS alarms', () => {
     await expectNoPageScroll(page)
   })
 
-  test('the public sees how many alarms are active, never the list', async ({ page, t }) => {
-    await page.goto(BOARD)
-    await page
-      .getByRole('button', { name: t('problems.open') })
-      .first()
-      .click()
+  // OPEN-13, changed 2026-11-13: the public sees no alarms, not even how many are active.
+  test('the public sees no alarms, not even how many; signed-in users see the count', async ({ page, t }) => {
     const words = t('problems.code.alarms_active').split('|')[1]!.replace('{n}', '').trim()
-    await expect(page.getByRole('dialog').getByText(new RegExp(`3 ${escape(words)}`))).toBeVisible()
+    const count = new RegExp(`3 ${escape(words)}`)
+    const openProblems = () => page.getByRole('button', { name: t('problems.open') }).first().click()
+    // the sample data's other problem, so the list has loaded before checking what is missing from it
+    const loaded = new RegExp(escape(t('problems.code.component_field_missing').split(': ')[1]!))
+    await page.goto(BOARD)
+    await openProblems()
+    await expect(page.getByRole('dialog').getByText(loaded).first()).toBeVisible()
+    await expect(page.getByText(count)).toHaveCount(0)
     await page.goto(ALARMS)
     await expect(page).toHaveURL(/\/login\?next=/)
+
+    // Signing in shows the count at once, without a reload or waiting for the 30-second refresh.
+    await signIn(page, t)
+    await expect(page).toHaveURL(new RegExp(`${escape(ALARMS)}$`))
+    await openProblems()
+    await expect(page.getByRole('dialog').getByText(count)).toBeVisible({ timeout: 5_000 })
   })
 
   test('an Admin assigns an alarm that arrived not assigned', async ({ page, t }) => {

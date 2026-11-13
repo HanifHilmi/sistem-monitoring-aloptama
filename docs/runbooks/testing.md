@@ -1,15 +1,16 @@
 # Runbook: checks against a running site (browser, language, security, load)
 
 PRD §15.3–15.5. Unit and integration tests are in CI (`.github/workflows/ci.yml`); this page covers the checks that
-need a running site. Everything here only **reads** from staging. Never commit the addresses you use: the
-repository is public (NFR-SEC-010).
+need a running site. Everything here only **reads** from staging or production. Never commit the addresses you use:
+the repository is public (NFR-SEC-010).
 
-## Find staging's web container
+## Find a site's web container
 
-Staging is behind Cloudflare Access, so the checks talk to its web container directly from the host:
+Staging is behind Cloudflare Access, and Cloudflare's bot protection refuses scripts with Python's default
+User-Agent, so the checks talk to the web container directly from the host (production too):
 
 ```bash
-web=$(docker ps --format '{{.Names}}' | grep '^web-<staging-app-uuid>' | head -1)
+web=$(docker ps --format '{{.Names}}' | grep '^web-<app-uuid>' | head -1)
 addr=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$web")
 echo "http://$addr:8080"
 ```
@@ -18,8 +19,8 @@ The address changes with every deploy.
 
 ## Browser tests (§15.3)
 
-Desktop 1440 px and phone 390 px, Indonesian and English; J1 (daily check) and the health page. R1 has no
-accounts, so J2–J7 arrive with R2/R3.
+Desktop 1440 px and phone 390 px, Indonesian and English: the public pages, and on sample data the Viewer and
+Admin pages too.
 
 ```bash
 cd frontend
@@ -43,7 +44,10 @@ gzip). It is measured from the host, so it leaves out the Cloudflare leg.
 Admin page, is opened in each language, and its visible text must hold no phrase that only the other language
 has; switching the language keeps the page and its period. `src/i18n/i18n.test.ts` (unit test) checks that both
 languages have the same keys, no empty text, the same placeholders, and no Indonesian text left in English
-except a reviewed list of words both languages share (SLA, Status, Admin …).
+except a reviewed list of words both languages share (SLA, Status, Admin …). Since 2026-11-13 that list also holds
+the aviation terms the Indonesian screens keep in English (gust, wind rose, present weather, cloud amounts, the
+METAR weather words); system, site, sensor and parameter names come from the database, where both languages hold
+the English name (migration 0011).
 
 Playwright 1.62.1 uses the browser cached in `~/.cache/ms-playwright` (`chromium_headless_shell-1234`), so no
 browser download is needed on this host.
@@ -52,15 +56,18 @@ browser download is needed on this host.
 
 ```bash
 python3 tools/security_check.py --web http://<address>:8080 \
-    --public https://simola-staging.hilmihanif.my.id --containers <staging-app-uuid>
+    --public https://simola.hilmihanif.my.id --containers <production-app-uuid>
 ```
 
 It checks security headers; that the only state-changing routes are the known account ones and that every write
 without a session and CSRF token is refused; that every published API route is covered; that, without a session,
 Viewer and Admin routes answer 401 and the CSRF cookie is Secure and SameSite=Lax; that public answers hold no IP
-address, file path, serial or infrastructure field; that internal and Admin pages never answer with data on the
-public hostname and the Admin area stays behind Access (D4); and that no SIMOLA container publishes a port on the
-host. Exit code 1 on any failure. Accounts in detail: [accounts.md](accounts.md).
+address, file path, serial or infrastructure field, and no AWOS alarm count (OPEN-13, since 2026-11-13); that
+internal and Admin routes never answer with data through the public hostname either (their pages are only the empty
+app shell; with `--admin-access`, the Admin area must answer with the Cloudflare Access login, D4); and that no
+SIMOLA container publishes a port on the host. Exit code 1 on any failure. It sends its own User-Agent
+(`simola-security-check/1`), since Cloudflare answers Python's default one with a 403 of its own. Accounts in
+detail: [accounts.md](accounts.md).
 
 The OWASP ZAP scans run in CI (`zap` job) against a throwaway stack on GitHub's runner: the baseline scan of the
 pages, and (since R3.6) a scan of every API route listed in the OpenAPI document, in safe mode (passive checks,
@@ -82,9 +89,10 @@ uvx --from 'locust>=2.30' locust -f tools/load/locustfile.py --headless -u 20 -r
 ```
 
 It prints PASS/FAIL for NFR-PERF-001 (KPI, status and dashboard summary p95 ≤ 1.0 s) and NFR-PERF-002 (31-day
-chart p95 ≤ 1.5 s, ≤ 500 KB), the other routes for information, and exits 1 on a miss. The host also runs v2
-production: run it at a quiet time, watch the load, and run nothing else on the host meanwhile (a browser test
-run during the load test pushes the load past 11 on the 4 CPUs and spoils the figures).
+chart p95 ≤ 1.5 s, ≤ 500 KB), the other routes for information, and exits 1 on a miss. The host also runs SIMOLA
+production (and ran v2 until 2026-11-11): run it against staging at a quiet time, watch the load, and run nothing
+else on the host meanwhile (a browser test run during the load test pushes the load past 11 on the 4 CPUs and
+spoils the figures).
 
 ## Results
 
@@ -110,3 +118,5 @@ run during the load test pushes the load past 11 on the 4 CPUs and spoils the fi
 | 2026-11-09 | Load, staging (same, nothing else running) | **Passed**: every target met, 0 errors in 13,793 requests. p95: dashboard summary 0.86 s, status 0.50 s, problems 0.59 s, KPIs 0.39/0.57 s (month/year), matrix 0.47/0.66 s (month/year), 31-day chart 1.10 s (limit 1.5), largest chart 106.0 KB. For information: outages 7 days 0.97 s, data quality 0.79 s, reports 0.30–0.38 s, assets 0.31 s. Host load ≈ 4–5 on 4 CPUs, the load generator included |
 | 2026-11-11 | Recount, production (643f219, first history load: 323 days in 22 min) | Every figure matches: 12 months (2025-12 to 2026-11 up to the 10th) and every completed day, 24 figures each (`tools/recount.py --daily`) |
 | 2026-11-11 | Security, production (no domain yet) | 62 passed, 0 failed; the Access checks wait for the public hostname |
+| 2026-11-11 | Security, production (public hostname, after the switch) | 74 passed, 0 failed. Found on 2026-11-13: the Admin-area Access lines passed only because Cloudflare refused the script's default User-Agent; production has no Access lock there (D4 is optional). The script now sends its own User-Agent and checks SIMOLA's answer |
+| 2026-11-13 | Security, production (643f219, updated script) | 1 failure, as expected before the fix: the public Problems list held the AWOS alarm count. Every route refuses without a session through the public hostname too |

@@ -164,8 +164,8 @@ async def get_problems(
     problems += await records.overdue_problems(conn, system, now.date())  # FR-REG-005: public, minor
     user = await principal(request)
     signed_in = user is not None and not user.must_change_password
-    # The number of active AWOS alarms is public; the list behind the link is for signed-in users (OPEN-13).
-    alarm = await alarms.problem(conn, system, now, signed_in=signed_in)
+    # AWOS alarms are for signed-in users only, the count included (OPEN-13, changed 2026-11-13).
+    alarm = await alarms.problem(conn, system, now) if signed_in else None
     if alarm is not None:
         problems.append(alarm)
     # Suspect detections waiting for review are for signed-in users only (FR-DSH-010, OPEN-13).

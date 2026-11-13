@@ -6,9 +6,9 @@
 |---|---|
 | **Document title** | Product Requirements Document — Sistem Monitoring ALOPTAMA (SIMOLA) |
 | **Product name** | SIMOLA (Sistem Monitoring ALOPTAMA) |
-| **Version** | 1.3 |
-| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11) |
-| **Date** | 2026-11-11 |
+| **Version** | 1.4 |
+| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13) |
+| **Date** | 2026-11-13 |
 | **Product Owner** | Station technician who owns and operates the platform (sole operator) |
 | **Supersedes** | `monitoring-aloptama-v2/PRD.md` v2.1 (legacy; kept unchanged for reference) |
 | **Related documents** | `ASSESSMENT.md` (existing-system assessment; private, not in the public repository) · [`QUESTIONS.md`](QUESTIONS.md) (Stage 3 decisions) |
@@ -23,6 +23,7 @@
 | 1.1 | 2026-11-04 | Claude (requested by the Product Owner) | Public-release redaction (NFR-SEC-010): details of open weaknesses in the legacy system and host mount paths replaced by references to the private assessment. **No requirement changes** |
 | 1.2 | 2026-11-09 | Claude (approved by the Product Owner) | FR-DSH-001: the overview's content as approved from screenshots on 2026-11-09 (a panel per system and cards across systems). No other requirement changes |
 | 1.3 | 2026-11-11 | Product Owner (recorded by Claude) | **Go/no-go for the cutover (§14.5): GO.** UAT U1–U5 and U7–U10 passed on staging; production recount exact for every month and day since coverage start. Changes accepted with it: backups run only on request (replaces the nightly backup of NFR-BAK-001 and SM-5); the v2 figure comparison of §14.5 is dropped, v2 is a reference only; the one-month parallel run of §14.5 is waived: the switch follows as soon as production checks out, and v2 is stopped (not removed) after it; U6: the Product Owner reviews the monthly PDF instead of the station head; the CDP shares are read-only at the source; load-test margins on this host as recorded in the testing runbook. No requirement IDs change |
+| 1.4 | 2026-11-13 | Product Owner (recorded by Claude) | Cutover done on 2026-11-11: SIMOLA production is public at `simola.hilmihanif.my.id`, v2 is stopped (not removed) with its auto-deploy off; the old hostname's redirect (§14.6) is deferred. **OPEN-13 changed:** the public sees no AWOS alarm information at all, not even the active-alarm count (§5.4, FR-DSH-010, FR-ALM-001, U10). **FR-L10N-001:** system, site, sensor and parameter names and aviation weather terms stay in English in the Indonesian interface. OPEN-01 (off-host backups) deferred by the Product Owner. No requirement IDs change |
 
 ### 1.2 How to read this document
 
@@ -233,7 +234,7 @@ The following were **not** confirmed as users and are therefore **not** design t
 |---|---|---|---|
 | Technician | **Admin** | Triage problems; review suspect detections; flag bad data; maintain registry, metadata and calibration; run reprocess jobs; manage users; export reports | [D:OPEN-03] |
 | Station head | **Viewer** | Read dashboards, alarms and infrastructure details; download monthly reports and CSV exports | [D:OPEN-03] |
-| Public | *(anonymous)* | Read public dashboards and reports. No alarm viewer | [D:C2] [D:OPEN-13] |
+| Public | *(anonymous)* | Read public dashboards and reports. No AWOS alarms, not even their count | [D:C2] [D:OPEN-13] |
 
 Expected user count: fewer than 10 accounts [D:OPEN-03].
 
@@ -258,7 +259,7 @@ Decided roles: **Viewer** and **Admin** **[D:C3]**, plus the anonymous public **
 |---|:-:|:-:|:-:|
 | View dashboards, KPIs, charts, status, Problems panel | ✓ | ✓ | ✓ |
 | View confirmed flags and confirmed detections as chart overlays [P] | ✓ | ✓ | ✓ |
-| See the number of active AWOS alarms (Problems panel) | ✓ | ✓ | ✓ |
+| See the number of active AWOS alarms (Problems panel) [D:OPEN-13] | – | ✓ | ✓ |
 | View AWOS alarm list and history (time, name, type, state, site/component) [D:OPEN-13] | – | ✓ | ✓ |
 | View AWOS alarm **message text** [D:OPEN-13] | – | ✓ | ✓ |
 | View infrastructure details (IP addresses, share paths, health internals, ingestion diagnostics) | – | ✓ | ✓ |
@@ -722,7 +723,7 @@ An always-visible panel lists current problems by severity. Thresholds are Admin
 | Site / DCP no data | > 2 min | Major |
 | Component mandatory field missing | > 5 min | Minor |
 | Ingestion stale or source share unavailable | lag > 5 min | Major |
-| Active AWOS alarms | ≥ 1: count for everyone; link to the alarm list for Viewer/Admin [D:OPEN-13] | Info / by type |
+| Active AWOS alarms (Viewer/Admin) | ≥ 1: count, linking to the alarm list [D:OPEN-13] | Info / by type |
 | Pending suspect detections (Viewer/Admin) | ≥ 1 | Info |
 | Calibration overdue | any | Minor |
 
@@ -743,7 +744,7 @@ The view state (system, site, period, chart window) is kept in the URL, so a lin
 ### 7.7 Alarms (FR-ALM)
 
 **FR-ALM-001 · Active alarms** — `Must · R3 · BO-2 · [D:D2]`
-The whole alarm viewer (FR-ALM-001…003) is available to **Viewers and Admins only** [D:OPEN-13]. The public sees only the active-alarm count in the Problems panel.
+The whole alarm viewer (FR-ALM-001…003) is available to **Viewers and Admins only** [D:OPEN-13]. The public sees no alarm information, not even the active-alarm count (changed 2026-11-13; v1.0 showed the public the count).
 
 List alarms whose latest state is active. Columns: first-raised time, latest AWOS state (pending/acknowledged, shown as reported), type (warning/error), mapped site/component, reporting CDPs, and message text.
 
@@ -902,7 +903,7 @@ For a component and period, list the audit events that changed its figures.
 ### 7.13 Localization (FR-L10N)
 
 **FR-L10N-001 · Bilingual interface** — `Must · R1 onward · BO-5 · [D:C5]`
-All interface text exists in Indonesian and English, with Indonesian as default. Each release ships complete Indonesian and English text for the screens it delivers [P], so the public UI is bilingual from the R1 cutover. The language toggle is remembered per browser, and per account for logged-in users [P]. Technical codes stay untranslated (METAR, RVR, QNH, CDP, DCP, component codes).
+All interface text exists in Indonesian and English, with Indonesian as default. Each release ships complete Indonesian and English text for the screens it delivers [P], so the public UI is bilingual from the R1 cutover. The language toggle is remembered per browser, and per account for logged-in users [P]. Technical codes stay untranslated (METAR, RVR, QNH, CDP, DCP, component codes). System, site, sensor and parameter names stay in English in both languages ("Runway 04", "Present Weather Sensor", "Density altitude"), and so do aviation weather terms (gust, ceiling, wind rose, cloud amounts, the METAR weather words): word-for-word translations confused the technicians (Product Owner, 2026-11-13).
 1. A build-time check finds no hard-coded UI strings, and both language catalogues are complete.
 
 **FR-L10N-002 · Date, time and number formats** — `Must · R1 · BO-1 · [V] [P]`
@@ -1721,7 +1722,7 @@ A scripted load test (k6 or Locust [P]) against staging loaded with full history
 | U7 | CSV exports | Technician | Opens in a spreadsheet; figures match |
 | U8 | Reprocess a day | Technician | Completes; no duplicates |
 | U9 | Switch language | Any | All visible text switches |
-| U10 | Public view hides details | Anonymous | No IPs, paths, serials, suspect detections or alarm list visible |
+| U10 | Public view hides details | Anonymous | No IPs, paths, serials, suspect detections or alarms (not even their count) visible |
 
 ### 15.8 Release acceptance criteria
 
@@ -1851,11 +1852,11 @@ Full detail in [`QUESTIONS.md`](QUESTIONS.md).
 | OPEN-09 | Public repository with strict rules (NFR-SEC-010) |
 | OPEN-10 | Post-MVP order: Tambelan CAT.I first, then AWS/ARG |
 | OPEN-12 | Mandatory-field changes apply to all history |
-| OPEN-13 | Logged-in only: whole alarm viewer (incl. message text), serial/part numbers, suspect detections. Public sees the active-alarm count |
+| OPEN-13 | Logged-in only: whole alarm viewer (incl. message text), serial/part numbers, suspect detections. The public sees no alarm information, not even the active-alarm count (changed 2026-11-13) |
 | OPEN-14 | Targets confirmed: freshness ≤ 3 min, fault visible ≤ 5 min, KPI pages ≤ 1 s up to 1 year, availability ≥ 99 %, RPO 24 h, RTO 4 h, quarterly drills, 7/4/12 retention |
 | OPEN-15 | Staging at `simola-staging.hilmihanif.my.id` behind Cloudflare Access |
 | OPEN-17 | Component in-service periods: Must |
-| OPEN-18 | Cutover after R1 acceptance (with a one-month parallel run) |
+| OPEN-18 | Cutover after R1 acceptance (the one-month parallel run was waived in v1.3; cutover done 2026-11-11) |
 | AS-6 | Free or already-owned services only |
 
 ### 18.2 Open items
@@ -1864,7 +1865,7 @@ Full detail in [`QUESTIONS.md`](QUESTIONS.md).
 
 | ID | Open item | Current proposal | Needed by |
 |---|---|---|---|
-| OPEN-01 | Which free or already-owned off-host backup destination? [D:AS-6] | Cloudflare R2 free tier (10 GB, S3 API), Google Drive via rclone, or a station LAN machine. Expected backup set is well under 10 GB | Before production go-live (R1) |
+| OPEN-01 | Which free or already-owned off-host backup destination? [D:AS-6] | Cloudflare R2 free tier (10 GB, S3 API), Google Drive via rclone, or a station LAN machine. Expected backup set is well under 10 GB | Deferred by the Product Owner (2026-11-13); needed before v2 is removed (its final dump goes off-host first) |
 | OPEN-02 | Is the BMKG MQTT broker still available, with credentials? | — | Before the AWS/ARG phase |
 | OPEN-11 | Are alarm file timestamps UTC? | Yes, per evidence (ASSESSMENT §9). Verify against data gaps in R3 | During R3 |
 | OPEN-16 | Monthly PDF layout sign-off | Sample produced in R3 for the Product Owner and station head | R3 |
@@ -1898,7 +1899,7 @@ All remaining items tagged **[P]** are approved, changed or rejected together wi
 | AS-5 | No external system consumes v2's API | To be confirmed by the Product Owner before cutover |
 | AS-6 | Free tiers or already-owned services only (no paid SaaS) | **Confirmed** [D:AS-6] |
 | AS-7 | CDP files are never deleted automatically by the AWOS software | Decided [D:E2]; verify periodically (oldest file date shown on the health page [P]) |
-| AS-8 | The shared host has capacity for SIMOLA production + staging + v2 during the parallel run | Monitor during R1 (NFR-OPS-003) |
+| AS-8 | The shared host has capacity for SIMOLA production + staging + v2 during the parallel run | Held: all three ran together until v2 stopped on 2026-11-11 (NFR-OPS-003) |
 
 ---
 

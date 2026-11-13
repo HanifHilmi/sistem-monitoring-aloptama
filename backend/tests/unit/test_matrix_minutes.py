@@ -20,7 +20,7 @@ def _system() -> System:
         "04",
         "04",
         "Runway 04",
-        "Landasan 04",
+        "Runway 04",
         1,
         (comp(10, "DCP", True, (), ()), comp(11, "ATRH", False, ("TEMP", "RH"), ("TEMP", "RH"))),
     )

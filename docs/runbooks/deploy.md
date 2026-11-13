@@ -32,11 +32,14 @@ can hijack intranet routes: do H-0 before the first deploy.
    sudo mkdir -p /var/lib/simola/{production,staging}/{pg,backups}
    ```
 3. **Cloudflare (H-3):**
-   - In the tunnel's *Public hostnames*, add `simola.hilmihanif.my.id` and `simola-staging.hilmihanif.my.id`, both pointing to the same origin as the existing site (Traefik on the host).
-   - In *Access → Applications*, protect:
-     - all of `simola-staging.hilmihanif.my.id`;
-     - all of `simola.hilmihanif.my.id` until cutover;
-     - after cutover and until R2, only `simola.hilmihanif.my.id/internal/*` and `simola.hilmihanif.my.id/api/v1/internal/*`.
+   - In the tunnel's *Public hostnames*, `simola.hilmihanif.my.id` and `simola-staging.hilmihanif.my.id` both point to
+     the same origin (Traefik on the host).
+   - *Access → Applications* protects all of `simola-staging.hilmihanif.my.id` (NFR-SEC-008).
+   - Production has no Access policy since the switch on 2026-11-11: the dashboards are public, and SIMOLA's own
+     sign-in protects the Viewer and Admin areas. An Access policy on `/admin*` and `/api/v1/admin*` is an optional
+     second lock (decision D4, [accounts.md](accounts.md)).
+   - The old hostname `rhf-monitoring.hilmihanif.my.id` answers 404 since v2 stopped; its redirect to SIMOLA is
+     still to do ([cutover.md](cutover.md), section 3).
 
 ## Create the Coolify applications
 
@@ -44,7 +47,8 @@ For each of **simola-staging** (branch `staging`) and **simola-production** (bra
 
 1. *New resource → Public/Private repository → Docker Compose*, compose file `/docker-compose.yml`.
 2. Set the domain on the **web** service only, port 8080: `https://simola-staging.hilmihanif.my.id` (or the production one).
-3. Turn **off** "auto deploy on push". CI triggers deploys after all checks pass (`.github/workflows/ci.yml`).
+3. Turn **off** "auto deploy on push". Deploy from Coolify (UI or API) only once CI is green for that commit. A CI
+   deploy job is prepared in `.github/workflows/ci.yml` but not switched on.
 4. Environment variables: copy `.env.example` and set real values.
    - Production: `SIMOLA_ENVIRONMENT=production`, `SIMOLA_PG_DATA_DIR=/var/lib/simola/production/pg`, `SIMOLA_BACKUP_DIR=/var/lib/simola/production/backups`.
    - Staging: smaller memory limits.
@@ -53,11 +57,22 @@ For each of **simola-staging** (branch `staging`) and **simola-production** (bra
    - Use different passwords per environment, generated with `openssl rand -hex 24` (hex only: `/`, `+` or `@` would break the database URL).
 5. Deploy. Startup order is `db` → `migrate` (exits 0) → `api`, `worker`, `backup` → `web`.
 
+## Before every deploy
+
+```bash
+SIMOLA_FORBIDDEN_NETS=<intranet ranges> deploy/check-network-safety.sh   # must pass
+ip route                                                           # note the routes, to compare afterwards
+timeout 5 stat /mnt/<cdp1-share-mount> /mnt/<cdp2-share-mount>     # both shares answer
+```
+
+No deploys on 30–31 December: the year's last figures are checked on 1–2 January.
+
 ## Verify after every deploy
 
 ```bash
-curl -fsS https://simola-staging.hilmihanif.my.id/health          # {"status":"ok"}
-docker ps --format '{{.Names}} {{.Status}}' | grep simola          # all healthy, migrate exited
+curl -fsS https://simola.hilmihanif.my.id/health                   # production: {"status":"ok"}
+ip route                                                           # no new 172.16.0.0/12 or 192.168.0.0/16 route
+docker ps -a --format '{{.Names}} {{.Status}}' | grep <app-uuid>  # all healthy, migrate exited
 ss -ltn | grep 5432                                                # SIMOLA's db must NOT appear
 docker exec <worker-container> ls /mnt/cdp/<cdp1-share-folder>/oneminute | tail -1  # today's file; same for CDP2
 ```

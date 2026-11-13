@@ -37,7 +37,7 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("GET", "/api/v1/systems/{code}/reports/latest"): "public",  # METAR, MET REPORT and TAF (FR-RPT)
     ("GET", "/api/v1/systems/{code}/reports"): "public",
     ("GET", "/api/v1/systems/{code}/reports/search"): "public",
-    # The public sees only the number of active alarms, in the Problems panel (OPEN-13).
+    # AWOS alarms are for signed-in users only; the public does not even see the count (OPEN-13).
     ("GET", "/api/v1/systems/{code}/alarms/active"): "viewer",
     ("GET", "/api/v1/systems/{code}/alarms"): "viewer",
     # CSV exports are for Viewers and Admins, and audited (FR-EXP-003).

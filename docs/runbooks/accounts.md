@@ -1,4 +1,4 @@
-# Runbook: accounts, sign-in and the audit log (R2.1)
+# Runbook: accounts, sign-in and the audit log
 
 PRD FR-AUTH-001…007, FR-AUD-001…002; design in [../design/r2.md](../design/r2.md) §4.1–4.2.
 
@@ -6,15 +6,15 @@ PRD FR-AUTH-001…007, FR-AUD-001…002; design in [../design/r2.md](../design/r
 
 | Role | Who | Can |
 |---|---|---|
-| Public | anyone, no account | dashboards, figures, sensor charts |
-| Viewer | the station head | also infrastructure details (system health page) |
-| Admin | technicians | also the Admin area: users, audit log (later phases add data quality, records, settings, jobs) |
+| Public | anyone, no account | dashboards, figures, sensor charts, METAR / MET REPORT / TAF, definitions, data-quality summary. No AWOS alarms (not even their count), serial numbers or suspect detections |
+| Viewer | the station head | also AWOS alarms, the system health page, serial and part numbers, suspect detections, CSV exports and the monthly PDF |
+| Admin | technicians | also the Admin area: users, audit log, jobs, settings, mandatory fields, registry and calibration, flags, validity rules, review queue, alarm mapping |
 
 The server checks the role on every request; the screens only hide what a role cannot use.
 
 ## First Admin (once per environment)
 
-There is no self-registration. After the first deploy with R2.1, create the first Admin in the worker container
+There is no self-registration. After the first deploy, create the first Admin in the worker container
 (Coolify: the application's *Terminal* → `worker`, or on the host `docker exec -it <worker-container> …`):
 
 ```bash
@@ -67,10 +67,11 @@ disable that trigger by hand, which is outside SIMOLA.
 ## Cloudflare Access (decision D4)
 
 - **Staging:** the whole hostname stays behind Access (NFR-SEC-008); people pass Access, then sign in to SIMOLA.
-- **Production, once R2.1 is there:** drop Access for the Viewer pages (SIMOLA's sign-in protects them) and keep an
-  Access policy on `/admin*` and `/api/v1/admin*` as a second lock. Admins then pass an Access email code, then
-  sign in to SIMOLA.
-- `tools/security_check.py --public …` checks that the Admin area answers with the Access login.
+- **Production:** no Access since the switch on 2026-11-11. The dashboards are public and SIMOLA's sign-in protects
+  the Viewer and Admin areas. An Access policy on `/admin*` and `/api/v1/admin*` stays available as an optional
+  second lock (Admins would then pass an Access email code before signing in); it is not set.
+- `tools/security_check.py --public …` checks that protected routes refuse without a session through the public
+  hostname too; add `--admin-access` once the optional Access lock is set, so it expects Cloudflare's login there.
 
 ## Checks
 

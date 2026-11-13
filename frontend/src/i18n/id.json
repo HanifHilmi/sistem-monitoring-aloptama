@@ -22,7 +22,7 @@
     "comingSoon": "Segera hadir",
     "comingSoonNote": "{system} belum dipantau di SIMOLA. Sistem ini akan ditambahkan pada rilis berikutnya.",
     "upcoming": {
-      "cat1": "AWOS KAT. I",
+      "cat1": "AWOS CAT.I",
       "awsDigi": "AWS Digi",
       "awsArg": "AWS / ARG"
     },
@@ -233,7 +233,7 @@
   "sensor": {
     "noEvent": "tidak ada",
     "missing": "hilang",
-    "windRose": "Mawar angin",
+    "windRose": "Wind rose",
     "speed": {
       "calm": "< 1 kt",
       "light": "1–10 kt",
@@ -341,11 +341,11 @@
     }
   },
   "gust": {
-    "title": "Hembusan",
-    "none": "Tidak ada hembusan pada rentang ini",
-    "events": "Kejadian hembusan",
+    "title": "Gust",
+    "none": "Tidak ada gust pada rentang ini",
+    "events": "Kejadian gust",
     "total": "total {d}",
-    "strongest": "Hembusan terkuat",
+    "strongest": "Gust terkuat",
     "speedFrom": "{kt} kt dari {dir}",
     "when": "Waktu (UTC)",
     "lasted": "Durasi",
@@ -357,12 +357,12 @@
   "sky": {
     "chartLabel": "Lapisan awan menurut ketinggian dan tutupan dari waktu ke waktu",
     "clear": "Tidak ada awan terdeteksi",
-    "obscured": "Langit tertutup",
+    "obscured": "Sky obscured",
     "cover": {
-      "FEW": "Sedikit (1–2/8)",
-      "SCT": "Tersebar (3–4/8)",
-      "BKN": "Terputus (5–7/8)",
-      "OVC": "Tertutup penuh (8/8)"
+      "FEW": "Few (1–2/8)",
+      "SCT": "Scattered (3–4/8)",
+      "BKN": "Broken (5–7/8)",
+      "OVC": "Overcast (8/8)"
     },
     "band": {
       "low": "Rendah",
@@ -371,60 +371,60 @@
     },
     "ofTime": "{p} %",
     "clearShare": "Tanpa awan {p} %",
-    "obscuredShare": "langit tertutup {p} %",
-    "ceiling": "plafon terendah {cover} {h} ft pada {time}",
+    "obscuredShare": "sky obscured {p} %",
+    "ceiling": "ceiling terendah {cover} {h} ft pada {time}",
     "bandsNote": "Rendah di bawah {lo} ft, menengah {lo}–{mid} ft, tinggi di atas {mid} ft",
     "minutes": "{n} menit dilaporkan",
     "shareTitle": "Bagian waktu dengan awan di tiap lapisan"
   },
   "wx": {
-    "title": "Cuaca saat ini",
+    "title": "Present weather",
     "none": "tidak ada cuaca",
     "noneInWindow": "Tidak ada cuaca dilaporkan pada rentang ini",
     "row": {
-      "thunderstorm": "Badai guntur",
-      "rain": "Hujan",
-      "drizzle": "Gerimis",
-      "mist_fog": "Kabut",
-      "haze": "Udara kabur, asap",
+      "thunderstorm": "Thunderstorm",
+      "rain": "Rain",
+      "drizzle": "Drizzle",
+      "mist_fog": "Mist, fog",
+      "haze": "Haze, smoke",
       "other": "Lainnya"
     },
-    "light": "ringan",
-    "heavy": "lebat",
-    "tpl": "{what} {intensity}",
-    "nearby": "{what} di sekitar",
-    "with": " disertai ",
-    "and": " dan ",
+    "light": "light",
+    "heavy": "heavy",
+    "tpl": "{intensity} {what}",
+    "nearby": "{what} nearby",
+    "with": " with ",
+    "and": " and ",
     "d": {
-      "TS": "badai guntur",
-      "SH": "hujan deras sesaat",
-      "FZ": "membeku",
-      "MI": "dangkal",
-      "BC": "bercak",
-      "PR": "sebagian",
-      "DR": "terbawa angin rendah",
-      "BL": "terbawa angin"
+      "TS": "thunderstorm",
+      "SH": "showers of",
+      "FZ": "freezing",
+      "MI": "shallow",
+      "BC": "patches of",
+      "PR": "partial",
+      "DR": "drifting",
+      "BL": "blowing"
     },
     "p": {
-      "RA": "hujan",
-      "DZ": "gerimis",
-      "BR": "kabut tipis",
-      "FG": "kabut tebal",
-      "HZ": "udara kabur",
-      "FU": "asap",
-      "DU": "debu",
-      "SA": "pasir",
-      "SN": "salju",
-      "GR": "hujan es",
-      "GS": "hujan es kecil",
-      "SQ": "angin kencang mendadak",
-      "PL": "butiran es",
-      "UP": "presipitasi tak dikenal"
+      "RA": "rain",
+      "DZ": "drizzle",
+      "BR": "mist",
+      "FG": "fog",
+      "HZ": "haze",
+      "FU": "smoke",
+      "DU": "dust",
+      "SA": "sand",
+      "SN": "snow",
+      "GR": "hail",
+      "GS": "small hail",
+      "SQ": "squalls",
+      "PL": "ice pellets",
+      "UP": "unknown precipitation"
     }
   },
   "ltg": {
-    "title": "Petir",
-    "none": "Tidak ada petir pada rentang ini",
+    "title": "Lightning",
+    "none": "Tidak ada lightning pada rentang ini",
     "episodes": "{n} episode",
     "span": "pertama {first}, terakhir {last}",
     "row": {
@@ -432,7 +432,7 @@
       "vicinity": "Di sekitar",
       "distant": "Jauh"
     },
-    "directions": "Arah petir jauh",
+    "directions": "Arah lightning jarak jauh",
     "allAround": "Segala arah: {d}"
   },
   "role": {
@@ -1286,7 +1286,7 @@
     "historyLink": "Riwayat alarm",
     "mapping": {
       "title": "Pemetaan alarm",
-      "subtitle": "Lokasi dan sensor untuk setiap alarm AWOS. Nama yang diawali DCPA adalah Landasan 04, DCPB Landasan Tengah, dan DCPC Landasan 22; nama yang belum pernah dilihat SIMOLA masuk sebagai belum ditetapkan. Perubahan berlaku untuk seluruh riwayat alarm sekaligus.",
+      "subtitle": "Lokasi dan sensor untuk setiap alarm AWOS. Nama yang diawali DCPA adalah Runway 04, DCPB Runway Middle, dan DCPC Runway 22; nama yang belum pernah dilihat SIMOLA masuk sebagai belum ditetapkan. Perubahan berlaku untuk seluruh riwayat alarm sekaligus.",
       "general": "Umum",
       "wholeSite": "{site}, seluruh lokasi",
       "seen": "{n} perubahan, terakhir {time} | {n} perubahan, terakhir {time}",
@@ -1315,7 +1315,7 @@
     "copied": "Tersalin",
     "note": "Catatan AWOS untuk laporan ini",
     "runway": "RWY {rwy}",
-    "runwayTitle": "Landasan yang digunakan saat laporan diterbitkan",
+    "runwayTitle": "Runway yang digunakan saat laporan diterbitkan",
     "earlier": "Sebelumnya",
     "none": "Belum ada laporan.",
     "stale": "Yang terbaru sudah {age}: seharusnya ada setiap 30 menit.",
@@ -1413,7 +1413,7 @@
       },
       "ola": {
         "name": "OLA",
-        "what": "Rata-rata ketersediaan lokasi: Landasan 04, Landasan Tengah, dan Landasan 22 berbobot sama.",
+        "what": "Rata-rata ketersediaan lokasi: Runway 04, Runway Middle, dan Runway 22 berbobot sama.",
         "formula": "jumlah ketersediaan lokasi ÷ jumlah lokasi"
       },
       "pooled": {

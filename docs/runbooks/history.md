@@ -35,14 +35,15 @@ From a machine that can read the shares and reach the API:
 
 ```bash
 python3 tools/recount.py --cdp1 /mnt/<cdp1-share-mount> --cdp2 /mnt/<cdp2-share-mount> \
-    --api https://simola.hilmihanif.my.id --month 2026-09 --month 2026-10 --daily
+    --api http://<web-container-address>:8080 --month 2026-09 --month 2026-10 --daily
 ```
 
 Every figure must match exactly (exit code 0). The script shares no code with SIMOLA. It compares 24 figures (SLA,
 each CDP's data flow, every component) per month (SM-1) and, with `--daily`, for every completed UTC day (SM-2:
 each day's stored minutes equal the minutes present in either CDP file); a day that differs is named, ready for
-`simola reprocess`. Today is left out because its file is still growing. Through the Access-protected hostname it
-needs an Access session; on the host, use the web container's address instead (`http://<address>:8080`).
+`simola reprocess`. Today is left out because its file is still growing. Run it on the host against the web
+container's address ([testing.md](testing.md) shows how to find it): staging's hostname is behind Access, and
+Cloudflare refuses scripts that send Python's default User-Agent.
 
 ## After the reader fix of 2026-11-05
 

@@ -185,19 +185,17 @@ async def test_active_alarms_and_the_problems_panel(engine: AsyncEngine, people:
             assert current["active"][0]["place"] == {"kind": "station", "site": None, "component": None}
             assert (await viewer.get(f"{SYS}/alarms/active?scope=site:04")).json()["active"] == []
 
+            # The public sees no alarms at all, not even the count (OPEN-13, changed 2026-11-13).
             public = await visitor.get(f"{SYS}/problems")
-            item = next(p for p in public.json()["problems"] if p["code"] == "alarms_active")
-            assert item == {
+            assert not [p for p in public.json()["problems"] if p["code"] == "alarms_active"]
+            assert "GPS" not in public.text
+            signed = (await viewer.get(f"{SYS}/problems")).json()["problems"]
+            assert next(p for p in signed if p["code"] == "alarms_active") == {
                 "code": "alarms_active",
                 "severity": "minor",
-                "link": "/systems/WIDN-CAT3",
+                "link": "/systems/WIDN-CAT3/alarms",
                 "params": {"n": 1, "errors": 1},
             }
-            assert "GPS" not in public.text  # the count only: no names or messages for the public
-            signed = (await viewer.get(f"{SYS}/problems")).json()["problems"]
-            assert (
-                next(p for p in signed if p["code"] == "alarms_active")["link"] == "/systems/WIDN-CAT3/alarms"
-            )
             assert (await visitor.get(f"{SYS}/alarms/active")).status_code == 401
 
             # Cleared: no longer active, and gone from the Problems panel.

@@ -281,16 +281,16 @@ export function setPlace(name: string, place: AlarmPlace, by: string, now: numbe
   return names(now).find((n) => n.name === name)!
 }
 
-/** Problems panel: the number of active alarms, for everyone; the list is for signed-in users. */
+/** Problems panel: the number of active alarms, for signed-in users only (the public sees no alarms, OPEN-13). */
 export function alarmProblems(now: number, signedIn: boolean): Problem[] {
   const list = active(now).active
-  if (!list.length) return []
+  if (!signedIn || !list.length) return []
   const errors = list.filter((a) => a.type === 'error').length
   return [
     {
       code: 'alarms_active',
       severity: errors ? 'minor' : 'info',
-      link: signedIn ? `/systems/${SYSTEM.code}/alarms` : `/systems/${SYSTEM.code}`,
+      link: `/systems/${SYSTEM.code}/alarms`,
       params: { n: list.length, errors },
     },
   ]

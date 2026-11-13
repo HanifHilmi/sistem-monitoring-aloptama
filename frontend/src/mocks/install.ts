@@ -101,7 +101,7 @@ function route(url: URL, method: string, body: unknown): Response {
   if (p.endsWith('/reports/search')) return json(reports.search(now, q))
   if (p.endsWith('/reports'))
     return json(reports.day(now, q.get('day') ?? '', (q.get('type') ?? 'metar') as never))
-  // The alarm viewer is for signed-in users; the public sees only the count in the Problems panel (OPEN-13).
+  // AWOS alarms are for signed-in users only; the public does not even see the count (OPEN-13).
   if (/\/alarms(\/active)?$/.test(p)) {
     if (!signedIn()) return json({ code: 'not_authenticated', title: 'Sign in first', status: 401 }, 401)
     if (p.endsWith('/active')) return json(alarms.active(now, q.get('scope')))

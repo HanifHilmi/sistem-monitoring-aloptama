@@ -75,7 +75,25 @@ const SAME_IN_BOTH = new Set([
   'definitions.kpi.ola.name',
   'definitions.mandatory.sensor',
   'exports.col.missing_min',
+  // Names and aviation terms the Indonesian screens keep in English (Product Owner, 2026-11-13). Sensor, parameter,
+  // site and system names come from the registry, where they also read the same in both languages.
+  'nav.upcoming.cat1',
+  'sensor.windRose',
+  'sky.obscured',
+  'sky.obscuredShare',
+  'wx.title',
+  'wx.light',
+  'wx.heavy',
+  'wx.tpl',
+  'wx.nearby',
+  'wx.with',
+  'wx.and',
+  'ltg.title',
 ])
+
+/** METAR weather words and cloud amounts: kept in English as a group, like the codes they decode. */
+const AVIATION_TERMS = /^(wx\.d\.|wx\.p\.|wx\.row\.(?!other$)|sky\.cover\.)/
+const keptInEnglish = (k: string) => SAME_IN_BOTH.has(k) || AVIATION_TERMS.test(k)
 
 describe('texts in both languages (U9)', () => {
   it('has the same keys in English and Indonesian', () => {
@@ -96,8 +114,9 @@ describe('texts in both languages (U9)', () => {
 
   it('has no Indonesian text left in English, except the listed ones', () => {
     const same = Object.keys(EN).filter((k) => EN[k] === ID[k])
-    expect(same.filter((k) => !SAME_IN_BOTH.has(k))).toEqual([])
+    expect(same.filter((k) => !keptInEnglish(k))).toEqual([])
     // and the list holds no key that has since been translated
     expect([...SAME_IN_BOTH].filter((k) => EN[k] !== ID[k])).toEqual([])
+    expect(Object.keys(EN).filter((k) => AVIATION_TERMS.test(k) && EN[k] !== ID[k])).toEqual([])
   })
 })

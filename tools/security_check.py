@@ -13,8 +13,10 @@ Checks (each prints PASS or FAIL; the exit code is 1 on any FAIL):
             SameSite=Lax (FR-AUTH-002, FR-AUTH-005)
   leaks     public responses hold no IP address, file path, serial number or infrastructure field
             (FR-AUTH-006, SM-6); only signed-in Viewers and Admins see /api/v1/internal/*
-  access    with --public: internal and Admin pages never answer with data; the Admin area stays behind
-            the Cloudflare Access login (decision D4)
+  leaks also fails when the public Problems list holds the AWOS alarm count (OPEN-13, 2026-11-13)
+  access    with --public: through the public hostname too, internal and Admin routes never answer with
+            data (their pages are only the empty app shell); with --admin-access, the Admin area must
+            answer with the Cloudflare Access login (decision D4, optional)
   exposure  with --containers: no SIMOLA container publishes a port on the host (NFR-SEC-001)
 
 Never commit the addresses you pass in: the repository is public (NFR-SEC-010).
@@ -160,8 +162,11 @@ def http(method: str, url: str, headers: dict[str, str] | None = None) -> tuple[
     if urllib.parse.urlparse(url).scheme not in ("http", "https"):
         raise SystemExit(f"only http(s) URLs are checked: {url}")
     data = b"{}" if method in WRITE_METHODS else None
+    # A named User-Agent: Cloudflare's bot protection answers Python's default one with its own 403, which would
+    # hide SIMOLA's real answer behind the public hostname.
+    base = {"Accept": "application/json", "User-Agent": "simola-security-check/1"}
     req = urllib.request.Request(  # noqa: S310 - scheme checked above
-        url, data=data, method=method, headers={"Accept": "application/json", **(headers or {})}
+        url, data=data, method=method, headers={**base, **(headers or {})}
     )
     if data is not None:
         req.add_header("Content-Type", "application/json")
@@ -261,6 +266,8 @@ def leaks_in(doc: Any) -> list[str]:
             k = key.lower()
             if k in INFRA_KEYS or k in SECRET_KEYS or k.endswith(("_address", "_ip", "_path", "_serial")):
                 found.append(f"field {where}")
+            if k == "code" and value == "alarms_active":  # not even the alarm count (OPEN-13, 2026-11-13)
+                found.append(f"AWOS alarm count in {where}")
         elif isinstance(value, str):
             if IPV4.search(value):
                 found.append(f"IP address in {where}")
@@ -410,18 +417,25 @@ def check_leaks(web: str, routes: list[tuple[str, str, dict[str, Any]]]) -> None
         report(not found, "leaks", shown + (f": {found[:5]}" if found else ""))
 
 
-def check_access(public: str) -> None:
+def check_access(public: str, admin_access: bool) -> None:
     for path in ("/internal/health", *INTERNAL_ROUTES, "/admin", "/api/v1/admin/users"):
         status, h, body = http("GET", public + path)
         location = h.get("location", "")
         host = urllib.parse.urlparse(location).hostname or ""
-        guarded = (status in (301, 302, 303, 307) and host.endswith("cloudflareaccess.com")) or status in (
-            401,
-            403,
+        # A page (not /api/) may answer with the app shell: it holds no data and asks the API, which refuses.
+        shell = (
+            not path.startswith("/api/")
+            and status == 200
+            and h.get("content-type", "").startswith("text/html")
         )
-        if path.startswith(("/admin", "/api/v1/admin")):
-            # The Admin area keeps Cloudflare Access as a second lock in front of SIMOLA's sign-in (D4): the
-            # answer must come from Cloudflare (its login redirect, or its own 403 for this script's User-Agent),
+        guarded = (
+            (status in (301, 302, 303, 307) and host.endswith("cloudflareaccess.com"))
+            or status in (401, 403)
+            or shell
+        )
+        if admin_access and path.startswith(("/admin", "/api/v1/admin")):
+            # With --admin-access, the Admin area has Cloudflare Access as a second lock in front of SIMOLA's
+            # sign-in (D4, optional): the answer must come from Cloudflare (its login redirect or its own 403),
             # never from SIMOLA.
             from_cloudflare = h.get("server", "").lower() == "cloudflare" and b"urn:simola" not in body
             guarded = (status in (301, 302, 303, 307) and host.endswith("cloudflareaccess.com")) or (
@@ -470,7 +484,12 @@ def check_exposure(app: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--web", required=True, help="base URL of the web container, e.g. http://<address>:8080")
-    ap.add_argument("--public", help="public https URL of the same site (checks Cloudflare Access)")
+    ap.add_argument("--public", help="public https URL of the same site: protected routes refused there too")
+    ap.add_argument(
+        "--admin-access",
+        action="store_true",
+        help="the Admin area also has a Cloudflare Access policy (D4, optional): expect Access, not SIMOLA, to answer",
+    )
     ap.add_argument("--containers", help="Coolify application UUID; checks its containers publish no port")
     args = ap.parse_args()
     web = args.web.rstrip("/")
@@ -481,7 +500,7 @@ def main() -> int:
     check_accounts(web)
     check_leaks(web, routes)
     if args.public:
-        check_access(args.public.rstrip("/"))
+        check_access(args.public.rstrip("/"), args.admin_access)
     if args.containers:
         check_exposure(args.containers)
 

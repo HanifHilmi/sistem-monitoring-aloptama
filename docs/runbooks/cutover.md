@@ -2,6 +2,14 @@
 
 Every step that changes Coolify, Cloudflare, a database or the host needs the Product Owner's go-ahead.
 
+**Status (2026-11-13):** the switch was made on 2026-11-11. Sections A, B and 1–3 are done, except:
+- A.8 and A.9: the first Admin account and switching on the 14 rules are the Product Owner's own steps, still to do;
+- 3.4: the redirect of the old hostname is deferred (it answers 404 since v2 stopped);
+- 3.5: telling the users.
+
+v2 is stopped, its auto-deploy is off, and its final dump is kept on the host. Still ahead: the December recount
+(1–2 January) and, after 30 stable days and only with approval, the decommission below.
+
 ## Timeline
 
 | When | What |
@@ -127,15 +135,17 @@ SIMOLA's own probe minutes are never overwritten. Affected days are recomputed a
    (301). Old v2 paths such as `/cat3/runway/04` are mapped by the SPA router.
 5. Announce the change to users.
 6. Take a final read-only `pg_dump` of v2's database (kept for the decommission archive), then stop v2 in Coolify
-   (stop, not delete), after sections 1–2 have read its probe samples. Its configuration and data folder stay
-   untouched for 30 days.
+   (stop, not delete), after sections 1–2 have read its probe samples. The stop removes v2's containers and its
+   network; its images, configuration and data folder stay untouched for 30 days. Then turn off v2's auto-deploy in
+   Coolify, so a push to v2's repository cannot start it again (done 2026-11-11).
 
 After the switch, staging keeps running: R2 and R3 are verified there before they reach production (PRD §14.6).
 
 ## Rollback (within 30 days)
 
-Start v2 again in Coolify and remove the redirect rule. v2's data is untouched (its own backfill can fill the days
-it was stopped), and SIMOLA keeps ingesting in the background.
+Start v2 again in Coolify (its containers were removed, so this runs a new deployment; run the network check first,
+as for every deploy) and remove the redirect rule. v2's data is untouched (its own backfill can fill the days it was
+stopped), and SIMOLA keeps ingesting in the background. Its auto-deploy stays off.
 
 ## Decommission v2 (after 30 stable days, only with explicit approval)
 

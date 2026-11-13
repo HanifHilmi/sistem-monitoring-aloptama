@@ -156,7 +156,7 @@ def _inputs(lang: str = "en") -> ReportInputs:
     comps = {"04": ("DCP", "ATRH"), "middle": ("DCP", "BARO")}
     system = {
         "code": "WIDN-CAT3",
-        "name": {"en": "AWOS CAT.III WIDN", "id": "AWOS KAT. III WIDN"},
+        "name": {"en": "AWOS CAT.III WIDN", "id": "AWOS CAT.III WIDN"},
         "icao": "WIDN",
         "coverage_start": "2026-11-03T00:00:00Z",
         "cdps": [{"code": "CDP1"}, {"code": "CDP2"}],
@@ -164,7 +164,7 @@ def _inputs(lang: str = "en") -> ReportInputs:
             {
                 "slug": slug,
                 "code": f"RWY{slug.upper()[:3]}",
-                "name": {"en": f"Runway {slug}", "id": f"Landasan {slug}"},
+                "name": {"en": f"Runway {slug}", "id": f"Runway {slug}"},
                 "components": [{"type": t, "name": {"en": f"{t} name", "id": f"{t} nama"}} for t in types],
             }
             for slug, types in comps.items()

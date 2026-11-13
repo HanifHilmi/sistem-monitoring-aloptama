@@ -83,11 +83,27 @@ Open items from PRD v0.1 (§18.2), answered in a second walkthrough. They are ap
 | OPEN-18 | Cutover after R1 acceptance, following a one-month parallel run |
 | AS-6 | Free or already-owned services only |
 
+## Changes after PRD approval
+
+Decisions the Product Owner made while building and switching over. Each is recorded in the PRD revision history.
+
+| Date | Item | Decision | PRD |
+|---|---|---|---|
+| 2026-11-04 | OPEN-14, backups | Backups run only on request; no nightly schedule | v1.3 |
+| 2026-11-04 | §14.5, v2 figures | The v2 figure comparison is dropped: v2's numbers were not accurate, v2 is a reference only | v1.3 |
+| 2026-11-09 | FR-DSH-001 | Dashboard approved from screenshots: a panel per system and cards across systems | v1.2 |
+| 2026-11-11 | OPEN-18 | Go for the cutover; the one-month parallel run is waived. Switched on 2026-11-11; v2 stopped (not removed), its auto-deploy off | v1.3, v1.4 |
+| 2026-11-11 | U6 | The Product Owner reviews the monthly PDF instead of the station head (no Viewer account on staging) | v1.3 |
+| 2026-11-13 | OPEN-13 | The public sees no AWOS alarm information at all, not even the active-alarm count | v1.4 |
+| 2026-11-13 | FR-L10N-001 | System, site, sensor and parameter names and aviation weather terms stay in English in the Indonesian interface | v1.4 |
+
 ## Still open
 
 | ID | Open item | Needed by |
 |---|---|---|
-| F2 / OPEN-01 | Which free or already-owned off-host backup destination (Cloudflare R2 free tier, Google Drive, LAN machine) | Before production go-live |
+| F2 / OPEN-01 | Which free or already-owned off-host backup destination (Cloudflare R2 free tier, Google Drive, LAN machine) | Deferred by the Product Owner (2026-11-13); before v2 is removed |
 | F4a / OPEN-02 | Whether the BMKG MQTT broker (AWS/ARG) is still available, with credentials | AWS/ARG phase |
-| OPEN-11 | Verify alarm timestamps are UTC | During R3 |
-| OPEN-16 | Monthly PDF layout sign-off | R3 |
+| OPEN-11 | Verify alarm timestamps are UTC | On site, when convenient |
+| OPEN-16 | Monthly PDF layout sign-off | The Product Owner's U6 pass |
+| AS-5 | No external system read v2's API | The Product Owner's confirmation (v2 is stopped, so anything that did has stopped working) |
+| — | Redirect the old hostname `rhf-monitoring.hilmihanif.my.id` to SIMOLA (it answers 404 since v2 stopped) | Deferred by the Product Owner (2026-11-11) |
