@@ -7,7 +7,7 @@ Fisabilillah Airport (WIDN) and is designed to add Tambelan CAT.I, AWS and ARG l
 <https://simola.hilmihanif.my.id>. It replaced `monitoring-aloptama-v2`, which is stopped. The next phase in the
 roadmap is AWOS CAT.I Tambelan (PRD §17.2).
 
-Requirements: [`PRD.md`](PRD.md) (approved; v1.4). Decisions: [`QUESTIONS.md`](QUESTIONS.md).
+Requirements: [`PRD.md`](PRD.md) (approved; v1.5). Decisions: [`QUESTIONS.md`](QUESTIONS.md).
 
 ## What SIMOLA does
 
@@ -20,7 +20,8 @@ Requirements: [`PRD.md`](PRD.md) (approved; v1.4). Decisions: [`QUESTIONS.md`](Q
 - **Data quality.** Validity rules (range, stuck, spike) raise suspect detections; an Admin confirms or rejects
   them, and can flag bad minutes by hand. Confirmed detections and flags take minutes out of the figures, and
   every change is recomputed and audited.
-- **Records.** Station, site and sensor records, in-service periods and calibrations with due dates.
+- **Records.** Station, site and sensor records; each sensor's parts with their own part and serial numbers and
+  replacement history; in-service periods; calibrations with due dates.
 - **Screens.** Dashboard, a board per system (month by day), site pages, sensor charts, a minute drill-down,
   outage breakdowns, the Problems panel, a health page, alarms, reports, data quality and the definitions of every
   figure. Indonesian and English; system, site, sensor and parameter names and aviation weather terms stay in
@@ -34,7 +35,7 @@ Requirements: [`PRD.md`](PRD.md) (approved; v1.4). Decisions: [`QUESTIONS.md`](Q
 |---|---|
 | Public (no account) | Dashboards, figures, sensor charts, METAR / MET REPORT / TAF, definitions, data-quality summary. No AWOS alarms (not even their count), addresses, serial numbers or suspect detections |
 | Viewer (station head) | Also AWOS alarms, the health page, serial and part numbers, suspect detections, CSV exports and the monthly PDF |
-| Admin (technicians) | Also the Admin area: users, audit log, jobs, settings, mandatory fields, records and calibration, flags, validity rules, review queue, alarm mapping |
+| Admin (technicians) | Also the Admin area: users, audit log, jobs, settings, mandatory fields, records, sensor parts and calibration, flags, validity rules, review queue, alarm mapping |
 
 The server checks the role on every request; the full route list is in
 [docs/design/permissions.md](docs/design/permissions.md).

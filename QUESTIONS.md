@@ -96,6 +96,7 @@ Decisions the Product Owner made while building and switching over. Each is reco
 | 2026-11-11 | U6 | The Product Owner reviews the monthly PDF instead of the station head (no Viewer account on staging) | v1.3 |
 | 2026-11-13 | OPEN-13 | The public sees no AWOS alarm information at all, not even the active-alarm count | v1.4 |
 | 2026-11-13 | FR-L10N-001 | System, site, sensor and parameter names and aviation weather terms stay in English in the Indonesian interface | v1.4 |
+| 2026-11-20 | FR-REG-004 | A sensor has several parts, each with its own part and serial number and a replacement history; calibration status stays per sensor and a calibration may name its part (option A) | v1.5 |
 
 ## Still open
 

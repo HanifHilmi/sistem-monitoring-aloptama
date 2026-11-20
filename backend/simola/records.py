@@ -1,7 +1,8 @@
-"""Station, site and sensor records, calibration status and the figure change trace (R2.5).
+"""Station, site and sensor records, sensor parts, calibration status and the figure change trace (R2.5, R3.7).
 
-PRD FR-REG-004 (records; serial and part numbers hidden from the public), FR-REG-005 (calibration history and a
-status derived on read: OK, due soon, overdue, unknown), FR-AUD-003 (which changes moved a component's figures).
+PRD FR-REG-004 (records; a sensor's parts with their own part and serial numbers, hidden from the public),
+FR-REG-005 (calibration history and a status derived on read: OK, due soon, overdue, unknown), FR-AUD-003 (which
+changes moved a component's figures). Parts never change a figure.
 """
 
 from __future__ import annotations
@@ -19,22 +20,55 @@ from simola.registry import Component, System, get_setting
 
 STATION_FIELDS = ("wmo_number", "airport_name", "lat", "lon", "elevation_m", "procurement_year", "notes")
 SITE_FIELDS = ("lat", "lon", "elevation_m", "threshold_elevation_m", "description")
-COMPONENT_FIELDS = (
-    "sensor_type",
+# The sensor as a whole. Its models and numbers belong to its parts (R3.7); the older columns on ``component`` are
+# kept for one release only (migration 0012) and no longer read.
+COMPONENT_FIELDS = ("sensor_type", "installed_on", "notes")
+PART_FIELDS = (
+    "role",
     "manufacturer",
     "model",
     "part_number",
     "serial_number",
-    "installed_on",
     "firmware",
+    "installed_on",
     "notes",
 )
 PRIVATE_FIELDS = ("part_number", "serial_number")  # signed-in users only (PRD §5.4, OPEN-13)
+# Left out of the public answer as well: who changed a part, and free-text notes (like flag notes, PRD §5.4).
+PART_SIGNED_IN = (
+    *PRIVATE_FIELDS,
+    "notes",
+    "removed_reason",
+    "created_by",
+    "created_at",
+    "updated_by",
+    "updated_at",
+)
+PART_COLUMNS = (
+    "p.id, p.component_id, p.role, p.manufacturer, p.model, p.part_number, p.serial_number, p.firmware, "
+    "p.installed_on, p.removed_on, p.removed_reason, p.replaces, p.notes, p.created_by, p.created_at, "
+    "p.updated_by, p.updated_at, n.id AS replaced_by"
+)
+# The part each sensor's existing record became (migration 0012), and what the import calls the main part.
+MAIN_PART = {
+    "DCP": "Data logger",
+    "ATRH": "Thermohygrometer",
+    "BARO": "Barometer",
+    "ANEM": "Wind sensor",
+    "RVR": "Visibility sensor",
+    "CEL": "Ceilometer",
+    "PWX": "Present weather sensor",
+    "RAIN": "Rain gauge",
+    "SOLR": "Pyranometer",
+    "LIGH": "Lightning detector",
+}
 DEFAULT_DUE_SOON_DAYS = 30
 CALIBRATION_COLUMNS = (
-    "id, component_id, date, performed_by, certificate, next_due, interval_months, validated_on, notes, "
-    "created_by, created_at, updated_by, updated_at"
+    "cr.id, cr.component_id, cr.date, cr.performed_by, cr.certificate, cr.next_due, cr.interval_months, "
+    "cr.validated_on, cr.notes, cr.part_id, cr.created_by, cr.created_at, cr.updated_by, cr.updated_at, "
+    "cp.role AS part_role, cp.serial_number AS part_serial"
 )
+CALIBRATION_FROM = "calibration_record cr LEFT JOIN component_part cp ON cp.id = cr.part_id"
 CALIBRATION_AUDIT = (
     "date",
     "performed_by",
@@ -43,6 +77,7 @@ CALIBRATION_AUDIT = (
     "interval_months",
     "validated_on",
     "notes",
+    "part_id",
 )
 
 
@@ -136,8 +171,29 @@ def check_place(meta: dict[str, Any], today: date) -> None:
         raise RecordError("invalid_wmo")
 
 
-def public_meta(meta: dict[str, Any], *, full: bool) -> dict[str, Any]:
-    return meta if full else {k: v for k, v in meta.items() if k not in PRIVATE_FIELDS}
+def public_part(part: dict[str, Any], *, full: bool) -> dict[str, Any]:
+    """A part as the API shows it: everything for signed-in users; without numbers, notes and authors for the
+    public."""
+    return part if full else {k: v for k, v in part.items() if k not in PART_SIGNED_IN}
+
+
+def check_removal(part: dict[str, Any], removed_on: date, today: date) -> None:
+    """A part comes out once, not in the future, and not before it went in."""
+    if part["removed_on"] is not None:
+        raise RecordError("part_already_removed")
+    if removed_on > today:
+        raise RecordError("date_in_future")
+    if part["installed_on"] is not None and removed_on < part["installed_on"]:
+        raise RecordError("removed_before_installed")
+
+
+def check_replacement(removed_on: date, installed_on: date | None) -> None:
+    if installed_on is not None and installed_on < removed_on:
+        raise RecordError("installed_before_removed")
+
+
+def same_part_name(a: str, b: str) -> bool:
+    return " ".join(a.split()).lower() == " ".join(b.split()).lower()
 
 
 # ---------------------------------------------------------------------------- database
@@ -209,12 +265,51 @@ async def site_meta(conn: AsyncConnection, system: System) -> dict[int, dict[str
     return {int(r["id"]): {k: r[k] for k in SITE_FIELDS} for r in rows}
 
 
+async def parts_of(
+    conn: AsyncConnection, component_ids: list[int], *, removed: bool = False
+) -> dict[int, list[dict[str, Any]]]:
+    """Each component's parts: installed ones, or every part ever recorded with ``removed`` (oldest first)."""
+    rows = await conn.execute(
+        text(f"""
+        SELECT {PART_COLUMNS} FROM component_part p LEFT JOIN component_part n ON n.replaces = p.id
+        WHERE p.component_id = ANY(:ids) {"" if removed else "AND p.removed_on IS NULL"}
+        ORDER BY p.component_id, p.id
+    """),
+        {"ids": component_ids},
+    )
+    out: dict[int, list[dict[str, Any]]] = {cid: [] for cid in component_ids}
+    for r in rows.mappings():
+        out[int(r["component_id"])].append(dict(r))
+    return out
+
+
+async def part_row(conn: AsyncConnection, part_id: int, *, lock: bool = False) -> dict[str, Any] | None:
+    if lock:
+        await conn.execute(text("SELECT id FROM component_part WHERE id = :id FOR UPDATE"), {"id": part_id})
+    row = (
+        (
+            await conn.execute(
+                text(f"""
+            SELECT {PART_COLUMNS} FROM component_part p LEFT JOIN component_part n ON n.replaces = p.id
+            WHERE p.id = :id
+        """),
+                {"id": part_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return dict(row) if row else None
+
+
 async def assets(conn: AsyncConnection, system: System, *, full: bool, today: date) -> dict[str, Any]:
-    """What the site pages show: the station, sites and sensors, with calibration status (FR-REG-004/005)."""
+    """What the site pages show: the station, sites and sensors with their installed parts and calibration
+    status (FR-REG-004/005). Part and serial numbers are for signed-in users."""
     comps = [(s, c) for s in system.sites for c in s.components]
     ids = [c.id for _, c in comps]
     window = await due_soon_days(conn)
     metas = await component_meta(conn, ids)
+    parts = await parts_of(conn, ids)
     cal = await summaries(conn, ids, today, window)
     sites = await site_meta(conn, system)
     return {
@@ -224,8 +319,9 @@ async def assets(conn: AsyncConnection, system: System, *, full: bool, today: da
             {
                 "site": s.slug,
                 "type": c.type_code,
-                "meta": public_meta(metas.get(c.id, {}), full=full),
+                "meta": metas.get(c.id, {}),
                 "calibration": cal[c.id],
+                "parts": [public_part(p, full=full) for p in parts[c.id]],
             }
             for s, c in comps
         ],
@@ -268,32 +364,61 @@ def where(system: System, comp: Component) -> str:
     return f"{site.slug}:{comp.type_code}"
 
 
+def _calibration_view(r: Any) -> dict[str, Any]:
+    """A calibration as the API shows it, with the part it covered (R3.7)."""
+    row = dict(r)
+    role, serial = row.pop("part_role"), row.pop("part_serial")
+    row["part"] = (
+        {"id": row["part_id"], "role": role, "serial_number": serial} if row["part_id"] is not None else None
+    )
+    return row
+
+
 async def calibration_row(conn: AsyncConnection, cal_id: int, *, lock: bool = False) -> dict[str, Any] | None:
+    if lock:
+        await conn.execute(
+            text("SELECT id FROM calibration_record WHERE id = :id AND removed_at IS NULL FOR UPDATE"),
+            {"id": cal_id},
+        )
     row = (
         (
             await conn.execute(
-                text(f"""
-            SELECT {CALIBRATION_COLUMNS} FROM calibration_record WHERE id = :id AND removed_at IS NULL
-            {"FOR UPDATE" if lock else ""}
-        """),
+                text(
+                    f"SELECT {CALIBRATION_COLUMNS} FROM {CALIBRATION_FROM} WHERE cr.id = :id AND cr.removed_at IS NULL"
+                ),
                 {"id": cal_id},
             )
         )
         .mappings()
         .first()
     )
-    return dict(row) if row else None
+    return _calibration_view(row) if row else None
 
 
 async def calibration_history(conn: AsyncConnection, component_id: int) -> list[dict[str, Any]]:
     rows = await conn.execute(
         text(f"""
-        SELECT {CALIBRATION_COLUMNS} FROM calibration_record WHERE component_id = :c AND removed_at IS NULL
-        ORDER BY date DESC, id DESC
+        SELECT {CALIBRATION_COLUMNS} FROM {CALIBRATION_FROM} WHERE cr.component_id = :c AND cr.removed_at IS NULL
+        ORDER BY cr.date DESC, cr.id DESC
     """),
         {"c": component_id},
     )
-    return [dict(r) for r in rows.mappings()]
+    return [_calibration_view(r) for r in rows.mappings()]
+
+
+async def check_calibration_part(
+    conn: AsyncConnection, comp: Component, part_id: int | None, *, installed: bool
+) -> None:
+    """The part a calibration names must be one of the sensor's parts; a new calibration names an installed one."""
+    if part_id is None:
+        return
+    row = (
+        await conn.execute(
+            text("SELECT component_id, removed_on FROM component_part WHERE id = :id"), {"id": part_id}
+        )
+    ).first()
+    if row is None or row[0] != comp.id or (installed and row[1] is not None):
+        raise RecordError("part_not_installed")
 
 
 def audit_view(row: dict[str, Any]) -> dict[str, Any]:
@@ -344,8 +469,9 @@ async def add_calibration(
         await conn.execute(
             text("""
         INSERT INTO calibration_record (component_id, date, performed_by, certificate, next_due, interval_months,
-                                        validated_on, notes, created_by)
-        VALUES (:c, :date, :performed_by, :certificate, :next_due, :interval_months, :validated_on, :notes, :by)
+                                        validated_on, notes, part_id, created_by)
+        VALUES (:c, :date, :performed_by, :certificate, :next_due, :interval_months, :validated_on, :notes,
+                :part_id, :by)
         RETURNING id
     """),
             {**{k: d.get(k) for k in CALIBRATION_AUDIT}, "c": comp.id, "by": actor},
@@ -363,6 +489,167 @@ async def add_calibration(
         source_ip=source_ip,
     )
     return row
+
+
+# ---------------------------------------------------------------------------- parts (R3.7)
+def part_audit_view(p: dict[str, Any]) -> dict[str, Any]:
+    """How the audit log shows a part: its name and every recorded field (the log is for Admins)."""
+    return {
+        "part": p["role"],
+        "part_id": p["id"],
+        **{k: p[k] for k in PART_FIELDS if k != "role"},
+        "removed_on": p["removed_on"],
+        "removed_reason": p["removed_reason"],
+    }
+
+
+async def add_part(
+    conn: AsyncConnection,
+    system: System,
+    comp: Component,
+    d: dict[str, Any],
+    *,
+    actor: str,
+    source_ip: str | None = None,
+    replaces: int | None = None,
+) -> dict[str, Any]:
+    """Adds an installed part (fields checked by the caller). Audited as ``part_added`` unless it replaces one, which
+    ``replace_part`` audits as a whole."""
+    part_id = (
+        await conn.execute(
+            text("""
+        INSERT INTO component_part (component_id, role, manufacturer, model, part_number, serial_number, firmware,
+                                    installed_on, notes, replaces, created_by)
+        VALUES (:c, :role, :manufacturer, :model, :part_number, :serial_number, :firmware, :installed_on, :notes,
+                :replaces, :by)
+        RETURNING id
+    """),
+            {**{k: d.get(k) for k in PART_FIELDS}, "c": comp.id, "replaces": replaces, "by": actor},
+        )
+    ).scalar_one()
+    row = await part_row(conn, part_id)
+    assert row is not None
+    if replaces is None:
+        await audit.record(
+            conn,
+            "part_added",
+            actor=actor,
+            entity_type="component",
+            entity_id=where(system, comp),
+            after=part_audit_view(row),
+            source_ip=source_ip,
+        )
+    return row
+
+
+async def update_part(
+    conn: AsyncConnection,
+    system: System,
+    comp: Component,
+    old: dict[str, Any],
+    d: dict[str, Any],
+    *,
+    actor: str,
+    source_ip: str | None = None,
+) -> dict[str, Any]:
+    """Corrects a part's record (a typing mistake, a missing number): not a replacement. Audited with before and
+    after."""
+    if old["removed_on"] is not None and d.get("installed_on") and d["installed_on"] > old["removed_on"]:
+        raise RecordError("removed_before_installed")
+    await conn.execute(
+        text(f"""
+        UPDATE component_part SET {", ".join(f"{k} = :{k}" for k in PART_FIELDS)}, updated_by = :by,
+               updated_at = now()
+        WHERE id = :id
+    """),
+        {**{k: d.get(k) for k in PART_FIELDS}, "by": actor, "id": old["id"]},
+    )
+    row = await part_row(conn, old["id"])
+    assert row is not None
+    before, after = audit.diff(part_audit_view(old), part_audit_view(row))
+    if after:
+        await audit.record(
+            conn,
+            "part_changed",
+            actor=actor,
+            entity_type="component",
+            entity_id=where(system, comp),
+            before={"part": old["role"], "part_id": old["id"], **before},
+            after=after,
+            source_ip=source_ip,
+        )
+    return row
+
+
+async def _close_part(
+    conn: AsyncConnection, part_id: int, removed_on: date, reason: str | None, actor: str
+) -> dict[str, Any]:
+    await conn.execute(
+        text("""
+        UPDATE component_part SET removed_on = :on, removed_reason = :reason, updated_by = :by, updated_at = now()
+        WHERE id = :id
+    """),
+        {"on": removed_on, "reason": reason, "by": actor, "id": part_id},
+    )
+    row = await part_row(conn, part_id)
+    assert row is not None
+    return row
+
+
+async def remove_part(
+    conn: AsyncConnection,
+    system: System,
+    comp: Component,
+    old: dict[str, Any],
+    removed_on: date,
+    reason: str | None,
+    *,
+    actor: str,
+    source_ip: str | None = None,
+) -> dict[str, Any]:
+    """Takes a part out without a replacement. The row stays as history; audited as ``part_removed``."""
+    row = await _close_part(conn, old["id"], removed_on, reason, actor)
+    await audit.record(
+        conn,
+        "part_removed",
+        actor=actor,
+        entity_type="component",
+        entity_id=where(system, comp),
+        before=part_audit_view(old),
+        after={"part": row["role"], "part_id": row["id"], "removed_on": removed_on, "removed_reason": reason},
+        source_ip=source_ip,
+    )
+    return row
+
+
+async def replace_part(
+    conn: AsyncConnection,
+    system: System,
+    comp: Component,
+    old: dict[str, Any],
+    removed_on: date,
+    reason: str | None,
+    d: dict[str, Any],
+    *,
+    actor: str,
+    source_ip: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """A physical swap: the old part is removed on ``removed_on`` and the new one installed in its place, linked
+    to it. One audit entry, ``part_replaced``, holds both."""
+    removed = await _close_part(conn, old["id"], removed_on, reason, actor)
+    added = await add_part(conn, system, comp, d, actor=actor, replaces=old["id"])
+    removed = await part_row(conn, old["id"]) or removed  # now with replaced_by
+    await audit.record(
+        conn,
+        "part_replaced",
+        actor=actor,
+        entity_type="component",
+        entity_id=where(system, comp),
+        before=part_audit_view(removed),
+        after=part_audit_view(added),
+        source_ip=source_ip,
+    )
+    return removed, added
 
 
 def _json(v: Any) -> Any:

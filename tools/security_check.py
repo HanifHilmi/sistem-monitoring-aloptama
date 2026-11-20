@@ -103,6 +103,10 @@ ADMIN_ROUTES = (
     "/api/v1/admin/components/{component_id}/calibrations",
     "/api/v1/admin/calibrations",
     "/api/v1/admin/calibrations/{cal_id}",
+    "/api/v1/admin/components/{component_id}/parts",
+    "/api/v1/admin/parts/{part_id}",
+    "/api/v1/admin/parts/{part_id}/remove",
+    "/api/v1/admin/parts/{part_id}/replace",
     "/api/v1/admin/alarm-names",
     "/api/v1/admin/alarm-names/{name}",
 )
@@ -135,6 +139,10 @@ KNOWN_WRITES = {
     "POST /api/v1/admin/calibrations",
     "PATCH /api/v1/admin/calibrations/{cal_id}",
     "DELETE /api/v1/admin/calibrations/{cal_id}",
+    "POST /api/v1/admin/components/{component_id}/parts",
+    "PATCH /api/v1/admin/parts/{part_id}",
+    "POST /api/v1/admin/parts/{part_id}/remove",
+    "POST /api/v1/admin/parts/{part_id}/replace",
     "PUT /api/v1/admin/alarm-names/{name}",
     "POST /api/v1/systems/{code}/exports/monthly-report",  # draws a PDF and audits it; changes no data
 }
@@ -344,6 +352,7 @@ def check_routes_and_writes(web: str, routes: list[tuple[str, str, dict[str, Any
         "{flag_id}": "1",
         "{rule_id}": "1",
         "{cal_id}": "1",
+        "{part_id}": "1",
         "{name}": "NoSuchAlarm",
         "{slug}": "04",
         "{code}": "WIDN-CAT3",

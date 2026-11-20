@@ -89,6 +89,12 @@ const SAME_IN_BOTH = new Set([
   'wx.with',
   'wx.and',
   'ltg.title',
+  // R3.7 sensor parts: "Part" is the technicians' word in both languages
+  'records.pn',
+  'parts.role',
+  'parts.span',
+  'audit.fieldName.part',
+  'audit.fieldName.firmware',
 ])
 
 /** METAR weather words and cloud amounts: kept in English as a group, like the codes they decode. */

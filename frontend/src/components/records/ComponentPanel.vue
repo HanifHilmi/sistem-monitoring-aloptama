@@ -7,31 +7,23 @@ import type { Calibration, CalibrationDraft, ComponentMeta, ComponentRow, JobRow
 import { useLoader } from '@/composables/useLoader'
 import { addMonths, formatUtc } from '@/utils/time'
 import CalibrationChip from './CalibrationChip.vue'
+import PartsTab from './PartsTab.vue'
 
-// One sensor in the registry (FR-REG-004/005/006): its record, its calibration history (status derived from the
-// latest record), and its in-service period. Every change is audited on the server.
-export type PanelTab = 'details' | 'calibration' | 'service'
+// One sensor in the registry (FR-REG-004/005/006): its record, its parts (R3.7), its calibration history (status
+// derived from the latest record), and its in-service period. Every change is audited on the server.
+export type PanelTab = 'details' | 'parts' | 'calibration' | 'service'
 const props = defineProps<{ component: ComponentRow; tab?: PanelTab }>()
 const emit = defineEmits<{ changed: [] }>()
 const { t } = useI18n()
 const tab = ref<PanelTab>(props.tab ?? 'details')
-const TABS: PanelTab[] = ['details', 'calibration', 'service']
+const TABS: PanelTab[] = ['details', 'parts', 'calibration', 'service']
 const c = computed(() => props.component)
 const today = new Date().toISOString().slice(0, 10)
 const errorText = (code: string) =>
   t(`records.error.${code}`) === `records.error.${code}` ? t('common.error') : t(`records.error.${code}`)
 
-// ---- details (FR-REG-004) ----------------------------------------------------------------------------
-const META_KEYS = [
-  'sensor_type',
-  'manufacturer',
-  'model',
-  'part_number',
-  'serial_number',
-  'installed_on',
-  'firmware',
-  'notes',
-] as const
+// ---- details (FR-REG-004): the sensor as a whole; models and numbers belong to its parts (R3.7) ---------------
+const META_KEYS = ['sensor_type', 'installed_on', 'notes'] as const
 const meta = reactive<Record<(typeof META_KEYS)[number], string>>(
   Object.fromEntries(META_KEYS.map((k) => [k, ''])) as Record<(typeof META_KEYS)[number], string>,
 )
@@ -76,8 +68,12 @@ const draft = reactive({
   next_due: '',
   validated_on: '',
   notes: '',
+  part: '' as number | '',
 })
+// R3.7: which installed part the certificate covers; the last calibration's part is the usual answer
+const partChoices = computed(() => c.value.parts)
 function startNew() {
+  const lastPart = history.data.value?.[0]?.part?.id
   Object.assign(draft, {
     date: today,
     performed_by: '',
@@ -87,6 +83,7 @@ function startNew() {
     next_due: '',
     validated_on: '',
     notes: '',
+    part: lastPart && partChoices.value.some((p) => p.id === lastPart) ? lastPart : '',
   })
   editing.value = 'new'
   calError.value = null
@@ -101,6 +98,7 @@ function startEdit(r: Calibration) {
     next_due: r.next_due,
     validated_on: r.validated_on ?? '',
     notes: r.notes ?? '',
+    part: r.part?.id ?? '',
   })
   editing.value = r
   calError.value = null
@@ -143,6 +141,7 @@ async function saveCal() {
     interval_months: draft.mode === 'interval' ? draft.interval : null,
     validated_on: draft.validated_on || null,
     notes: draft.notes.trim() || null,
+    part_id: draft.part === '' ? null : draft.part,
   }
   try {
     if (editing.value === 'new') await api.addCalibration(body)
@@ -222,24 +221,21 @@ async function saveService() {
         {{ errorText(metaError) }}
       </p>
       <div class="grid gap-3 sm:grid-cols-2">
-        <label
-          v-for="k in ['sensor_type', 'manufacturer', 'model', 'firmware'] as const"
-          :key="k"
-          class="flex flex-col gap-1.5"
-        >
-          <span class="label">{{ t(`records.meta.${k}`) }}</span>
-          <input v-model="meta[k]" type="text" maxlength="100" class="input py-1.5" />
-        </label>
-        <label v-for="k in ['part_number', 'serial_number'] as const" :key="k" class="flex flex-col gap-1.5">
-          <span class="label">{{ t(`records.meta.${k}`) }}</span>
-          <input v-model="meta[k]" type="text" maxlength="100" class="input num py-1.5" />
+        <label class="flex flex-col gap-1.5">
+          <span class="label">{{ t('records.meta.sensor_type') }}</span>
+          <input v-model="meta.sensor_type" type="text" maxlength="100" class="input py-1.5" />
         </label>
         <label class="flex flex-col gap-1.5">
           <span class="label">{{ t('records.meta.installed_on') }}</span>
           <input v-model="meta.installed_on" type="date" :max="today" class="input num py-1.5" />
         </label>
       </div>
-      <p class="-mt-1 text-xs text-ink-3">{{ t('records.serialHint') }}</p>
+      <p class="-mt-1 text-xs text-ink-3">
+        {{ t('parts.detailsHint', { n: c.parts.length }, c.parts.length) }}
+        <button type="button" class="text-accent hover:underline" @click="tab = 'parts'">
+          {{ t('parts.open') }}
+        </button>
+      </p>
       <label class="flex flex-col gap-1.5">
         <span class="label">{{ t('records.meta.notes') }}</span>
         <textarea v-model="meta.notes" rows="2" maxlength="500" class="input" />
@@ -254,6 +250,9 @@ async function saveService() {
         }}</span>
       </div>
     </form>
+
+    <!-- parts (R3.7) -->
+    <PartsTab v-else-if="tab === 'parts'" :component="c" @changed="emit('changed')" />
 
     <!-- calibration -->
     <section
@@ -319,6 +318,16 @@ async function saveService() {
               }}</span>
             </label>
           </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="cal-part" class="label">{{ t('parts.calPart') }}</label>
+            <select id="cal-part" v-model="draft.part" class="input py-1.5" aria-describedby="cal-part-hint">
+              <option value="">{{ t('parts.calWhole') }}</option>
+              <option v-for="p in partChoices" :key="p.id" :value="p.id">
+                {{ p.role }}{{ p.serial_number ? ` · ${t('records.sn', { sn: p.serial_number })}` : '' }}
+              </option>
+            </select>
+            <span id="cal-part-hint" class="text-[0.6875rem] text-ink-3">{{ t('parts.calPartHint') }}</span>
+          </div>
           <fieldset class="flex flex-col gap-2">
             <legend class="label mb-1">{{ t('calibration.nextDueLabel') }}</legend>
             <div class="flex flex-wrap items-center gap-3 text-sm">
@@ -378,6 +387,10 @@ async function saveService() {
             <span class="min-w-0 flex-1">
               {{ r.performed_by }}
               <span v-if="r.certificate" class="num text-ink-3">· {{ r.certificate }}</span>
+              <span v-if="r.part" class="num block text-xs text-ink-2" data-testid="calibration-part">
+                {{ r.part.role
+                }}{{ r.part.serial_number ? ` · ${t('records.sn', { sn: r.part.serial_number })}` : '' }}
+              </span>
               <span class="num block text-xs" :class="r.validated_on ? 'text-ink-2' : 'font-medium text-ink'">
                 {{
                   r.validated_on

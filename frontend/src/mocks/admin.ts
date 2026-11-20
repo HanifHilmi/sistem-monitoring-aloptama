@@ -7,6 +7,8 @@ import type {
   Availability,
   CalibrationDraft,
   ComponentMeta,
+  PartDraft,
+  PartReplacement,
   ComponentRow,
   JobDetail,
   JobRow,
@@ -50,8 +52,9 @@ export function components(window = 30, now = Date.now()): ComponentRow[] {
       is_dcp: c.is_dcp,
       in_service_from: c.in_service_from,
       in_service_to: c.in_service_to,
-      meta: rec.componentMeta(s.slug, c.type, true),
+      meta: rec.componentMeta(s.slug, c.type),
       calibration: rec.summary(s.slug, c.type, now, window),
+      parts: rec.parts(s.slug, c.type, true),
     })),
   )
 }
@@ -259,7 +262,7 @@ export function adminRoute(
   body: unknown,
   user: string,
 ): Response | null {
-  if (!/^\/admin\/(jobs|settings|mandatory-fields|components|station|sites|calibrations)/.test(path))
+  if (!/^\/admin\/(jobs|settings|mandatory-fields|components|station|sites|calibrations|parts)/.test(path))
     return null
   const now = Date.now()
   const s = load(now)
@@ -414,7 +417,7 @@ export function adminRoute(
     rec.setSiteMeta(decodeURIComponent(sitem[1]!), m)
     return done(json(rec.siteMeta(decodeURIComponent(sitem[1]!))))
   }
-  const metam = path.match(/^\/admin\/components\/(\d+)\/(meta|calibrations)$/)
+  const metam = path.match(/^\/admin\/components\/(\d+)\/(meta|calibrations|parts)$/)
   if (metam) {
     const c = components(window, now).find((x) => x.id === Number(metam[1]))
     if (!c) return problem(404, 'component_not_found')
@@ -423,7 +426,55 @@ export function adminRoute(
       const m = b as unknown as ComponentMeta
       if (m.installed_on && m.installed_on > iso(now).slice(0, 10)) return problem(422, 'date_in_future')
       rec.setComponentMeta(c.site, c.type, m)
-      return done(json(rec.componentMeta(c.site, c.type, true)))
+      return done(json(rec.componentMeta(c.site, c.type)))
+    }
+    // R3.7: a sensor's parts; ?removed=1 adds the removed ones (the history)
+    if (metam[2] === 'parts' && method === 'GET')
+      return done(json(rec.parts(c.site, c.type, true, url.searchParams.get('removed') === '1')))
+    if (metam[2] === 'parts' && method === 'POST') {
+      const d = b as unknown as PartDraft
+      const code = rec.checkPart(d, now)
+      if (code) return problem(422, code)
+      return done(json(rec.publicPartOf(rec.addPart(c.id, c.site, c.type, d, user, now), true), 201))
+    }
+  }
+  const partm = path.match(/^\/admin\/parts\/(\d+)(?:\/(replace|remove))?$/)
+  if (partm) {
+    const part = rec.partById(Number(partm[1]))
+    if (!part) return problem(404, 'part_not_found')
+    if (!partm[2] && method === 'PATCH') {
+      const d = b as unknown as PartDraft
+      const code = rec.checkPart(d, now)
+      if (code) return problem(422, code)
+      if (part.removed_on && d.installed_on && d.installed_on > part.removed_on)
+        return problem(422, 'removed_before_installed')
+      return done(json(rec.publicPartOf(rec.updatePart(part.id, d, user, now)!, true)))
+    }
+    if (partm[2] === 'remove' && method === 'POST') {
+      const code = rec.checkRemoval(part, b.removed_on as string, now)
+      if (code) return problem(422, code)
+      const removed = rec.removePart(
+        part.id,
+        b.removed_on as string,
+        (b.notes as string | null) ?? null,
+        user,
+        now,
+      )
+      return done(json(rec.publicPartOf(removed, true)))
+    }
+    if (partm[2] === 'replace' && method === 'POST') {
+      const body = b as unknown as PartReplacement
+      const code =
+        rec.checkRemoval(part, body.removed_on, now) ??
+        rec.checkPart(body.part, now) ??
+        (body.part.installed_on && body.part.installed_on < body.removed_on
+          ? 'installed_before_removed'
+          : null)
+      if (code) return problem(422, code)
+      const r = rec.replacePart(part.id, body.removed_on, body.notes, body.part, user, now)
+      return done(
+        json({ removed: rec.publicPartOf(r.removed, true), added: rec.publicPartOf(r.added, true) }),
+      )
     }
   }
   if (path === '/admin/calibrations' && method === 'POST') {
@@ -431,6 +482,8 @@ export function adminRoute(
     const c = components(window, now).find((x) => x.id === d.component_id)
     if (!c) return problem(404, 'component_not_found')
     if (c.is_dcp) return problem(422, 'dcp_not_calibrated')
+    if (d.part_id != null && !c.parts.some((x) => x.id === d.part_id))
+      return problem(422, 'part_not_installed')
     const code = rec.checkCalibration(d, now)
     if (code) return problem(422, code)
     return done(json(rec.addCalibration(c.site, c.type, d, user, now), 201))
@@ -444,6 +497,9 @@ export function adminRoute(
     }
     if (method === 'PATCH') {
       const d = { ...(b as unknown as CalibrationDraft) }
+      const cal = rec.calibrationById(Number(calm[1]))!
+      const ok = d.part_id == null || rec.partById(d.part_id)?.component_id === cal.component_id
+      if (!ok) return problem(422, 'part_not_installed')
       const code = rec.checkCalibration(d, now)
       if (code) return problem(422, code)
       return done(json(rec.updateCalibration(Number(calm[1]), d, user, now)))
@@ -492,8 +548,9 @@ export function assets(full: boolean, now: number): Assets {
       x.components.map((c) => ({
         site: x.slug,
         type: c.type,
-        meta: rec.componentMeta(x.slug, c.type, full),
+        meta: rec.componentMeta(x.slug, c.type),
         calibration: rec.summary(x.slug, c.type, now, window),
+        parts: rec.parts(x.slug, c.type, full),
       })),
     ),
     due_soon_days: window,

@@ -21,7 +21,14 @@ describe('sample calibration status', () => {
   })
 
   it('checks a record as the PRD says (§9.5)', () => {
-    const base = { component_id: 2, performed_by: 'Lab', certificate: null, notes: null, validated_on: null }
+    const base = {
+      component_id: 2,
+      performed_by: 'Lab',
+      certificate: null,
+      notes: null,
+      validated_on: null,
+      part_id: null,
+    }
     const today = new Date(now).toISOString().slice(0, 10)
     const future = new Date(now + 86_400_000).toISOString().slice(0, 10)
     expect(checkCalibration({ ...base, date: future, next_due: null, interval_months: 12 }, now)).toBe(

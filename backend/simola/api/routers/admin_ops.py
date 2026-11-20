@@ -516,13 +516,17 @@ def _component_row(sy: System, c: Component) -> dict[str, Any]:
 
 
 async def component_rows(conn: AsyncConnection, sy: System, comps: list[Component]) -> list[dict[str, Any]]:
-    """Registry rows with each sensor's record and calibration status (R2.5, FR-REG-004/005)."""
+    """Registry rows with each sensor's record, installed parts (R3.7) and calibration status (R2.5)."""
     from simola import records
 
     ids = [c.id for c in comps]
     metas = await records.component_meta(conn, ids)
+    parts = await records.parts_of(conn, ids)
     cal = await records.summaries(conn, ids, _today(), await records.due_soon_days(conn))
-    return [_component_row(sy, c) | {"meta": metas.get(c.id, {}), "calibration": cal[c.id]} for c in comps]
+    return [
+        _component_row(sy, c) | {"meta": metas.get(c.id, {}), "calibration": cal[c.id], "parts": parts[c.id]}
+        for c in comps
+    ]
 
 
 @router.get("/components")

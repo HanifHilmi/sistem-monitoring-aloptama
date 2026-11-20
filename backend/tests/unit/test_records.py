@@ -1,4 +1,4 @@
-"""Records and calibration rules (R2.5, FR-REG-004/005, PRD §9.5)."""
+"""Records, parts and calibration rules (R2.5, R3.7, FR-REG-004/005, PRD §9.5)."""
 
 from __future__ import annotations
 
@@ -16,7 +16,10 @@ from simola.records import (
     check_calibration,
     check_installed,
     check_place,
-    public_meta,
+    check_removal,
+    check_replacement,
+    public_part,
+    same_part_name,
 )
 from simola.records_import import ImportDoc
 
@@ -120,9 +123,42 @@ def test_place_checks() -> None:
 
 
 def test_serial_and_part_numbers_are_for_signed_in_users() -> None:
-    meta = {"model": "CL51", "serial_number": "S123", "part_number": "P9", "firmware": "2.1"}
-    assert public_meta(meta, full=True) == meta
-    assert public_meta(meta, full=False) == {"model": "CL51", "firmware": "2.1"}
+    part = {
+        "role": "Ceilometer",
+        "model": "CL51",
+        "serial_number": "S123",
+        "part_number": "P9",
+        "firmware": "2.1",
+        "notes": "spare in the store",
+        "removed_reason": None,
+        "created_by": "andi",
+        "created_at": None,
+        "updated_by": None,
+        "updated_at": None,
+    }
+    assert public_part(part, full=True) == part
+    assert public_part(part, full=False) == {"role": "Ceilometer", "model": "CL51", "firmware": "2.1"}
+
+
+def test_a_part_comes_out_once_and_not_before_it_went_in() -> None:
+    part = {"installed_on": date(2025, 12, 24), "removed_on": None}
+    assert _code(check_removal, part, date(2026, 10, 14), TODAY) is None
+    assert _code(check_removal, part, date(2025, 12, 24), TODAY) is None  # the same day
+    assert _code(check_removal, part, date(2025, 12, 23), TODAY) == "removed_before_installed"
+    assert _code(check_removal, part, TODAY + timedelta(days=1), TODAY) == "date_in_future"
+    assert (
+        _code(check_removal, {**part, "removed_on": date(2026, 1, 1)}, TODAY, TODAY) == "part_already_removed"
+    )
+    assert _code(check_removal, {**part, "installed_on": None}, date(2001, 1, 1), TODAY) is None
+    # the new part goes in on or after the day the old one came out
+    assert _code(check_replacement, date(2026, 10, 14), date(2026, 10, 14)) is None
+    assert _code(check_replacement, date(2026, 10, 14), None) is None
+    assert _code(check_replacement, date(2026, 10, 14), date(2026, 10, 13)) == "installed_before_removed"
+
+
+def test_part_names_match_without_case_or_extra_spaces() -> None:
+    assert same_part_name("Receiver  1", " receiver 1")
+    assert not same_part_name("Receiver 1", "Receiver 2")
 
 
 def test_an_import_file_names_only_known_fields_and_blank_means_empty() -> None:
@@ -136,8 +172,19 @@ def test_an_import_file_names_only_known_fields_and_blank_means_empty() -> None:
     assert doc.calibrations[0].performed_by == "BMKG" and doc.calibrations[0].validated_on == date(
         2025, 12, 31
     )
+    # R3.7: parts per sensor, and the older form whose model and numbers go to the main part
+    doc = ImportDoc.model_validate_json(
+        """{"components": [{"site": "04", "type": "CEL", "parts": [{"role": " Blower ", "serial_number": "B1"}]},
+                           {"site": "04", "type": "DCP", "model": "1192-240"}],
+            "calibrations": [{"site": "04", "type": "CEL", "date": "2025-12-27", "performed_by": "BMKG",
+                              "interval_months": 12, "part": "Ceilometer"}]}"""
+    )
+    assert doc.components[0].parts[0].role == "Blower" and doc.components[1].model == "1192-240"
+    assert doc.calibrations[0].part == "Ceilometer"
     for bad in (
         '{"component": []}',  # a typo is refused, not ignored
+        '{"components": [{"site": "04", "type": "CEL", "parts": [{"serial_number": "x"}]}]}',  # no part name
+        '{"components": [{"site": "04", "type": "CEL", "parts": [{"role": "Blower", "serial": "x"}]}]}',
         '{"components": [{"site": "04", "type": "ATRH", "serial": "x"}]}',
         '{"calibrations": [{"site": "04", "type": "ATRH"}]}',  # no date
     ):

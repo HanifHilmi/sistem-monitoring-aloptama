@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { api } from '@/api/client'
 import { CALIBRATION_STATUSES, type Assets, type CalibrationStatus, type ComponentRow } from '@/api/types'
+import { partsSummary, sortParts, usualParts } from '@/utils/parts'
 import ComponentPanel, { type PanelTab } from '@/components/records/ComponentPanel.vue'
 import CalibrationChip from '@/components/records/CalibrationChip.vue'
 import PlaceForm from '@/components/records/PlaceForm.vue'
@@ -68,7 +69,8 @@ function serviceText(c: ComponentRow): { text: string; tone: string } {
     }
   return { text: '', tone: '' }
 }
-const model = (c: ComponentRow) => [c.meta.manufacturer, c.meta.model].filter(Boolean).join(' ')
+// R3.7: the main part's model and serial number, and how many more parts the sensor has
+const summary = (c: ComponentRow) => partsSummary(sortParts(c.parts, usualParts(c.type)))
 
 // ---- panels -----------------------------------------------------------------------------------------
 const open = ref<{ id: number; tab: PanelTab } | null>(null)
@@ -178,9 +180,12 @@ const placeTitle = computed(() => {
           <span class="min-w-0 flex-1 text-sm">
             {{ c.name[lc] }} <span class="text-xs text-ink-3">· {{ c.type }}</span>
             <span class="num block text-xs text-ink-2">
-              {{ model(c) || '—' }}
-              <template v-if="c.meta.serial_number">
-                · {{ t('records.sn', { sn: c.meta.serial_number }) }}</template
+              {{ summary(c).model || '—' }}
+              <template v-if="summary(c).serial">
+                · {{ t('records.sn', { sn: summary(c).serial }) }}</template
+              >
+              <template v-if="summary(c).more">
+                · {{ t('parts.more', { n: summary(c).more }, summary(c).more) }}</template
               >
             </span>
             <span v-if="serviceText(c).text" class="block text-xs" :class="serviceText(c).tone">{{

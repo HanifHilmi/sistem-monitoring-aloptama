@@ -12,7 +12,8 @@ The matrix is enforced, not only written down:
 - `tools/security_check.py` repeats the public and signed-out checks against a running site (staging or
   production).
 
-Routes marked Public still shape their answer by role where §5.4 says so: serial and part numbers (assets),
+Routes marked Public still shape their answer by role where §5.4 says so: serial and part numbers, and the parts'
+notes and authors (assets, R3.7),
 suspect detections (detections, data-quality), and flag notes and authors are only in a signed-in user's answer.
 The Problems list holds the number of active AWOS alarms only for signed-in users: the public sees no alarm
 information at all (OPEN-13 as changed on 2026-11-13; until then the public saw the count).
@@ -87,6 +88,11 @@ audit log itself stays Admin-only.
 |  | `POST /api/v1/admin/calibrations` | Admin |
 |  | `PATCH /api/v1/admin/calibrations/{cal_id}` | Admin |
 |  | `DELETE /api/v1/admin/calibrations/{cal_id}` | Admin |
+|  | `GET /api/v1/admin/components/{component_id}/parts` | Admin |
+|  | `POST /api/v1/admin/components/{component_id}/parts` | Admin |
+|  | `PATCH /api/v1/admin/parts/{part_id}` | Admin |
+|  | `POST /api/v1/admin/parts/{part_id}/remove` | Admin |
+|  | `POST /api/v1/admin/parts/{part_id}/replace` | Admin |
 |  | `GET /api/v1/admin/alarm-names` | Admin |
 |  | `PUT /api/v1/admin/alarm-names/{name}` | Admin |
 | Start reprocess / recompute jobs | `GET /api/v1/admin/jobs` | Admin |

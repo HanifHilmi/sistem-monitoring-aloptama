@@ -6,9 +6,9 @@
 |---|---|
 | **Document title** | Product Requirements Document — Sistem Monitoring ALOPTAMA (SIMOLA) |
 | **Product name** | SIMOLA (Sistem Monitoring ALOPTAMA) |
-| **Version** | 1.4 |
-| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13) |
-| **Date** | 2026-11-13 |
+| **Version** | 1.5 |
+| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13); v1.5 adds sensor parts (FR-REG-004, 2026-11-20) |
+| **Date** | 2026-11-20 |
 | **Product Owner** | Station technician who owns and operates the platform (sole operator) |
 | **Supersedes** | `monitoring-aloptama-v2/PRD.md` v2.1 (legacy; kept unchanged for reference) |
 | **Related documents** | `ASSESSMENT.md` (existing-system assessment; private, not in the public repository) · [`QUESTIONS.md`](QUESTIONS.md) (Stage 3 decisions) |
@@ -24,6 +24,7 @@
 | 1.2 | 2026-11-09 | Claude (approved by the Product Owner) | FR-DSH-001: the overview's content as approved from screenshots on 2026-11-09 (a panel per system and cards across systems). No other requirement changes |
 | 1.3 | 2026-11-11 | Product Owner (recorded by Claude) | **Go/no-go for the cutover (§14.5): GO.** UAT U1–U5 and U7–U10 passed on staging; production recount exact for every month and day since coverage start. Changes accepted with it: backups run only on request (replaces the nightly backup of NFR-BAK-001 and SM-5); the v2 figure comparison of §14.5 is dropped, v2 is a reference only; the one-month parallel run of §14.5 is waived: the switch follows as soon as production checks out, and v2 is stopped (not removed) after it; U6: the Product Owner reviews the monthly PDF instead of the station head; the CDP shares are read-only at the source; load-test margins on this host as recorded in the testing runbook. No requirement IDs change |
 | 1.4 | 2026-11-13 | Product Owner (recorded by Claude) | Cutover done on 2026-11-11: SIMOLA production is public at `simola.hilmihanif.my.id`, v2 is stopped (not removed) with its auto-deploy off; the old hostname's redirect (§14.6) is deferred. **OPEN-13 changed:** the public sees no AWOS alarm information at all, not even the active-alarm count (§5.4, FR-DSH-010, FR-ALM-001, U10). **FR-L10N-001:** system, site, sensor and parameter names and aviation weather terms stay in English in the Indonesian interface. OPEN-01 (off-host backups) deferred by the Product Owner. No requirement IDs change |
+| 1.5 | 2026-11-20 | Product Owner (recorded by Claude) | **FR-REG-004: sensor parts** (screens approved 2026-11-20). A sensor (component) has several physical parts (the thermohygrometer and its MARS, the barometer and its quadplate, the RVR's transmitters and receivers), each with its own manufacturer, model, part number, serial number, firmware and installation date. Replacing a part keeps the old one as history with its removal date and reason. A calibration may name the part it covered; calibration status stays per sensor (option A). New entity: Component part (§9.1, §9.3). No requirement IDs change |
 
 ### 1.2 How to read this document
 
@@ -391,14 +392,25 @@ Admins shall maintain metadata at three levels. Fields carried over from the leg
 |---|---|
 | Station / system | Name (L), ICAO code (L), WMO station number (L), airport name (L), coordinates (lat/lon/elevation) (L), procurement year (L), notes |
 | Site | Name, code, coordinates (L), elevation / threshold elevation (L), description |
-| Component (sensor) | Sensor type (L), manufacturer, model, part number (L), serial number (L), installation date (L: year), firmware/version, notes |
+| Component (sensor) | Sensor type (L), installation date (L: year), notes |
+| Component part (v1.5) | Part name (e.g. Thermohygrometer, MARS, Receiver 2), manufacturer, model, part number (L), serial number (L), firmware/version, installation date, removal date and reason, notes |
+
+A sensor has several physical parts, each with its own numbers (Product Owner, 2026-11-20). Each sensor type has a
+usual list of parts that the screens offer (for example ATRH: Thermohygrometer, MARS; RVR: Transmitter 1 and 2,
+Receiver 1 and 2, Logger, and ALS where the RVR reports ambient light); any other part can be added by name. Part
+names stay in English in both languages (FR-L10N-001).
 
 1. Admin can create and edit all fields. Every change is audited.
-2. Validation: latitude −90..90, longitude −180..180, dates not in the future, ICAO code 4 letters.
-3. Public and Viewer visibility follows §5.4. Serial and part numbers are hidden from the public.
+2. Validation: latitude −90..90, longitude −180..180, dates not in the future, ICAO code 4 letters; a part is
+   removed on or after its installation date, once, and its replacement is installed on or after that date.
+3. Public and Viewer visibility follows §5.4. Serial and part numbers are hidden from the public, and so are part
+   notes and who changed them.
+4. Replacing a part is a dated event: the old part keeps its record with the removal date and reason, the new part
+   is linked to it, and one audit entry holds both. Correcting a mistyped field is an edit, not a replacement.
+   Parts never change a figure.
 
 **FR-REG-005 · Calibration records and status** — `Must · R2 · BO-2 · [D:A3]`
-Each component shall have a calibration history: date, performed by, reference/certificate number, next due date (or interval), and notes. Calibration status is derived: **OK**, **Due soon** (≤ 30 days to due, configurable [P]), **Overdue**, **Unknown** (no record).
+Each component shall have a calibration history: date, performed by, reference/certificate number, next due date (or interval), notes, and optionally the part the certificate names (v1.5). Calibration status is derived: **OK**, **Due soon** (≤ 30 days to due, configurable [P]), **Overdue**, **Unknown** (no record).
 1. Status is shown on site pages and in the registry list. The list can be filtered by status.
 2. Overdue components appear in the Problems panel (FR-DSH-010).
 3. Status uses UTC dates.
@@ -1040,7 +1052,8 @@ sequenceDiagram
 | Component | Monitored unit at a site (DCP, ATRH…) | code, type, site, in-service period, metadata | Confirmed [V]; in-service period proposed |
 | Metric field | A measured value of a component | code, unit, type, scale, source slice per site | Confirmed [V] |
 | Mandatory-field rule | Which fields decide component validity | component type, field set, changed_by/at | Confirmed [D:B4a] |
-| Calibration record | Calibration history | component, date, performer, reference, next due | Confirmed [D:A3]; fields proposed |
+| Component part | A physical unit of a component (probe, transmitter, blower …), v1.5 | component, name, manufacturer, model, part number, serial number, firmware, installed on, removed on and reason, replaces | Confirmed (Product Owner, 2026-11-20) |
+| Calibration record | Calibration history | component, date, performer, reference, next due, part (optional) | Confirmed [D:A3]; fields proposed |
 | CDP source record | One parsed minute from one CDP's file, per site | time, cdp, site, field values | Proposed (needed for [D:B5]) |
 | Merged minute record | The minute used for KPIs and charts | time, site, field values, source CDP, disagreement flag | Proposed |
 | CDP minute fact | Data flow and reachability per CDP per minute | time, cdp, data_flow, probes_attempted, probes_ok, rtt_min, last_error | Proposed (needed for [D:B2]) |
@@ -1078,6 +1091,9 @@ erDiagram
   COMPONENT_TYPE ||--o{ METRIC_FIELD : defines
   COMPONENT_TYPE ||--|| MANDATORY_RULE : "validity rule"
   COMPONENT ||--o{ CALIBRATION_RECORD : has
+  COMPONENT ||--o{ COMPONENT_PART : "made of"
+  COMPONENT_PART |o--o{ CALIBRATION_RECORD : "named on certificate"
+  COMPONENT_PART |o--o| COMPONENT_PART : replaces
   CDP_NODE ||--o{ CDP_SOURCE_RECORD : produced
   SITE ||--o{ CDP_SOURCE_RECORD : "for site"
   SITE ||--o{ MERGED_MINUTE : "for site"

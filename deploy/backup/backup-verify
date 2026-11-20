@@ -15,7 +15,7 @@ set -eu
 export PGTZ=UTC
 
 SCRATCH=simola_verify
-CHANGING=" backup_run job rollup_dirty worker_heartbeat ingest_status user_session app_user flag flag_component invalid_interval dq_rule dq_rule_version dq_detection dq_field_history calibration_record alarm_name alarm_source_row alarm_event report_source_row report_entry "
+CHANGING=" backup_run job rollup_dirty worker_heartbeat ingest_status user_session app_user flag flag_component invalid_interval dq_rule dq_rule_version dq_detection dq_field_history calibration_record component_part alarm_name alarm_source_row alarm_event report_source_row report_entry "
 
 take_lock
 if [ $# -gt 0 ]; then

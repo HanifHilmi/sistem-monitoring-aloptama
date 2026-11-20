@@ -95,23 +95,26 @@ test.describe('Records and calibration', () => {
     await expect(d.getByRole('button', { name: t('calibration.save') })).toBeDisabled()
   })
 
-  test('the public sees a sensor’s record without its serial number; signed-in users see it', async ({
+  test('the public sees a sensor’s parts without their serial numbers; signed-in users see them', async ({
     page,
     t,
   }) => {
+    const sn = t('records.sn').split('{')[0]!.trim()
     await page.goto(site('22'))
     let cel = page.getByRole('region', { name: 'Ceilometer' })
     await expect(cel.getByTestId('calibration-chip')).toBeVisible()
     await cel.getByRole('button', { name: t('records.details') }).click()
-    await expect(cel.getByTestId('sensor-details')).toContainText('CL31')
-    await expect(cel.getByTestId('sensor-details')).not.toContainText(t('records.meta.serial_number'))
+    await expect(cel.getByTestId('sensor-details')).toBeVisible()
+    await expect(cel.getByTestId('sensor-parts')).toContainText('CL31')
+    await expect(cel.getByTestId('sensor-parts')).toContainText('Blower')
+    await expect(cel.getByTestId('sensor-parts')).not.toContainText(sn)
     await expectNoPageScroll(page)
 
     await page.goto(`/login?next=${encodeURIComponent(site('22'))}`)
     await signIn(page, t)
     cel = page.getByRole('region', { name: 'Ceilometer' })
     await cel.getByRole('button', { name: t('records.details') }).click()
-    await expect(cel.getByTestId('sensor-details')).toContainText(t('records.meta.serial_number'))
+    await expect(cel.getByTestId('sensor-parts')).toContainText(sn)
   })
 
   test('an overdue calibration is a Problems item for everyone', async ({ page, t }) => {

@@ -598,7 +598,11 @@
       "calibration_changed": "Changed calibration",
       "calibration_removed": "Removed calibration",
       "alarm_mapping_changed": "Changed alarm mapping",
-      "export": "Downloaded an export"
+      "export": "Downloaded an export",
+      "part_added": "Added sensor part",
+      "part_changed": "Changed sensor part",
+      "part_replaced": "Replaced sensor part",
+      "part_removed": "Removed sensor part"
     },
     "entity": {
       "user": "user",
@@ -666,7 +670,14 @@
       "manufacturer": "Manufacturer",
       "installed_on": "Installed on",
       "calibration_due_soon_days": "Due soon (days)",
-      "validated_on": "Validated on"
+      "validated_on": "Validated on",
+      "part": "Part",
+      "part_id": "Part ID",
+      "firmware": "Firmware",
+      "removed_on": "Removed on",
+      "removed_reason": "Removal reason",
+      "notes": "Notes",
+      "sensor_type": "Sensor type"
     },
     "reason": {
       "password": "wrong password",
@@ -1144,7 +1155,8 @@
     "tab": {
       "details": "Details",
       "calibration": "Calibration",
-      "service": "In-service period"
+      "service": "In-service period",
+      "parts": "Parts"
     },
     "meta": {
       "sensor_type": "Sensor type",
@@ -1194,8 +1206,16 @@
       "dcp_not_calibrated": "A DCP is not calibrated.",
       "calibration_not_found": "This record no longer exists.",
       "component_not_found": "This sensor no longer exists.",
-      "validated_before_date": "The validation date cannot be before the calibration date."
-    }
+      "validated_before_date": "The validation date cannot be before the calibration date.",
+      "role_required": "Name the part.",
+      "role_too_long": "The part's name is longer than 60 characters.",
+      "removed_before_installed": "The part cannot be removed before it was installed.",
+      "installed_before_removed": "The new part cannot be installed before the old one was removed.",
+      "part_already_removed": "This part was already removed.",
+      "part_not_installed": "That part is not installed on this sensor.",
+      "part_not_found": "This part no longer exists."
+    },
+    "pn": "P/N {pn}"
   },
   "trace": {
     "title": "Changes to these figures",
@@ -1583,5 +1603,43 @@
       "other": "The file could not be made. Try again; if it keeps failing, tell an Admin.",
       "report_busy": "Another report is being drawn. Try again in a minute."
     }
+  },
+  "parts": {
+    "intro": "The physical units of this sensor, each with its own part and serial number. Replacing one keeps the old one in the history. Parts never change the sensor's figures.",
+    "installed": "Installed now · {n} part | Installed now · {n} parts",
+    "add": "Add part",
+    "addOne": "Add",
+    "addTitle": "Add a part",
+    "editTitle": "Edit {role}",
+    "replaceTitle": "Replace {role}",
+    "removeTitle": "Remove {role}",
+    "replace": "Replace",
+    "remove": "Remove",
+    "role": "Part",
+    "roleHint": "What the part is, for example Receiver 2. Names stay in English.",
+    "notRecorded": "not recorded yet",
+    "installedOn": "installed {date}",
+    "installedUnknown": "installation date not recorded",
+    "removedOn": "Removed on",
+    "reason": "Reason",
+    "replaceOld": "The part taken out",
+    "replaceNew": "The part put in",
+    "removeHint": "Only for a part taken out without a replacement. It stays in the history.",
+    "save": "Save part",
+    "saveReplace": "Replace part",
+    "saveRemove": "Remove part",
+    "showRemoved": "Show removed parts ({n})",
+    "hideRemoved": "Hide removed parts",
+    "span": "{from} – {to}",
+    "replacedBy": "replaced by S/N {sn}",
+    "replaces": "replaced S/N {sn}",
+    "none": "No parts recorded yet.",
+    "more": "+{n} more part | +{n} more parts",
+    "detailsHint": "This sensor has {n} part on record, each with its own model and numbers. | This sensor has {n} parts on record, each with its own model and numbers.",
+    "open": "Open parts",
+    "calPart": "Part calibrated",
+    "calWhole": "The sensor as a whole",
+    "calPartHint": "The unit the certificate names, if it names one.",
+    "siteTitle": "Parts"
   }
 }

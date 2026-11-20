@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { partsSummary, sortParts, usualParts } from '@/utils/parts'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '@/api/client'
@@ -86,7 +87,7 @@ const openRow = computed(() => loader.data.value?.find((c) => c.id === open.valu
           <span class="min-w-0 text-sm">
             {{ c.site_name[lc] }} · {{ c.name[lc] }}
             <span class="num block text-xs text-ink-3">{{
-              [c.meta.manufacturer, c.meta.model].filter(Boolean).join(' ')
+              partsSummary(sortParts(c.parts, usualParts(c.type))).model
             }}</span>
           </span>
           <span class="num text-xs text-ink-2 max-md:hidden">{{ c.calibration.last ?? '—' }}</span>

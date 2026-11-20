@@ -89,6 +89,12 @@ MATRIX: dict[tuple[str, str], Need] = {
     ("POST", "/api/v1/admin/calibrations"): "admin",
     ("PATCH", "/api/v1/admin/calibrations/{cal_id}"): "admin",
     ("DELETE", "/api/v1/admin/calibrations/{cal_id}"): "admin",
+    # R3.7: a sensor's parts (part and serial numbers, replacements)
+    ("GET", "/api/v1/admin/components/{component_id}/parts"): "admin",
+    ("POST", "/api/v1/admin/components/{component_id}/parts"): "admin",
+    ("PATCH", "/api/v1/admin/parts/{part_id}"): "admin",
+    ("POST", "/api/v1/admin/parts/{part_id}/remove"): "admin",
+    ("POST", "/api/v1/admin/parts/{part_id}/replace"): "admin",
     ("GET", "/api/v1/admin/alarm-names"): "admin",
     ("PUT", "/api/v1/admin/alarm-names/{name}"): "admin",
 }
@@ -106,5 +112,6 @@ PATH_VALUES = {
     "flag_id": "999999",  # no such flag: the Admin call answers 404 and removes nothing
     "rule_id": "999999",  # no such rule: nothing changes
     "cal_id": "999999",  # no such calibration: nothing is removed
+    "part_id": "999999",  # no such part: nothing is changed (POST to a component's parts without a name is refused)
     "name": "NoSuchAlarm",  # no such alarm name: nothing is re-mapped
 }

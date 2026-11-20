@@ -598,7 +598,11 @@
       "calibration_changed": "Mengubah kalibrasi",
       "calibration_removed": "Menghapus kalibrasi",
       "alarm_mapping_changed": "Mengubah pemetaan alarm",
-      "export": "Mengunduh ekspor"
+      "export": "Mengunduh ekspor",
+      "part_added": "Menambah part sensor",
+      "part_changed": "Mengubah part sensor",
+      "part_replaced": "Mengganti part sensor",
+      "part_removed": "Melepas part sensor"
     },
     "entity": {
       "user": "pengguna",
@@ -666,7 +670,14 @@
       "manufacturer": "Pabrikan",
       "installed_on": "Dipasang",
       "calibration_due_soon_days": "Segera jatuh tempo (hari)",
-      "validated_on": "Divalidasi pada"
+      "validated_on": "Divalidasi pada",
+      "part": "Part",
+      "part_id": "ID part",
+      "firmware": "Firmware",
+      "removed_on": "Dilepas pada",
+      "removed_reason": "Alasan dilepas",
+      "notes": "Catatan",
+      "sensor_type": "Jenis sensor"
     },
     "reason": {
       "password": "kata sandi salah",
@@ -1144,7 +1155,8 @@
     "tab": {
       "details": "Rincian",
       "calibration": "Kalibrasi",
-      "service": "Periode operasi"
+      "service": "Periode operasi",
+      "parts": "Part"
     },
     "meta": {
       "sensor_type": "Jenis sensor",
@@ -1194,8 +1206,16 @@
       "dcp_not_calibrated": "DCP tidak dikalibrasi.",
       "calibration_not_found": "Catatan ini sudah tidak ada.",
       "component_not_found": "Sensor ini sudah tidak ada.",
-      "validated_before_date": "Tanggal validasi tidak boleh sebelum tanggal kalibrasi."
-    }
+      "validated_before_date": "Tanggal validasi tidak boleh sebelum tanggal kalibrasi.",
+      "role_required": "Isi nama part.",
+      "role_too_long": "Nama part lebih dari 60 karakter.",
+      "removed_before_installed": "Part tidak bisa dilepas sebelum tanggal pasangnya.",
+      "installed_before_removed": "Part baru tidak bisa dipasang sebelum part lama dilepas.",
+      "part_already_removed": "Part ini sudah dilepas.",
+      "part_not_installed": "Part itu tidak terpasang di sensor ini.",
+      "part_not_found": "Part ini sudah tidak ada."
+    },
+    "pn": "P/N {pn}"
   },
   "trace": {
     "title": "Perubahan pada angka ini",
@@ -1583,5 +1603,43 @@
       "other": "Berkas tidak dapat dibuat. Coba lagi; bila terus gagal, beri tahu Admin.",
       "report_busy": "Laporan lain sedang disusun. Coba lagi dalam satu menit."
     }
+  },
+  "parts": {
+    "intro": "Unit fisik sensor ini, masing-masing dengan nomor part dan nomor seri sendiri. Penggantian menyimpan part lama di riwayat. Part tidak pernah mengubah angka sensor.",
+    "installed": "Terpasang saat ini · {n} part",
+    "add": "Tambah part",
+    "addOne": "Tambah",
+    "addTitle": "Tambah part",
+    "editTitle": "Ubah {role}",
+    "replaceTitle": "Ganti {role}",
+    "removeTitle": "Lepas {role}",
+    "replace": "Ganti",
+    "remove": "Lepas",
+    "role": "Part",
+    "roleHint": "Jenis part, misalnya Receiver 2. Nama tetap dalam bahasa Inggris.",
+    "notRecorded": "belum dicatat",
+    "installedOn": "dipasang {date}",
+    "installedUnknown": "tanggal pasang belum dicatat",
+    "removedOn": "Dilepas pada",
+    "reason": "Alasan",
+    "replaceOld": "Part yang dilepas",
+    "replaceNew": "Part yang dipasang",
+    "removeHint": "Hanya untuk part yang dilepas tanpa pengganti. Part tetap tersimpan di riwayat.",
+    "save": "Simpan part",
+    "saveReplace": "Ganti part",
+    "saveRemove": "Lepas part",
+    "showRemoved": "Tampilkan part yang sudah dilepas ({n})",
+    "hideRemoved": "Sembunyikan part yang sudah dilepas",
+    "span": "{from} – {to}",
+    "replacedBy": "diganti S/N {sn}",
+    "replaces": "menggantikan S/N {sn}",
+    "none": "Belum ada part yang dicatat.",
+    "more": "+{n} part lain",
+    "detailsHint": "Sensor ini punya {n} part tercatat, masing-masing dengan model dan nomornya sendiri.",
+    "open": "Buka part",
+    "calPart": "Part yang dikalibrasi",
+    "calWhole": "Sensor secara keseluruhan",
+    "calPartHint": "Unit yang disebut di sertifikat, bila ada.",
+    "siteTitle": "Part"
   }
 }

@@ -1,4 +1,4 @@
-# Runbook: Admin operations (R2.2–R2.5, R3.1–R3.3)
+# Runbook: Admin operations (R2.2–R2.5, R3.1–R3.3, R3.7)
 
 PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-001..007, FR-REG-004/005; design in
 [../design/r2.md](../design/r2.md) §3 and §4.3–4.5. All of this is in
@@ -56,11 +56,52 @@ The registry page also holds the records (FR-REG-004):
 - **Station:** WMO number (5 digits), airport name, coordinates, elevation, procurement year (1950 to this year),
   notes. Name and ICAO code stay as the registry has them.
 - **Each site:** coordinates, elevation, threshold elevation, description.
-- **Each sensor** (*Open* → Details): sensor type, manufacturer, model, part number, serial number, installed on
-  (not in the future), firmware, notes.
+- **Each sensor** (*Open* → Details): sensor type, installed on (not in the future), notes: the sensor as a whole.
+- **Each sensor's parts** (*Open* → Parts, R3.7): see below.
 
-Everyone sees these on the site pages, **except serial and part numbers, which only signed-in users see**. A save
-replaces the whole record; every change is audited with before and after. Records never change a figure.
+Everyone sees these on the site pages, **except part and serial numbers, part notes and who changed them, which
+only signed-in users see**. A save replaces the whole record; every change is audited with before and after.
+Records never change a figure.
+
+## Sensor parts (Admin → Registry → a sensor → Parts)
+
+A sensor is made of physical parts, each with its own numbers: the thermohygrometer and its MARS, the barometer and
+its quadplate, the ceilometer and its blower, the RVR's transmitters, receivers, logger and (Runway 04) ALS. Each
+part has a name, manufacturer, model, part number, serial number, firmware, installation date and notes. Part names
+stay in English in both languages.
+
+- **Usual parts:** each sensor type has a list of the parts it usually has. The ones not entered yet show as
+  "not recorded yet" with *Add*. Any other part can be added by name.
+
+  | Sensor | Usual parts |
+  |---|---|
+  | DCP | Data logger, Power supply |
+  | ATRH | Thermohygrometer, MARS |
+  | BARO | Barometer, Quadplate |
+  | ANEM | Wind sensor |
+  | RVR | Transmitter 1, Transmitter 2, Receiver 1, Receiver 2, Logger, and ALS where the RVR reports ambient light |
+  | CEL | Ceilometer, Blower |
+  | PWX | Present weather sensor |
+  | RAIN | Rain gauge |
+  | SOLR | Pyranometer |
+  | LIGH | Lightning detector |
+
+- **Replace** (a physical swap, e.g. the Runway 04 thermohygrometer on 14 October): give the date the old part came
+  out and why, then the new part (same name, maker, model and part number filled in; type its serial number). The
+  old part keeps its record with the removal date and reason, the new one is linked to it ("replaced S/N …"), and
+  one audit entry, *Replaced sensor part*, holds both. It can be entered after the fact: the part history shows the
+  swap date, the audit log when it was entered.
+- **Edit** corrects a mistake (a mistyped serial number); it is not a replacement. The audit log keeps before and
+  after.
+- **Remove** takes a part out without a replacement (e.g. sent for repair). It stays in the history.
+- *Show removed parts* lists every part that came out, with its dates and reason.
+- Parts are never deleted and never change a figure. A part comes out once, on or after its installation date, and
+  a replacement goes in on or after that day.
+
+On 2026-11-20 (migration 0012) each sensor's existing details became its first part, named after its main unit
+(Data logger, Thermohygrometer, Barometer, Wind sensor, Ceilometer, Present weather sensor, Rain gauge, Pyranometer,
+Lightning detector). An RVR's record described the whole visibility sensor, so it became "Visibility sensor":
+rename it (*Edit*) to the unit that carries that serial number, and add the others.
 
 ## Calibration (Admin → Calibration, or a sensor's Calibration tab)
 
@@ -81,6 +122,10 @@ sensor then shows "certificate pending" next to its status (calibration list, re
 date when the document is validated. It cannot be before the calibration date. The next due date still counts
 from the calibration date.
 
+**Part calibrated** (R3.7): a calibration can name the part its certificate covers (one of the sensor's installed
+parts; a new calibration offers the last calibration's part). The status stays per sensor. Calibrations recorded
+before 2026-11-20 name no part.
+
 DCPs are not calibrated. Records can be corrected or removed; a removed record leaves the history (the status falls
 back to the one before it) but stays in the database and the audit log (PRD §9.6).
 
@@ -90,18 +135,24 @@ reprocess or recompute jobs over the period (FR-AUD-003).
 
 ### Loading many records at once
 
-`simola import-records <file.json> --actor <name> [--dry-run]` (in the worker container) loads sensor records and
-calibrations from a JSON file, for example what the station already knew before SIMOLA:
+`simola import-records <file.json> --actor <name> [--dry-run]` (in the worker container) loads sensor records,
+parts and calibrations from a JSON file, for example what the station already knew before SIMOLA:
 
 ```json
-{"components":   [{"site": "04", "type": "ATRH", "installed_on": "2025-12-23"}],
+{"components":   [{"site": "04", "type": "ATRH", "installed_on": "2025-12-23",
+                   "parts": [{"role": "Thermohygrometer", "model": "…", "serial_number": "…"},
+                             {"role": "MARS", "serial_number": "…"}]}],
  "calibrations": [{"site": "04", "type": "ATRH", "date": "2025-12-27", "performed_by": "…",
-                   "interval_months": 12, "validated_on": "2025-12-31", "notes": "…"}]}
+                   "interval_months": 12, "validated_on": "2025-12-31", "notes": "…",
+                   "part": "Thermohygrometer"}]}
 ```
 
 - Every entry is checked with the same rules as the screens first; one refusal stops the import and nothing is
   written (the command lists every problem). `--dry-run` checks and counts, then writes nothing.
-- A component entry changes only the fields it names. A calibration is skipped when the sensor already has one on
+- A component entry changes only the fields it names. A part entry updates the installed part of that name, or
+  adds it; replacements are made in the screens. The older form, with `manufacturer`, `model`, `part_number`,
+  `serial_number` and `firmware` on the component, fills the sensor's main part.
+- A calibration's `part` names an installed part. A calibration is skipped when the sensor already has one on
   that date, so running the same file twice adds nothing.
 - Every change is in the audit log under `--actor`, like a change made in the screens. Records never change a
   figure, so nothing is recomputed.

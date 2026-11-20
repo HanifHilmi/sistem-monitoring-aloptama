@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useDisplayStore } from '@/stores/display'
 import { formatDuration, formatRange } from '@/utils/flags'
 import { figureLevel, int, LEVEL_TEXT, num, pct } from '@/utils/format'
+import { partModel, sortParts, usualParts } from '@/utils/parts'
 import type { ChartWindow } from '@/utils/time'
 import DetectionList from './detections/DetectionList.vue'
 import FieldChart from './FieldChart.vue'
@@ -109,7 +110,6 @@ const detailRows = computed(() => {
   const m = r.meta
   const rows: { key: string; value: string }[] = [
     { key: 'sensor_type', value: m.sensor_type ?? '—' },
-    { key: 'model', value: [m.manufacturer, m.model].filter(Boolean).join(' ') || '—' },
     { key: 'installed_on', value: m.installed_on ?? '—' },
     { key: 'last_calibration', value: r.calibration.last ?? '—' },
     ...(r.calibration.last
@@ -117,11 +117,12 @@ const detailRows = computed(() => {
       : []),
     { key: 'next_due', value: r.calibration.next_due ?? '—' },
   ]
-  if (m.firmware) rows.push({ key: 'firmware', value: m.firmware })
-  if (m.serial_number !== undefined) rows.push({ key: 'serial_number', value: m.serial_number ?? '—' })
-  if (m.part_number !== undefined) rows.push({ key: 'part_number', value: m.part_number ?? '—' })
   return rows
 })
+// R3.7: the sensor's parts, in the usual order; numbers only for signed-in users (the public answer has none)
+const parts = computed(() =>
+  props.record ? sortParts(props.record.parts, usualParts(props.component.type, props.component.fields)) : [],
+)
 const selecting = ref(false)
 const selection = ref<[number, number] | null>(null)
 watch(open, () => {
@@ -240,6 +241,25 @@ const noCloud = (f: SeriesField) => f.stats.zero_minutes !== undefined && f.stat
         <dd class="num min-w-0 truncate">{{ row.value }}</dd>
       </template>
     </dl>
+    <div
+      v-if="details && record && parts.length"
+      class="border-b border-line bg-sunken/50 px-3 pb-2 text-xs"
+      data-testid="sensor-parts"
+    >
+      <p class="eyebrow mb-1">{{ t('parts.siteTitle') }}</p>
+      <ul class="flex flex-col gap-0.5">
+        <li v-for="p in parts" :key="p.id" class="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-x-3">
+          <span class="truncate text-ink-3">{{ p.role }}</span>
+          <span class="num min-w-0 truncate">
+            {{ partModel(p) || '—' }}
+            <template v-if="p.serial_number !== undefined">
+              · {{ t('records.sn', { sn: p.serial_number ?? '—' }) }}</template
+            >
+            <template v-if="p.part_number"> · {{ t('records.pn', { pn: p.part_number }) }}</template>
+          </span>
+        </li>
+      </ul>
+    </div>
     <p v-if="loader.error.value" class="px-3 py-3 text-sm text-warn" role="alert">
       {{ t('common.error') }}
       <button type="button" class="icon-btn" @click="loader.load()">{{ t('common.retry') }}</button>

@@ -15,6 +15,9 @@ import type {
   Calibration,
   CalibrationDraft,
   ComponentMeta,
+  Part,
+  PartDraft,
+  PartReplacement,
   SiteMeta,
   StationMeta,
   TraceEvent,
@@ -310,6 +313,16 @@ export const api = {
   updateCalibration: (id: number, draft: CalibrationDraft) =>
     send<Calibration>('PATCH', `/admin/calibrations/${id}`, draft),
   removeCalibration: (id: number) => send<{ removed: number }>('DELETE', `/admin/calibrations/${id}`),
+  // Sensor parts (R3.7): every change is audited; removed parts stay as history
+  parts: (componentId: number, removed = false) =>
+    get<Part[]>(`/admin/components/${componentId}/parts`, removed ? { removed: 1 } : {}),
+  addPart: (componentId: number, draft: PartDraft) =>
+    send<Part>('POST', `/admin/components/${componentId}/parts`, draft),
+  updatePart: (id: number, draft: PartDraft) => send<Part>('PATCH', `/admin/parts/${id}`, draft),
+  replacePart: (id: number, body: PartReplacement) =>
+    send<{ removed: Part; added: Part }>('POST', `/admin/parts/${id}/replace`, body),
+  removePart: (id: number, removed_on: string, notes: string | null) =>
+    send<Part>('POST', `/admin/parts/${id}/remove`, { removed_on, notes }),
   reviewQueue: (system: string, filter: DetectionFilter, offset = 0) =>
     get<DetectionPage>('/admin/detections', { system, ...filter, offset, limit: 50 }),
   decide: (decision: Decision) => send<DecisionResult>('POST', '/admin/detections/decide', decision),

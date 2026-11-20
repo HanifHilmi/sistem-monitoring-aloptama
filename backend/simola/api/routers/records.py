@@ -1,6 +1,9 @@
-"""Station, site and sensor records and calibration (R2.5, FR-REG-004/005, FR-AUD-003).
+"""Station, site and sensor records, sensor parts and calibration (R2.5, R3.7, FR-REG-004/005, FR-AUD-003).
 
-- Everyone sees the records and each sensor's calibration status; serial and part numbers are for signed-in users.
+- Everyone sees the records, each sensor's installed parts and its calibration status; part and serial numbers,
+  part notes and who changed them are for signed-in users.
+- Admins add, correct, replace and remove parts. A replacement closes the old part and adds the new one, so the
+  history of what was installed when is kept.
 - The figure change trace (which changes moved a component's figures in a period) is for signed-in users.
 - Admins edit the records and record, correct or remove calibrations. Every change is audited in its transaction.
   Nothing here changes a figure, so nothing is recomputed.
@@ -9,6 +12,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Awaitable
 from datetime import timedelta
 from typing import Any
 
@@ -70,14 +74,31 @@ class SiteBody(_Body):
 
 
 class ComponentMetaBody(_Body):
+    """The sensor as a whole; models and numbers belong to its parts (R3.7)."""
+
     sensor_type: str | None = Field(max_length=100)
-    manufacturer: str | None = Field(max_length=100)
-    model: str | None = Field(max_length=100)
-    part_number: str | None = Field(max_length=100)
-    serial_number: str | None = Field(max_length=100)
     installed_on: dt.date | None
-    firmware: str | None = Field(max_length=100)
     notes: str | None = Field(max_length=500)
+
+
+class PartBody(_Body):
+    role: str | None = Field(None, max_length=60)  # required: checked with the screens' code
+    manufacturer: str | None = Field(None, max_length=100)
+    model: str | None = Field(None, max_length=100)
+    part_number: str | None = Field(None, max_length=100)
+    serial_number: str | None = Field(None, max_length=100)
+    firmware: str | None = Field(None, max_length=100)
+    installed_on: dt.date | None = None
+    notes: str | None = Field(None, max_length=500)
+
+
+class RemoveBody(_Body):
+    removed_on: dt.date
+    notes: str | None = Field(None, max_length=500)  # the reason, kept with the removed part
+
+
+class ReplaceBody(RemoveBody):
+    part: PartBody
 
 
 class CalibrationBody(_Body):
@@ -89,11 +110,19 @@ class CalibrationBody(_Body):
     interval_months: int | None = None
     validated_on: dt.date | None = None  # empty while the certificate is pending
     notes: str | None = Field(None, max_length=500)
+    part_id: int | None = None  # R3.7: the part the certificate names; null for the sensor as a whole
 
 
 def _check(fn: Any, *args: Any) -> Any:
     try:
         return fn(*args)
+    except records.RecordError as exc:
+        raise ApiError(422, exc.code, exc.code.replace("_", " ")) from exc
+
+
+async def _acheck[T](coro: Awaitable[T]) -> T:
+    try:
+        return await coro
     except records.RecordError as exc:
         raise ApiError(422, exc.code, exc.code.replace("_", " ")) from exc
 
@@ -278,6 +307,7 @@ async def add_calibration(
         sy, comp = await _component(conn, body.component_id, lock=True)
         if comp.is_dcp:
             raise ApiError(422, "dcp_not_calibrated", "a DCP is not calibrated")
+        await _acheck(records.check_calibration_part(conn, comp, body.part_id, installed=True))
         return await records.add_calibration(
             conn, sy, comp, _validated(body), actor=admin.username, source_ip=client_ip(request)
         )
@@ -294,11 +324,12 @@ async def update_calibration(
             raise ApiError(422, "component_mismatch", "a calibration stays on its sensor")
         sy, comp = await _component(conn, old["component_id"])
         d = _validated(body)
+        await _acheck(records.check_calibration_part(conn, comp, body.part_id, installed=False))
         await conn.execute(
             text("""
             UPDATE calibration_record SET date = :date, performed_by = :performed_by, certificate = :certificate,
                    next_due = :next_due, interval_months = :interval_months, validated_on = :validated_on,
-                   notes = :notes, updated_by = :by, updated_at = now()
+                   notes = :notes, part_id = :part_id, updated_by = :by, updated_at = now()
             WHERE id = :id
         """),
             {**{k: d[k] for k in records.CALIBRATION_AUDIT}, "by": admin.username, "id": cal_id},
@@ -342,3 +373,98 @@ async def remove_calibration(
             source_ip=client_ip(request),
         )
     return {"removed": cal_id}
+
+
+# ------------------------------------------------------------------------------------------ parts (R3.7)
+def _part_fields(body: PartBody) -> dict[str, Any]:
+    d = body.model_dump()
+    if not d["role"]:
+        raise ApiError(422, "role_required", "name the part")
+    d["role"] = " ".join(d["role"].split())
+    _check(records.check_installed, d["installed_on"], _today())
+    return d
+
+
+async def _part(conn: AsyncConnection, part_id: int, *, lock: bool = False) -> dict[str, Any]:
+    row = await records.part_row(conn, part_id, lock=lock)
+    if row is None:
+        raise ApiError(404, "part_not_found", "no such part")
+    return row
+
+
+@admin_router.get("/components/{component_id}/parts")
+async def list_parts(component_id: int, removed: bool = False) -> list[dict[str, Any]]:
+    """A sensor's installed parts; with ``removed=1`` every part ever recorded, removed ones included."""
+    async with get_engine().connect() as conn:
+        await _component(conn, component_id)
+        return (await records.parts_of(conn, [component_id], removed=removed))[component_id]
+
+
+@admin_router.post("/components/{component_id}/parts", status_code=201)
+async def add_part(
+    component_id: int, body: PartBody, request: Request, admin: Principal = Depends(require_admin)
+) -> dict[str, Any]:
+    d = _part_fields(body)
+    async with get_engine().begin() as conn:
+        sy, comp = await _component(conn, component_id, lock=True)
+        return await records.add_part(conn, sy, comp, d, actor=admin.username, source_ip=client_ip(request))
+
+
+@admin_router.patch("/parts/{part_id}")
+async def update_part(
+    part_id: int, body: PartBody, request: Request, admin: Principal = Depends(require_admin)
+) -> dict[str, Any]:
+    """Corrects a part's record. A physical swap is a replacement, not a correction."""
+    d = _part_fields(body)
+    async with get_engine().begin() as conn:
+        old = await _part(conn, part_id, lock=True)
+        sy, comp = await _component(conn, old["component_id"])
+        return await _acheck(
+            records.update_part(conn, sy, comp, old, d, actor=admin.username, source_ip=client_ip(request))
+        )
+
+
+@admin_router.post("/parts/{part_id}/remove")
+async def remove_part(
+    part_id: int, body: RemoveBody, request: Request, admin: Principal = Depends(require_admin)
+) -> dict[str, Any]:
+    """Takes a part out without a replacement; it stays in the history."""
+    async with get_engine().begin() as conn:
+        old = await _part(conn, part_id, lock=True)
+        _check(records.check_removal, old, body.removed_on, _today())
+        sy, comp = await _component(conn, old["component_id"])
+        return await records.remove_part(
+            conn,
+            sy,
+            comp,
+            old,
+            body.removed_on,
+            body.notes,
+            actor=admin.username,
+            source_ip=client_ip(request),
+        )
+
+
+@admin_router.post("/parts/{part_id}/replace")
+async def replace_part(
+    part_id: int, body: ReplaceBody, request: Request, admin: Principal = Depends(require_admin)
+) -> dict[str, Any]:
+    """A physical swap: the old part is removed on ``removed_on`` and the new one installed in its place."""
+    d = _part_fields(body.part)
+    async with get_engine().begin() as conn:
+        old = await _part(conn, part_id, lock=True)
+        _check(records.check_removal, old, body.removed_on, _today())
+        _check(records.check_replacement, body.removed_on, d["installed_on"])
+        sy, comp = await _component(conn, old["component_id"])
+        removed, added = await records.replace_part(
+            conn,
+            sy,
+            comp,
+            old,
+            body.removed_on,
+            body.notes,
+            d,
+            actor=admin.username,
+            source_ip=client_ip(request),
+        )
+        return {"removed": removed, "added": added}

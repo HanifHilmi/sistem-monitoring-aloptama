@@ -1,7 +1,8 @@
-"""Records and calibration against a real database (R2.5, FR-REG-004/005, FR-AUD-003, UAT U5).
+"""Records, parts and calibration against a real database (R2.5, R3.7, FR-REG-004/005, FR-AUD-003, UAT U5).
 
 U5: recording a calibration gives the right status on every page that shows it; an overdue one is a Problems item;
-serial and part numbers are hidden from the public; the figure trace lists a flag on the component. The tests put
+serial and part numbers are hidden from the public; the figure trace lists a flag on the component. R3.7: a
+sensor's parts are added, corrected, replaced and removed with their history and audit entries. The tests put
 every record back as they found it.
 """
 
@@ -26,16 +27,26 @@ from tests.integration.browser import Browser, _add_user
 pytestmark = pytest.mark.integration
 
 SYS = "/api/v1/systems/WIDN-CAT3"
-EMPTY_META = {
-    "sensor_type": None,
-    "manufacturer": None,
-    "model": None,
-    "part_number": None,
-    "serial_number": None,
-    "installed_on": None,
-    "firmware": None,
-    "notes": None,
-}
+EMPTY_META = {"sensor_type": None, "installed_on": None, "notes": None}
+
+
+async def _drop_parts(engine: AsyncEngine, component_ids: list[int]) -> None:
+    """Parts are never deleted by the API (they are history); the tests clear their own."""
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("""
+            UPDATE calibration_record SET part_id = NULL
+            WHERE part_id IN (SELECT id FROM component_part WHERE component_id = ANY(:c))
+        """),
+            {"c": component_ids},
+        )
+        await conn.execute(
+            text("UPDATE component_part SET replaces = NULL WHERE component_id = ANY(:c)"),
+            {"c": component_ids},
+        )
+        await conn.execute(
+            text("DELETE FROM component_part WHERE component_id = ANY(:c)"), {"c": component_ids}
+        )
 
 
 def _today() -> date:
@@ -86,28 +97,39 @@ async def test_u5_calibration_status_problems_and_hidden_serials(engine: AsyncEn
             "validated_on": None,
             "pending": False,
         }
-        assert atrh["meta"] == EMPTY_META
+        assert atrh["meta"] == EMPTY_META and atrh["parts"] == []
 
-        # The sensor's record: everyone sees the model, only signed-in users the serial and part numbers.
-        meta = {
-            **EMPTY_META,
-            "manufacturer": " Vaisala ",
-            "model": "HMP155",
-            "serial_number": "SN-0001",
-            "part_number": "PN-77",
-            "installed_on": "2024-03-01",
-        }
+        # The sensor's own record: the sensor as a whole.
+        meta = {**EMPTY_META, "sensor_type": " Thermohygrometer w/ MARS ", "installed_on": "2024-03-01"}
         saved = await admin.send("PUT", f"/api/v1/admin/components/{atrh['id']}/meta", meta)
         assert saved.status_code == 200, saved.text
-        assert saved.json()["manufacturer"] == "Vaisala" and saved.json()["serial_number"] == "SN-0001"
-        public = await _asset(visitor, "04:ATRH")
-        assert public["meta"]["model"] == "HMP155"
-        assert "serial_number" not in public["meta"] and "part_number" not in public["meta"]
-        signed_in = await _asset(viewer, "04:ATRH")
-        assert signed_in["meta"]["serial_number"] == "SN-0001" and signed_in["meta"]["part_number"] == "PN-77"
+        assert saved.json() == {**meta, "sensor_type": "Thermohygrometer w/ MARS"}
         [event] = await _audit(admin, "component_meta_changed")
-        assert event["entity_id"] == "04:ATRH" and event["after"]["model"] == "HMP155"
-        assert event["before"]["model"] is None
+        assert event["entity_id"] == "04:ATRH" and event["after"]["sensor_type"] == "Thermohygrometer w/ MARS"
+        assert event["before"]["sensor_type"] is None
+
+        # Its parts (R3.7): everyone sees the model, only signed-in users the numbers and notes.
+        probe = await admin.send(
+            "POST",
+            f"/api/v1/admin/components/{atrh['id']}/parts",
+            {
+                "role": " Thermohygrometer ",
+                "manufacturer": "Vaisala",
+                "model": "HMP155",
+                "serial_number": "SN-0001",
+                "part_number": "PN-77",
+                "installed_on": "2024-03-01",
+                "notes": "Spare kept in the store",
+            },
+        )
+        assert probe.status_code == 201, probe.text
+        assert probe.json()["role"] == "Thermohygrometer" and probe.json()["created_by"] == recorder
+        [pub] = (await _asset(visitor, "04:ATRH"))["parts"]
+        assert pub["model"] == "HMP155" and pub["role"] == "Thermohygrometer"
+        assert not {"serial_number", "part_number", "notes", "created_by", "removed_reason"} & pub.keys()
+        [full] = (await _asset(viewer, "04:ATRH"))["parts"]
+        assert full["serial_number"] == "SN-0001" and full["part_number"] == "PN-77"
+        assert (await _ids(admin))["04:ATRH"]["parts"][0]["id"] == probe.json()["id"]
 
         # An old calibration with a 12-month interval: overdue, and a minor Problems item for everyone.
         old_day = today - timedelta(days=400)
@@ -119,10 +141,16 @@ async def test_u5_calibration_status_problems_and_hidden_serials(engine: AsyncEn
             "next_due": None,
             "interval_months": 12,
             "notes": None,
+            "part_id": probe.json()["id"],  # R3.7: the certificate names the probe
         }
         old = await admin.send("POST", "/api/v1/admin/calibrations", draft)
         assert old.status_code == 201, old.text
         assert old.json()["created_by"] == recorder and old.json()["interval_months"] == 12
+        assert old.json()["part"] == {
+            "id": probe.json()["id"],
+            "role": "Thermohygrometer",
+            "serial_number": "SN-0001",
+        }
         due = date.fromisoformat(old.json()["next_due"])
         assert (due.year - old_day.year) * 12 + due.month - old_day.month == 12 and due < today
         status = (await _ids(admin))["04:ATRH"]["calibration"]
@@ -253,6 +281,8 @@ async def test_u5_calibration_status_problems_and_hidden_serials(engine: AsyncEn
             ({**draft, "interval_months": None}, 422, "next_due_required"),
             ({**draft, "component_id": dcp["id"]}, 422, "dcp_not_calibrated"),
             ({**draft, "component_id": 999999}, 404, "component_not_found"),
+            ({**draft, "component_id": rows["04:BARO"]["id"]}, 422, "part_not_installed"),  # not its part
+            ({**draft, "part_id": 999999}, 422, "part_not_installed"),
         ]
         for body, code, problem in refusals:
             r = await admin.send("POST", "/api/v1/admin/calibrations", body)
@@ -278,6 +308,7 @@ async def test_u5_calibration_status_problems_and_hidden_serials(engine: AsyncEn
         assert (
             await admin.send("PUT", f"/api/v1/admin/components/{atrh['id']}/meta", EMPTY_META)
         ).status_code == 200
+        await _drop_parts(engine, [atrh["id"]])
         assert (await _ids(admin))["04:ATRH"]["calibration"]["status"] == "unknown"
 
 
@@ -401,8 +432,23 @@ async def test_the_trace_lists_a_flag_on_the_component(engine: AsyncEngine, reco
 
 IMPORT = {
     "components": [
-        {"site": "04", "type": "ATRH", "installed_on": "2025-12-23"},
-        {"site": "04", "type": "DCP", "installed_on": "2025-12-23"},
+        {
+            "site": "04",
+            "type": "ATRH",
+            "installed_on": "2025-12-23",
+            "parts": [
+                {"role": "Thermohygrometer", "model": "5190-F", "serial_number": "T-1"},
+                {"role": "MARS", "serial_number": "M-1"},
+            ],
+        },
+        # the older form: model and serial number on the sensor go to its main part
+        {
+            "site": "04",
+            "type": "DCP",
+            "installed_on": "2025-12-23",
+            "model": "1192-240",
+            "serial_number": "D-1",
+        },
     ],
     "calibrations": [
         {
@@ -413,6 +459,7 @@ IMPORT = {
             "interval_months": 12,
             "validated_on": "2025-12-31",
             "notes": "Calibration work 27-28 Dec 2025.",
+            "part": "thermohygrometer",
         },
         {"site": "04", "type": "BARO", "date": "2025-12-27", "performed_by": "BMKG", "interval_months": 12},
     ],
@@ -457,6 +504,14 @@ async def test_the_import_is_checked_audited_and_repeatable(
         assert len(added) == 2 and {e["after"]["component"] for e in added} == {"04:ATRH", "04:BARO"}
         changed = [e for e in await _audit(admin, "component_meta_changed") if e["actor"] == "records-import"]
         assert sorted(e["entity_id"] for e in changed) == ["04:ATRH", "04:DCP"]
+        parts = {k: {p["role"]: p["serial_number"] for p in rows[k]["parts"]} for k in ("04:ATRH", "04:DCP")}
+        assert parts == {
+            "04:ATRH": {"Thermohygrometer": "T-1", "MARS": "M-1"},
+            "04:DCP": {"Data logger": "D-1"},
+        }
+        history = (await admin.get(f"/api/v1/admin/components/{rows['04:ATRH']['id']}/calibrations")).json()
+        assert history[0]["part"]["role"] == "Thermohygrometer"
+        assert len([e for e in await _audit(admin, "part_added") if e["actor"] == "records-import"]) == 3
 
         # The same file again changes nothing.
         async with engine.begin() as conn:
@@ -468,6 +523,9 @@ async def test_the_import_is_checked_audited_and_repeatable(
         assert again == {
             "components_changed": 0,
             "components_unchanged": 2,
+            "parts_added": 0,
+            "parts_changed": 0,
+            "parts_unchanged": 3,
             "calibrations_added": 0,
             "calibrations_skipped": 2,
         }
@@ -514,3 +572,126 @@ async def test_the_import_is_checked_audited_and_repeatable(
         for key in ("04:ATRH", "04:DCP"):
             r = await admin.send("PUT", f"/api/v1/admin/components/{rows[key]['id']}/meta", EMPTY_META)
             assert r.status_code == 200
+        await _drop_parts(engine, [rows["04:ATRH"]["id"], rows["04:DCP"]["id"]])
+
+
+async def test_a_replaced_part_stays_in_the_history(engine: AsyncEngine, recorder: str) -> None:
+    """R3.7: replacing a part closes the old one and adds the new one, linked, in one audit entry; a correction is
+    not a replacement; every refusal has the screens' code."""
+    today = _today()
+    async with Browser() as admin, Browser() as visitor:
+        assert (await admin.login(recorder)).status_code == 200
+        rvr = (await _ids(admin))["22:RVR"]
+        base = f"/api/v1/admin/components/{rvr['id']}/parts"
+        receiver = {
+            "role": "Receiver 1",
+            "model": "8365-C",
+            "serial_number": "R-OLD",
+            "installed_on": "2025-12-24",
+        }
+        old = await admin.send("POST", base, receiver)
+        assert old.status_code == 201, old.text
+        assert old.json()["removed_on"] is None and old.json()["replaces"] is None
+
+        # A correction (a mistyped number) is an edit, audited with before and after.
+        fixed = await admin.send(
+            "PATCH", f"/api/v1/admin/parts/{old.json()['id']}", {**receiver, "serial_number": "R-0LD"}
+        )
+        assert fixed.status_code == 200 and fixed.json()["serial_number"] == "R-0LD"
+        [edit] = [
+            e for e in await _audit(admin, "part_changed") if e["after"].get("serial_number") == "R-0LD"
+        ]
+        assert edit["entity_id"] == "22:RVR" and edit["before"]["serial_number"] == "R-OLD"
+
+        # The swap of 14 October 2026: the old receiver is closed, the new one linked to it.
+        swap = date(2026, 10, 14) if today >= date(2026, 10, 14) else today
+        r = await admin.send(
+            "POST",
+            f"/api/v1/admin/parts/{old.json()['id']}/replace",
+            {
+                "removed_on": swap.isoformat(),
+                "notes": "Window cracked",
+                "part": {**receiver, "serial_number": "R-NEW", "installed_on": swap.isoformat()},
+            },
+        )
+        assert r.status_code == 200, r.text
+        removed, added = r.json()["removed"], r.json()["added"]
+        assert removed["removed_on"] == swap.isoformat() and removed["removed_reason"] == "Window cracked"
+        assert removed["replaced_by"] == added["id"] and added["replaces"] == removed["id"]
+        assert [p["serial_number"] for p in (await admin.get(base)).json()] == ["R-NEW"]
+        everything = (await admin.get(f"{base}?removed=1")).json()
+        assert [(p["serial_number"], p["removed_on"]) for p in everything] == [
+            ("R-0LD", swap.isoformat()),
+            ("R-NEW", None),
+        ]
+        [event] = [e for e in await _audit(admin, "part_replaced") if e["entity_id"] == "22:RVR"]
+        assert event["before"]["serial_number"] == "R-0LD" and event["after"]["serial_number"] == "R-NEW"
+        assert event["before"]["removed_on"] == swap.isoformat()
+        assert [p["role"] for p in (await _asset(visitor, "22:RVR"))["parts"]] == ["Receiver 1"]
+
+        # Refusals, with the codes the screens show; nothing refused is written.
+        new_id = added["id"]
+        refusals = [
+            ("POST", base, {"role": "  "}, 422, "role_required"),
+            (
+                "POST",
+                base,
+                {"role": "Logger", "installed_on": (today + timedelta(days=1)).isoformat()},
+                422,
+                "date_in_future",
+            ),
+            (
+                "POST",
+                f"/api/v1/admin/parts/{new_id}/remove",
+                {"removed_on": "2025-01-01"},
+                422,
+                "removed_before_installed",
+            ),
+            (
+                "POST",
+                f"/api/v1/admin/parts/{new_id}/remove",
+                {"removed_on": (today + timedelta(days=1)).isoformat()},
+                422,
+                "date_in_future",
+            ),
+            (
+                "POST",
+                f"/api/v1/admin/parts/{removed['id']}/remove",
+                {"removed_on": today.isoformat()},
+                422,
+                "part_already_removed",
+            ),
+            (
+                "POST",
+                f"/api/v1/admin/parts/{new_id}/replace",
+                {
+                    "removed_on": today.isoformat(),
+                    "part": {
+                        "role": "Receiver 1",
+                        "installed_on": swap.isoformat() if swap < today else "2000-01-01",
+                    },
+                },
+                422,
+                "installed_before_removed",
+            ),
+            ("PATCH", "/api/v1/admin/parts/999999", receiver, 404, "part_not_found"),
+        ]
+        for method, path, body, status, code in refusals:
+            r = await admin.send(method, path, body)
+            assert (r.status_code, r.json().get("code")) == (status, code), (path, body)
+        assert len((await admin.get(f"{base}?removed=1")).json()) == 2
+
+        # Removing without a replacement keeps it as history.
+        gone = await admin.send(
+            "POST",
+            f"/api/v1/admin/parts/{new_id}/remove",
+            {"removed_on": today.isoformat(), "notes": "Sent for repair"},
+        )
+        assert gone.status_code == 200 and gone.json()["removed_reason"] == "Sent for repair"
+        assert (await admin.get(base)).json() == [] and len(
+            (await admin.get(f"{base}?removed=1")).json()
+        ) == 2
+        assert [e for e in await _audit(admin, "part_removed") if e["entity_id"] == "22:RVR"]
+        assert (await _asset(visitor, "22:RVR"))["parts"] == []
+
+        await _drop_parts(engine, [rvr["id"]])

@@ -536,6 +536,8 @@ export interface ComponentRow {
   /** R2.5: the sensor's record and its calibration status */
   meta: ComponentMeta
   calibration: CalibrationSummary
+  /** R3.7: the parts installed now (a probe, a transmitter, a blower …) */
+  parts: Part[]
 }
 
 // ---------------------------------------------------------------- records and calibration (R2.5, FR-REG-004/005)
@@ -560,17 +562,61 @@ export interface SiteMeta {
   description: string | null
 }
 
+/** The sensor as a whole (FR-REG-004). Its physical parts, with their models and numbers, are ``Part`` rows. */
 export interface ComponentMeta {
   sensor_type: string | null
+  /** UTC date */
+  installed_on: string | null
+  notes: string | null
+}
+
+/**
+ * One physical part of a sensor (R3.7): the probe, a transmitter, the blower … A sensor has several, each with its
+ * own numbers; replacing one closes it (``removed_on``) and adds the new one, so the history stays.
+ */
+export interface Part {
+  id: number
+  component_id: number
+  /** what the part is, e.g. "Thermohygrometer", "Receiver 2" (an English name in both languages) */
+  role: string
   manufacturer: string | null
   model: string | null
   /** signed-in users only: left out for the public */
   part_number?: string | null
   serial_number?: string | null
-  /** UTC date */
-  installed_on: string | null
   firmware: string | null
+  /** UTC dates; ``removed_on`` is null while the part is installed */
+  installed_on: string | null
+  removed_on: string | null
+  /** why it came out (signed-in users only) */
+  removed_reason?: string | null
+  /** the part this one replaced, and the part that replaced it */
+  replaces: number | null
+  replaced_by: number | null
+  /** signed-in users only */
+  notes?: string | null
+  created_by?: string
+  created_at?: string
+  updated_by?: string | null
+  updated_at?: string | null
+}
+
+export interface PartDraft {
+  role: string
+  manufacturer: string | null
+  model: string | null
+  part_number: string | null
+  serial_number: string | null
+  firmware: string | null
+  installed_on: string | null
   notes: string | null
+}
+
+/** Replace a part: the old one is removed on ``removed_on`` and ``part`` is installed in its place. */
+export interface PartReplacement {
+  removed_on: string
+  notes: string | null
+  part: PartDraft
 }
 
 export const CALIBRATION_STATUSES = ['overdue', 'due_soon', 'ok', 'unknown'] as const
@@ -603,6 +649,8 @@ export interface Calibration {
   /** UTC date the certificate was validated; null while it is pending */
   validated_on: string | null
   notes: string | null
+  /** R3.7: the part this calibration covered, when recorded (serial number for signed-in users only) */
+  part: { id: number; role: string; serial_number?: string | null } | null
   created_by: string
   created_at: string
   updated_by: string | null
@@ -620,13 +668,22 @@ export interface CalibrationDraft {
   /** empty while the certificate is pending */
   validated_on: string | null
   notes: string | null
+  /** R3.7: the part calibrated, one of the sensor's installed parts; null for the sensor as a whole */
+  part_id: number | null
 }
 
 /** What the public site pages show about the station, its sites and its sensors (FR-REG-004/005). */
 export interface Assets {
   station: StationMeta
   sites: { slug: string; meta: SiteMeta }[]
-  components: { site: string; type: string; meta: ComponentMeta; calibration: CalibrationSummary }[]
+  components: {
+    site: string
+    type: string
+    meta: ComponentMeta
+    calibration: CalibrationSummary
+    /** R3.7: installed parts (serial and part numbers for signed-in users only) */
+    parts: Part[]
+  }[]
   due_soon_days: number
 }
 
