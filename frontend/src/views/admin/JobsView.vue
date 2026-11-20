@@ -8,18 +8,21 @@ import { useLoader } from '@/composables/useLoader'
 import { usePolling } from '@/composables/usePolling'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 import { formatUtc } from '@/utils/time'
 
 // Jobs (FR-ADM-002): reprocess from the CDP files or recompute figures, with progress, log and cancel.
 const { t, locale } = useI18n()
+const systemCode = useAdminSystem()
 const lc = computed(() => locale.value as Locale)
 const display = useDisplayStore()
 const loader = useLoader<JobRow[]>(() => api.jobs())
 void loader.load()
-const active = computed(() =>
-  (loader.data.value ?? []).filter((j) => j.status === 'queued' || j.status === 'running'),
+// The chosen system's jobs, and those that belong to no system.
+const jobs = computed(() =>
+  (loader.data.value ?? []).filter((j) => !j.params.system || j.params.system === systemCode),
 )
+const active = computed(() => jobs.value.filter((j) => j.status === 'queued' || j.status === 'running'))
 usePolling(() => (active.value.length || detail.value ? refresh() : Promise.resolve()), 4_000)
 
 const SECONDS_PER_DAY = { reprocess: 4, recompute: 1 } // measured on staging, 2026-11-05
@@ -77,7 +80,7 @@ async function cancel() {
 const today = new Date().toISOString().slice(0, 10)
 const form = reactive<NewJob & { sources: JobSource[] }>({
   type: 'reprocess',
-  system: DEFAULT_SYSTEM,
+  system: systemCode,
   from: today,
   to: today,
   sources: [...JOB_SOURCES],
@@ -85,8 +88,8 @@ const form = reactive<NewJob & { sources: JobSource[] }>({
 const creating = ref(false)
 const busy = ref(false)
 const error = ref<string | null>(null)
-const coverage = computed(() => display.systems[DEFAULT_SYSTEM]?.coverage_start.slice(0, 10) ?? '2025-12-24')
-void display.system(DEFAULT_SYSTEM)
+const coverage = computed(() => display.systems[systemCode]?.coverage_start.slice(0, 10) ?? '2025-12-24')
+void display.system(systemCode)
 function preset(kind: 'yesterday' | 'week' | 'lastMonth' | 'all') {
   const d = new Date(`${today}T00:00:00Z`)
   const iso = (x: Date) => x.toISOString().slice(0, 10)
@@ -184,7 +187,7 @@ async function start() {
     <p v-if="loader.error.value" class="text-sm text-warn" role="alert">{{ t('common.error') }}</p>
     <div v-else-if="!loader.data.value" class="h-40 animate-pulse rounded-lg bg-sunken" aria-busy="true" />
     <ol v-else class="overflow-hidden rounded-lg border border-line bg-surface">
-      <li v-for="j in loader.data.value" :key="j.id" class="border-b border-line last:border-0">
+      <li v-for="j in jobs" :key="j.id" class="border-b border-line last:border-0">
         <button
           type="button"
           class="grid w-full grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-4 py-2.5 text-left hover:bg-sunken sm:grid-cols-[3rem_minmax(0,1fr)_7rem_8rem_6rem]"

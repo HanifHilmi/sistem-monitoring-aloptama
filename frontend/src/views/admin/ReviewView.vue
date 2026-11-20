@@ -17,7 +17,7 @@ import SidePanel from '@/components/SidePanel.vue'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 import { formatDuration, formatRange } from '@/utils/flags'
 import { int } from '@/utils/format'
 import { evidenceText, ruleText } from '@/utils/rules'
@@ -26,18 +26,19 @@ import { formatUtc } from '@/utils/time'
 // Review queue (FR-DQ-004, J3): suspect detections wait here with no effect on any figure. Confirm or reject one
 // at a time from its chart, or several at once; confirmed and rejected ones stay listed and can be reversed.
 const { t, locale } = useI18n()
+const systemCode = useAdminSystem()
 const lc = computed(() => locale.value as Locale)
 const route = useRoute()
 const display = useDisplayStore()
 const info = ref<SystemInfo | null>(null)
-void display.system(DEFAULT_SYSTEM).then((s) => (info.value = s))
+void display.system(systemCode).then((s) => (info.value = s))
 
 const STATUSES: DetectionStatus[] = ['suspect', 'confirmed', 'rejected']
 const initial = STATUSES.includes(route.query.status as DetectionStatus)
   ? (route.query.status as DetectionStatus)
   : 'suspect'
 const filter = reactive<DetectionFilter>({ status: initial, site: '', component: '', type: '' })
-const loader = useLoader<DetectionPage>(() => api.reviewQueue(DEFAULT_SYSTEM, { ...filter }))
+const loader = useLoader<DetectionPage>(() => api.reviewQueue(systemCode, { ...filter }))
 const selected = ref<number[]>([])
 watch(
   () => JSON.stringify(filter),

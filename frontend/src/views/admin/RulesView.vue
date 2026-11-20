@@ -9,18 +9,19 @@ import SidePanel from '@/components/SidePanel.vue'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 import { ruleText } from '@/utils/rules'
 
 // Validity rules (FR-DQ-001/002): per field of a component type, optionally for one site. A rule only raises
 // suspects; nothing changes a figure until an Admin confirms (FR-DQ-004). Rules proposed from the history stay
 // off until approved (OPEN-08).
 const { t, locale } = useI18n()
+const systemCode = useAdminSystem()
 const lc = computed(() => locale.value as Locale)
 const display = useDisplayStore()
 const info = ref<SystemInfo | null>(null)
-void display.system(DEFAULT_SYSTEM).then((s) => (info.value = s))
-const loader = useLoader<Rule[]>(() => api.rules(DEFAULT_SYSTEM))
+void display.system(systemCode).then((s) => (info.value = s))
+const loader = useLoader<Rule[]>(() => api.rules(systemCode))
 void loader.load()
 const onlyProposed = ref(false)
 
@@ -201,7 +202,7 @@ function done() {
       <RuleForm
         v-if="editing && info"
         :key="`${editing.type}|${editing.field}|${editing.rule?.id ?? 'new'}`"
-        :system="DEFAULT_SYSTEM"
+        :system="systemCode"
         :info="info"
         :component-type="editing.type"
         :field="editing.field"

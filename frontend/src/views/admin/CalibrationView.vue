@@ -9,13 +9,14 @@ import CalibrationChip from '@/components/records/CalibrationChip.vue'
 import SidePanel from '@/components/SidePanel.vue'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 
 // Calibration (FR-REG-005, J5): every sensor by when it falls due: overdue first, then due soon, unknown, OK.
 // Recording a calibration opens the sensor's calibration tab.
 const { t, locale } = useI18n()
+const systemCode = useAdminSystem()
 const lc = computed(() => locale.value as Locale)
-const loader = useLoader<ComponentRow[]>(() => api.components(DEFAULT_SYSTEM))
+const loader = useLoader<ComponentRow[]>(() => api.components(systemCode))
 void loader.load()
 
 const ORDER: Record<CalibrationStatus, number> = { overdue: 0, due_soon: 1, unknown: 2, ok: 3 }

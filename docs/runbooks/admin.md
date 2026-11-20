@@ -5,6 +5,21 @@ PRD FR-ADM-002, FR-ADM-003, FR-REG-003, FR-REG-006, FR-DQ-001..007, FR-REG-004/0
 **Admin** (Admins only), every change is in the audit log with before and after, and rule changes recompute the
 figures in the background. Accounts and the audit log: [accounts.md](accounts.md).
 
+## Which system you are changing (top of the Admin menu)
+
+SIMOLA is built to monitor several systems; AWOS CAT. III is the only one in it so far (PRD FR-ADM-001, v1.6).
+
+- **The system chooser** ("Sistem yang sedang diatur" / "System being edited") at the top of the Admin menu
+  shows the system the Admin pages change, with its live status dot. AWOS CAT.I, AWS Digi and AWS / ARG are listed
+  as *coming soon* and cannot be chosen yet.
+- **Sections for that system**, in the box under the chooser: review queue, flags, validity rules, jobs (Data
+  quality); registry and metadata, calibration, alarm mapping, mandatory fields (Station). Their pages start with a
+  highlighted chip naming the system: "changes on this page apply to this system only".
+- **Sections for all of SIMOLA**, under *All systems*: settings, users, audit log and system health. Their pages
+  start with a "SIMOLA" chip: "applies to every system in SIMOLA".
+- Once a second system is added, choosing it opens the same pages for that system; the server already takes the
+  system on every Admin request.
+
 ## Jobs (Admin → Jobs)
 
 | Job | Does | When |
@@ -12,6 +27,8 @@ figures in the background. Accounts and the audit log: [accounts.md](accounts.md
 | Reprocess from CDP files | Reads both CDPs' files again for the chosen UTC days. *1-minute data* replaces the stored minutes and recomputes the figures; *alarms* and *reports* add any alarm row or report line not stored yet and change no figure. All are ticked by default | After a share outage or a corrected file; once after R3.2 is deployed, *reports* only, from 24 December 2025 to today, to load the report history |
 | Recompute figures | Recomputes the daily figures from the stored minutes, without reading files | After a rule change (queued automatically) |
 
+- Jobs run on the system chosen at the top of the Admin menu; the list shows that system's jobs (and any job that
+  belongs to no system).
 - Days run newest first; the page shows progress, who started the job, its log, and a *Cancel* while it runs.
   Days already done stay done.
 - Only one reprocess at a time. A whole history (about 317 days) takes about 21 minutes on staging.

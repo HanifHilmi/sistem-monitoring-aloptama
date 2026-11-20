@@ -6,8 +6,8 @@
 |---|---|
 | **Document title** | Product Requirements Document — Sistem Monitoring ALOPTAMA (SIMOLA) |
 | **Product name** | SIMOLA (Sistem Monitoring ALOPTAMA) |
-| **Version** | 1.5 |
-| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13); v1.5 adds sensor parts (FR-REG-004, 2026-11-20) |
+| **Version** | 1.6 |
+| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13); v1.5 adds sensor parts (FR-REG-004, 2026-11-20); v1.6 has the Admin area name the system it changes (FR-ADM-001, 2026-11-20) |
 | **Date** | 2026-11-20 |
 | **Product Owner** | Station technician who owns and operates the platform (sole operator) |
 | **Supersedes** | `monitoring-aloptama-v2/PRD.md` v2.1 (legacy; kept unchanged for reference) |
@@ -25,6 +25,7 @@
 | 1.3 | 2026-11-11 | Product Owner (recorded by Claude) | **Go/no-go for the cutover (§14.5): GO.** UAT U1–U5 and U7–U10 passed on staging; production recount exact for every month and day since coverage start. Changes accepted with it: backups run only on request (replaces the nightly backup of NFR-BAK-001 and SM-5); the v2 figure comparison of §14.5 is dropped, v2 is a reference only; the one-month parallel run of §14.5 is waived: the switch follows as soon as production checks out, and v2 is stopped (not removed) after it; U6: the Product Owner reviews the monthly PDF instead of the station head; the CDP shares are read-only at the source; load-test margins on this host as recorded in the testing runbook. No requirement IDs change |
 | 1.4 | 2026-11-13 | Product Owner (recorded by Claude) | Cutover done on 2026-11-11: SIMOLA production is public at `simola.hilmihanif.my.id`, v2 is stopped (not removed) with its auto-deploy off; the old hostname's redirect (§14.6) is deferred. **OPEN-13 changed:** the public sees no AWOS alarm information at all, not even the active-alarm count (§5.4, FR-DSH-010, FR-ALM-001, U10). **FR-L10N-001:** system, site, sensor and parameter names and aviation weather terms stay in English in the Indonesian interface. OPEN-01 (off-host backups) deferred by the Product Owner. No requirement IDs change |
 | 1.5 | 2026-11-20 | Product Owner (recorded by Claude) | **FR-REG-004: sensor parts** (screens approved 2026-11-20). A sensor (component) has several physical parts (the thermohygrometer and its MARS, the barometer and its quadplate, the RVR's transmitters and receivers), each with its own manufacturer, model, part number, serial number, firmware and installation date. Replacing a part keeps the old one as history with its removal date and reason. A calibration may name the part it covered; calibration status stays per sensor (option A). New entity: Component part (§9.1, §9.3). No requirement IDs change |
+| 1.6 | 2026-11-20 | Product Owner (recorded by Claude) | **FR-ADM-001: the Admin area names the system it changes** (screens approved 2026-11-20). A chooser at the top of the Admin menu picks the monitored system. The sections that belong to one system (review queue, flags, validity rules, jobs, registry and metadata, calibration, alarm mapping, mandatory fields) work on it, and each of their pages names it; settings, users, the audit log and system health are for all of SIMOLA and say so. AWOS CAT.I, AWS Digi and AWS / ARG are listed as coming soon: AWOS CAT. III stays the only choice until a second system is added. No requirement IDs change |
 
 ### 1.2 How to read this document
 
@@ -865,6 +866,8 @@ An Admin-only area with sections for:
 - Users
 - Audit log
 - System health
+
+Most sections belong to one monitored system: the review queue, flags, validity rules, jobs, registry and metadata, calibration, alarm mapping and mandatory fields. They work on the system chosen at the top of the Admin menu, and each of their pages names that system. Settings, users, the audit log and system health are for all of SIMOLA, and their pages say so. Systems not yet in SIMOLA are listed in the chooser as coming soon; until a second system is added, AWOS CAT. III is the only choice. *(Screens approved 2026-11-20, v1.6.)*
 
 **FR-ADM-002 · Jobs** — `Must · R2 · BO-5 · [V] D-15`
 Admins can start reprocess (FR-ING-010) and recompute jobs. The job list shows status, progress, duration and who started it, with a log view and a cancel action. Jobs are persisted and survive API restarts.

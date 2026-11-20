@@ -9,7 +9,7 @@ import SidePanel from '@/components/SidePanel.vue'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 import { formatDuration, formatRange } from '@/utils/flags'
 import { sitePath } from '@/utils/paths'
 import { formatUtc } from '@/utils/time'
@@ -18,16 +18,17 @@ import { formatUtc } from '@/utils/time'
 // usually made where the problem is seen (a sensor chart or the minute map); this page lists, edits and removes
 // them, and can start one from scratch.
 const { t, locale } = useI18n()
+const systemCode = useAdminSystem()
 const lc = computed(() => locale.value as Locale)
 const route = useRoute()
 const display = useDisplayStore()
 const info = ref<SystemInfo | null>(null)
-void display.system(DEFAULT_SYSTEM).then((s) => (info.value = s))
+void display.system(systemCode).then((s) => (info.value = s))
 
 const showRemoved = ref(false)
 const site = ref('')
 const reason = ref<FlagReason | ''>('')
-const loader = useLoader<FlagRow[]>(() => api.adminFlags(DEFAULT_SYSTEM, showRemoved.value))
+const loader = useLoader<FlagRow[]>(() => api.adminFlags(systemCode, showRemoved.value))
 watch(showRemoved, () => loader.load(), { immediate: true })
 
 const rows = computed(() =>
@@ -65,7 +66,7 @@ function chartLink(f: FlagRow) {
   const pad = 3_600_000
   const from = new Date(Date.parse(f.start) - pad).toISOString()
   const to = new Date(Math.min(Date.parse(f.end) + pad, Date.parse(f.start) + 31 * 86_400_000)).toISOString()
-  return `${sitePath(DEFAULT_SYSTEM, f.components[0]!.site)}?w=custom:${from}~${to}`
+  return `${sitePath(systemCode, f.components[0]!.site)}?w=custom:${from}~${to}`
 }
 
 // ---- panel ------------------------------------------------------------------------------------------
@@ -195,7 +196,7 @@ watch(
       <FlagForm
         v-if="panel"
         :key="panel.kind === 'edit' ? panel.flag.id : 'new'"
-        :system="DEFAULT_SYSTEM"
+        :system="systemCode"
         :flag="panel.kind === 'edit' ? panel.flag : null"
         @done="done"
         @cancel="panel = null"

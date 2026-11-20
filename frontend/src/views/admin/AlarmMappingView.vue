@@ -7,18 +7,19 @@ import AlarmTypeBadge from '@/components/alarms/AlarmTypeBadge.vue'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 import { formatUtc } from '@/utils/time'
 
 // Alarm mapping (FR-ING-008, E12): which site and sensor each AWOS alarm name belongs to. Seeded from the name
 // (DCPA = Runway 04, DCPB = Middle, DCPC = Runway 22); a new name arrives "not assigned". A change applies to the
 // whole history at once and is audited.
 const { t, locale } = useI18n()
+const systemCode = useAdminSystem()
 const lc = computed(() => locale.value as Locale)
 const display = useDisplayStore()
 const info = ref<SystemInfo | null>(null)
-onMounted(async () => (info.value = await display.system(DEFAULT_SYSTEM)))
-const loader = useLoader<AlarmName[]>(() => api.alarmNames(DEFAULT_SYSTEM))
+onMounted(async () => (info.value = await display.system(systemCode)))
+const loader = useLoader<AlarmName[]>(() => api.alarmNames(systemCode))
 void loader.load()
 
 const encode = (p: AlarmPlace) =>
@@ -72,7 +73,7 @@ async function save(n: AlarmName) {
   busy.value = n.name
   delete errors[n.name]
   try {
-    await api.saveAlarmName(DEFAULT_SYSTEM, n.name, decode(value(n)))
+    await api.saveAlarmName(systemCode, n.name, decode(value(n)))
     delete draft[n.name]
     saved.value = n.name
     await loader.load({ silent: true })

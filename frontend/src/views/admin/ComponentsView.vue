@@ -11,16 +11,17 @@ import PlaceForm from '@/components/records/PlaceForm.vue'
 import SidePanel from '@/components/SidePanel.vue'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 import { formatUtc } from '@/utils/time'
 
 // Registry and records (FR-REG-004/005/006): the station, each site and each sensor with its record, calibration
 // status and in-service period. The list can be filtered by calibration status (FR-REG-005.1).
 const { t, locale } = useI18n()
+const systemCode = useAdminSystem()
 const lc = computed(() => locale.value as Locale)
 const route = useRoute()
-const loader = useLoader<ComponentRow[]>(() => api.components(DEFAULT_SYSTEM))
-const assets = useLoader<Assets>(() => api.assets(DEFAULT_SYSTEM))
+const loader = useLoader<ComponentRow[]>(() => api.components(systemCode))
+const assets = useLoader<Assets>(() => api.assets(systemCode))
 void loader.load()
 void assets.load()
 function reload() {
@@ -98,7 +99,8 @@ const placeTitle = computed(() => {
       :aria-label="t('records.station.title')"
       data-testid="station"
     >
-      <div class="min-w-0 flex-1">
+      <!-- the name takes at least 14rem: on phones the details wrap below it instead of squeezing it -->
+      <div class="min-w-0 flex-[1_1_14rem]">
         <p class="eyebrow">{{ t('records.station.title') }}</p>
         <p class="text-sm font-semibold">
           {{ assets.data.value.station.name[lc] }}
@@ -221,7 +223,7 @@ const placeTitle = computed(() => {
       <PlaceForm
         v-if="place?.kind === 'station' && assets.data.value"
         kind="station"
-        :system="DEFAULT_SYSTEM"
+        :system="systemCode"
         :value="assets.data.value.station"
         @done="((place = null), reload())"
         @cancel="place = null"
@@ -230,7 +232,7 @@ const placeTitle = computed(() => {
         v-else-if="place?.kind === 'site' && siteMeta(place.slug)"
         :key="place.slug"
         kind="site"
-        :system="DEFAULT_SYSTEM"
+        :system="systemCode"
         :slug="place.slug"
         :value="siteMeta(place.slug)!"
         @done="((place = null), reload())"

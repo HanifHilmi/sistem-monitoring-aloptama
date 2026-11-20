@@ -13,7 +13,9 @@ import { setLocale, type Locale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useDisplayStore } from '@/stores/display'
 import { DEFAULT_SYSTEM, useLiveStore } from '@/stores/live'
+import { useAdminStore } from '@/stores/admin'
 import { boardPath, sitePath } from '@/utils/paths'
+import { shortName, UPCOMING_SYSTEMS } from '@/utils/systems'
 import { applyTheme, savedTheme, type ThemeChoice } from '@/utils/theme'
 import type { SystemInfo } from '@/api/types'
 
@@ -22,6 +24,7 @@ const route = useRoute()
 const display = useDisplayStore()
 const auth = useAuthStore()
 const live = useLiveStore()
+const admin = useAdminStore()
 const problemsOpen = ref(false)
 const menuOpen = ref(false)
 const systems = ref<SystemInfo[]>([])
@@ -35,8 +38,15 @@ onMounted(async () => {
     /* shown by views */
   }
 })
-// Live status follows the system on screen (the Dashboard and wall screen show the default system's).
-const routeCode = computed(() => (typeof route.params.code === 'string' ? route.params.code : DEFAULT_SYSTEM))
+// Live status follows the system on screen: the one in the address, the one being changed in Admin, or the default
+// system's on the Dashboard and wall screen.
+const routeCode = computed(() =>
+  typeof route.params.code === 'string'
+    ? route.params.code
+    : route.path.startsWith('/admin')
+      ? admin.system
+      : DEFAULT_SYSTEM,
+)
 watch(routeCode, (c) => {
   if (live.systemCode === c) return
   live.systemCode = c
@@ -61,12 +71,10 @@ function cycleTheme() {
 }
 const otherLocale = computed<Locale>(() => (locale.value === 'id' ? 'en' : 'id'))
 const lc = computed(() => locale.value as Locale)
-// "AWOS CAT. III WIDN" -> "AWOS CAT. III": the airport is the same for every system.
-const shortName = (s: SystemInfo) => s.name[lc.value].replace(new RegExp(`\\s*${s.icao ?? '$^'}\\s*$`), '')
 const menus = computed(() =>
   systems.value.map((s) => ({
     code: s.code,
-    label: shortName(s),
+    label: shortName(s, lc.value),
     items: [
       { to: boardPath(s.code), label: t('nav.system'), exact: true },
       ...s.sites.map((x) => ({ to: sitePath(s.code, x.slug), label: x.name[lc.value] })),
@@ -82,11 +90,9 @@ const menus = computed(() =>
   })),
 )
 // Systems SIMOLA will monitor later: greyed out in the menu, with a "coming soon" note.
-const upcoming = computed(() => [
-  { code: 'soon-cat1', label: t('nav.upcoming.cat1') },
-  { code: 'soon-aws-digi', label: t('nav.upcoming.awsDigi') },
-  { code: 'soon-aws-arg', label: t('nav.upcoming.awsArg') },
-])
+const upcoming = computed(() =>
+  UPCOMING_SYSTEMS.map((u) => ({ code: u.code, label: t(`nav.upcoming.${u.key}`) })),
+)
 </script>
 
 <template>

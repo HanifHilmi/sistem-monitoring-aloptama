@@ -7,15 +7,16 @@ import type { JobRow, MandatoryPreview, MandatoryType } from '@/api/types'
 import { useLoader } from '@/composables/useLoader'
 import type { Locale } from '@/i18n'
 import { useDisplayStore } from '@/stores/display'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 import { figureLevel, LEVEL_TEXT, pct } from '@/utils/format'
 
 // Mandatory fields per component type (FR-REG-003): a component counts as available in a minute only when all of
 // its mandatory fields have a value. A change applies to every period (OPEN-12) and recomputes the figures.
 const { t, locale } = useI18n()
+const systemCode = useAdminSystem()
 const lc = computed(() => locale.value as Locale)
 const display = useDisplayStore()
-const loader = useLoader<MandatoryType[]>(() => api.mandatoryFields(DEFAULT_SYSTEM))
+const loader = useLoader<MandatoryType[]>(() => api.mandatoryFields(systemCode))
 void loader.load()
 
 /** Proposed mandatory sets, per component type, while being edited. */
@@ -47,7 +48,7 @@ async function loadPreview(m: MandatoryType) {
   }
   preview.value = { ...preview.value, [m.type]: 'loading' }
   try {
-    const p = await api.previewMandatory(DEFAULT_SYSTEM, m.type, chosen(m))
+    const p = await api.previewMandatory(systemCode, m.type, chosen(m))
     if (changed(m)) preview.value = { ...preview.value, [m.type]: p }
   } catch {
     preview.value = { ...preview.value, [m.type]: 'error' }
@@ -61,7 +62,7 @@ async function save(m: MandatoryType) {
   saving.value = m.type
   error.value = { ...error.value, [m.type]: '' }
   try {
-    const { job } = await api.saveMandatory(DEFAULT_SYSTEM, m.type, chosen(m))
+    const { job } = await api.saveMandatory(systemCode, m.type, chosen(m))
     done.value = { ...done.value, [m.type]: job }
     await loader.load({ silent: true })
     delete draft[m.type]
@@ -78,8 +79,8 @@ watch(
     for (const k of Object.keys(draft)) if (!loader.data.value?.some((m) => m.type === k)) delete draft[k]
   },
 )
-const coverage = computed(() => display.systems[DEFAULT_SYSTEM]?.coverage_start.slice(0, 10) ?? '2025-12-24')
-void display.system(DEFAULT_SYSTEM)
+const coverage = computed(() => display.systems[systemCode]?.coverage_start.slice(0, 10) ?? '2025-12-24')
+void display.system(systemCode)
 const level = (a: { pct: number | null; missing: number }) => LEVEL_TEXT[figureLevel(a, display.thresholds)]
 </script>
 

@@ -491,7 +491,7 @@
     "group": {
       "quality": "Data quality",
       "station": "Station",
-      "system": "System"
+      "shared": "All systems"
     },
     "section": {
       "review": "Review queue",
@@ -506,6 +506,15 @@
       "audit": "Audit log",
       "health": "System health",
       "alarms": "Alarm mapping"
+    },
+    "system": {
+      "label": "System being edited",
+      "choose": "Choose the system to edit",
+      "note": "Other systems can be chosen here once SIMOLA monitors them."
+    },
+    "scope": {
+      "system": "Changes on this page apply to this system only.",
+      "shared": "Applies to every system in SIMOLA."
     }
   },
   "users": {

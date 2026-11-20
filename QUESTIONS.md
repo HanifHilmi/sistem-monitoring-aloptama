@@ -97,6 +97,7 @@ Decisions the Product Owner made while building and switching over. Each is reco
 | 2026-11-13 | OPEN-13 | The public sees no AWOS alarm information at all, not even the active-alarm count | v1.4 |
 | 2026-11-13 | FR-L10N-001 | System, site, sensor and parameter names and aviation weather terms stay in English in the Indonesian interface | v1.4 |
 | 2026-11-20 | FR-REG-004 | A sensor has several parts, each with its own part and serial number and a replacement history; calibration status stays per sensor and a calibration may name its part (option A) | v1.5 |
+| 2026-11-20 | FR-ADM-001 | The Admin area names the system it changes, with a chooser for systems still to come (AWOS CAT.I, AWS Digi, AWS / ARG listed as coming soon); settings, users, audit log and system health are for all systems | v1.6 |
 
 ## Still open
 

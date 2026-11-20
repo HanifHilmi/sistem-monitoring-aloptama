@@ -35,7 +35,7 @@ Requirements: [`PRD.md`](PRD.md) (approved; v1.5). Decisions: [`QUESTIONS.md`](Q
 |---|---|
 | Public (no account) | Dashboards, figures, sensor charts, METAR / MET REPORT / TAF, definitions, data-quality summary. No AWOS alarms (not even their count), addresses, serial numbers or suspect detections |
 | Viewer (station head) | Also AWOS alarms, the health page, serial and part numbers, suspect detections, CSV exports and the monthly PDF |
-| Admin (technicians) | Also the Admin area: users, audit log, jobs, settings, mandatory fields, records, sensor parts and calibration, flags, validity rules, review queue, alarm mapping |
+| Admin (technicians) | Also the Admin area: users, audit log, jobs, settings, mandatory fields, records, sensor parts and calibration, flags, validity rules, review queue, alarm mapping. A chooser at the top of the Admin menu names the system being changed (only AWOS CAT. III so far) |
 
 The server checks the role on every request; the full route list is in
 [docs/design/permissions.md](docs/design/permissions.md).

@@ -5,7 +5,7 @@ import { api, ApiProblem } from '@/api/client'
 import type { ComponentRow, Part, PartDraft } from '@/api/types'
 import { useLoader } from '@/composables/useLoader'
 import { useDisplayStore } from '@/stores/display'
-import { DEFAULT_SYSTEM } from '@/stores/live'
+import { useAdminSystem } from '@/stores/admin'
 import { missingParts, partModel, sortParts, usualParts } from '@/utils/parts'
 
 // A sensor's physical parts (R3.7): each with its own numbers. Replacing a part closes the old one and adds the new
@@ -13,6 +13,7 @@ import { missingParts, partModel, sortParts, usualParts } from '@/utils/parts'
 const props = defineProps<{ component: ComponentRow }>()
 const emit = defineEmits<{ changed: [] }>()
 const { t } = useI18n()
+const systemCode = useAdminSystem()
 const display = useDisplayStore()
 const today = new Date().toISOString().slice(0, 10)
 const errorText = (code: string) =>
@@ -22,7 +23,7 @@ const errorText = (code: string) =>
 const all = useLoader<Part[]>(() => api.parts(props.component.id, true))
 void all.load()
 const fields = ref<string[]>([])
-void display.system(DEFAULT_SYSTEM).then((info) => {
+void display.system(systemCode).then((info) => {
   const site = info.sites.find((s) => s.slug === props.component.site)
   fields.value = site?.components.find((c) => c.type === props.component.type)?.fields ?? []
 })

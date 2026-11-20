@@ -491,7 +491,7 @@
     "group": {
       "quality": "Kualitas data",
       "station": "Stasiun",
-      "system": "Sistem"
+      "shared": "Semua sistem"
     },
     "section": {
       "review": "Antrean tinjauan",
@@ -506,6 +506,15 @@
       "audit": "Log audit",
       "health": "Kesehatan sistem",
       "alarms": "Pemetaan alarm"
+    },
+    "system": {
+      "label": "Sistem yang sedang diatur",
+      "choose": "Pilih sistem yang akan diatur",
+      "note": "Sistem lain bisa dipilih di sini setelah dipantau SIMOLA."
+    },
+    "scope": {
+      "system": "Perubahan di halaman ini hanya berlaku untuk sistem ini.",
+      "shared": "Berlaku untuk semua sistem di SIMOLA."
     }
   },
   "users": {
