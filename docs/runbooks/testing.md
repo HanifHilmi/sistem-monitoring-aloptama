@@ -123,3 +123,4 @@ spoils the figures).
 | 2026-11-13 | Browser, sample data (5730233: names in English, alarms hidden from the public) | 250 passed (14 skipped by design); CI 6/6 on main and staging |
 | 2026-11-13 | Security, staging and production (5730233) | Staging 76 passed, production 74 passed, 0 failed: the public Problems list holds no alarm count |
 | 2026-11-20 | R3.7 sensor parts (2594f84), sample data and staging | Browser 262 passed (14 skipped by design), CI 6/6 incl. the parts integration test; staging: migration 0012 made 2 parts from the 2 sensors with details, calibrations untouched; security 76 passed, 0 failed (no part or serial number in the public answer) |
+| 2026-11-20 | R3.7 sensor parts on production (d88f9a6) | Migration 0012: all 21 sensors' details carried over exactly into 21 parts (21 serial numbers, 8 firmware versions), calibrations and audit log untouched; security 74 passed, 0 failed |

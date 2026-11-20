@@ -90,6 +90,9 @@ On first deploy, load history ([history.md](history.md)) and create the first Ad
   production on 2026-11-13; the running site was not affected, because Coolify replaces the containers only after a
   successful build. Since then the web Dockerfile loads that package right after `npm ci`, so a bad install fails at
   the `npm ci` step and is not cached: a plain redeploy retries it.
+- **`npm ci` fails with `ECONNRESET` / "network aborted":** the build lost its connection to the npm registry (seen
+  on production on 2026-11-20). Nothing is cached from a failed step and the running site is not touched: check
+  that `https://registry.npmjs.org` answers from the host, then redeploy.
 
 ## Rollback
 
