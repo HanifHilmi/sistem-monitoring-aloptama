@@ -122,3 +122,4 @@ spoils the figures).
 | 2026-11-13 | Security, production (643f219, updated script) | 1 failure, as expected before the fix: the public Problems list held the AWOS alarm count. Every route refuses without a session through the public hostname too |
 | 2026-11-13 | Browser, sample data (5730233: names in English, alarms hidden from the public) | 250 passed (14 skipped by design); CI 6/6 on main and staging |
 | 2026-11-13 | Security, staging and production (5730233) | Staging 76 passed, production 74 passed, 0 failed: the public Problems list holds no alarm count |
+| 2026-11-20 | R3.7 sensor parts (2594f84), sample data and staging | Browser 262 passed (14 skipped by design), CI 6/6 incl. the parts integration test; staging: migration 0012 made 2 parts from the 2 sensors with details, calibrations untouched; security 76 passed, 0 failed (no part or serial number in the public answer) |
