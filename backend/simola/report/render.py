@@ -1,7 +1,8 @@
 """The monthly report as HTML (Jinja2 template) and as PDF (WeasyPrint).
 
-Nothing outside this folder is ever loaded while rendering: the fetcher serves the bundled font files and refuses
-every other address, so text in the data (alarm messages, notes) can never make the server fetch anything.
+Nothing outside this folder is ever loaded while rendering: the fetcher serves the bundled font files and the BMKG
+logo on the cover, and refuses every other address, so text in the data (alarm messages, notes) can never make the
+server fetch anything.
 """
 
 from __future__ import annotations
@@ -18,7 +19,10 @@ from simola.report.model import ReportInputs, context
 
 HERE = Path(__file__).resolve().parent
 FONTS = HERE / "fonts"
+IMAGES = HERE / "images"
 TEMPLATES = HERE / "templates"
+# What a report may load, by folder and file type, with the type it is served as.
+BUNDLED = {(FONTS, ".otf"): "font/otf", (IMAGES, ".png"): "image/png"}
 
 _env = Environment(
     loader=FileSystemLoader(TEMPLATES),
@@ -52,12 +56,12 @@ def render_html(r: ReportInputs) -> str:
 
 
 def bundled_path(url: str) -> Path | None:
-    """The bundled font file a URL names, or None: the only thing a report may load."""
+    """The bundled font or image a URL names, or None: the only things a report may load."""
     parsed = urlparse(url)
     if parsed.scheme != "file":
         return None
     path = Path(url2pathname(parsed.path)).resolve()
-    if path.parent != FONTS or path.suffix != ".otf" or not path.is_file():
+    if (path.parent, path.suffix) not in BUNDLED or not path.is_file():
         return None
     return path
 
@@ -71,7 +75,8 @@ def _fetcher() -> Any:
             path = bundled_path(url)
             if path is None:
                 raise ValueError(f"not loaded while rendering a report: {url[:80]}")
-            return URLFetcherResponse(url, path.read_bytes(), {"Content-Type": "font/otf"})
+            kind = BUNDLED[(path.parent, path.suffix)]
+            return URLFetcherResponse(url, path.read_bytes(), {"Content-Type": kind})
 
     return BundledOnly()
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -450,16 +451,23 @@ def test_page_furniture_cannot_leave_its_css_string() -> None:
     assert "<" not in s and "\\" + "3c " in s
 
 
-def test_only_the_bundled_fonts_can_be_loaded() -> None:
+def test_only_the_bundled_fonts_and_logo_can_be_loaded() -> None:
     font = render.FONTS / "Inter-Regular.otf"
+    logo = render.IMAGES / "bmkg-logo.png"
     assert render.bundled_path(font.as_uri()) == font
+    assert render.bundled_path(logo.as_uri()) == logo
     for url in (
         "ftp://example.invalid/Inter-Regular.otf",
         "https://example.invalid/Inter-Regular.otf",
+        "https://example.invalid/bmkg-logo.png",
         (render.FONTS / ".." / "templates" / "report.css").as_uri(),
         (render.FONTS / ".." / "fonts" / ".." / "render.py").as_uri(),
+        (render.IMAGES / ".." / "render.py").as_uri(),
+        (render.IMAGES / "Inter-Regular.otf").as_uri(),  # a font only from fonts/, an image only from images/
+        (render.FONTS / "bmkg-logo.png").as_uri(),
         "file:///etc/passwd",
         "data:font/otf;base64,AAAA",
+        "data:image/png;base64,AAAA",
     ):
         assert render.bundled_path(url) is None, url
     assert sorted(p.name for p in render.FONTS.glob("*.otf")) == [
@@ -468,6 +476,13 @@ def test_only_the_bundled_fonts_can_be_loaded() -> None:
         "Inter-Regular.otf",
         "Inter-SemiBold.otf",
     ]
+    assert sorted(p.name for p in render.IMAGES.iterdir()) == ["bmkg-logo.png"]
+
+
+def test_the_cover_carries_the_bmkg_logo() -> None:
+    html = render.render_html(_inputs())
+    assert html.count('src="images/bmkg-logo.png"') == 1 and 'alt="BMKG"' in html
+    assert (render.IMAGES / "bmkg-logo.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
     assert (render.FONTS / "OFL.txt").is_file()
 
 
@@ -486,4 +501,6 @@ def _weasyprint() -> bool:
 def test_a_month_becomes_a_pdf(lang: str) -> None:
     pdf = render.render_pdf(_inputs(lang))
     assert pdf.startswith(b"%PDF-") and pdf.rstrip().endswith(b"%%EOF")
+    # the BMKG logo got through the fetcher: WeasyPrint only warns about an image it cannot load
+    assert len(re.findall(rb"/Subtype\s*/Image", pdf)) >= 1
     assert render.selftest() > 0
