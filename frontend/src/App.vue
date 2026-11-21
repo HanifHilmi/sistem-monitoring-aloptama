@@ -5,6 +5,7 @@ import { RouterLink, RouterView, useRoute } from 'vue-router'
 import { api } from '@/api/client'
 import LiveStrip from '@/components/LiveStrip.vue'
 import ProblemsDrawer from '@/components/ProblemsDrawer.vue'
+import SimolaMark from '@/components/SimolaMark.vue'
 import SystemMenu, { type MenuItem } from '@/components/SystemMenu.vue'
 import SystemStatus from '@/components/SystemStatus.vue'
 import UserMenu from '@/components/UserMenu.vue'
@@ -106,12 +107,7 @@ const upcoming = computed(() =>
         :class="wall ? 'max-w-none' : 'max-w-[100rem]'"
       >
         <RouterLink to="/" class="flex shrink-0 items-center gap-2" @click="menuOpen = false">
-          <svg viewBox="0 0 24 24" class="h-5 w-5 text-accent" aria-hidden="true">
-            <rect x="2" y="13" width="4" height="8" rx="1" fill="currentColor" opacity=".45" />
-            <rect x="8" y="9" width="4" height="12" rx="1" fill="currentColor" opacity=".7" />
-            <rect x="14" y="5" width="4" height="16" rx="1" fill="currentColor" />
-            <rect x="20" y="2" width="2" height="19" rx="1" fill="currentColor" opacity=".35" />
-          </svg>
+          <SimolaMark class="h-5 w-auto text-accent" data-testid="brand-mark" />
           <span class="text-sm font-semibold tracking-tight">SIMOLA</span>
         </RouterLink>
         <nav v-if="!wall" class="ml-3 hidden items-center gap-1 lg:flex" :aria-label="t('nav.menu')">

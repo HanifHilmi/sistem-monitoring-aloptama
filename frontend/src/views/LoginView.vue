@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiProblem } from '@/api/client'
+import logoOnDark from '@/assets/brand/simola-lockup-dark.svg'
+import logoOnLight from '@/assets/brand/simola-lockup-light.svg'
 import { useAuthStore } from '@/stores/auth'
 
 // Sign in (FR-AUTH-001/002/004). Accounts are created by an Admin; there is no self-registration.
@@ -49,6 +51,23 @@ async function submit() {
 <template>
   <div class="mx-auto flex max-w-sm flex-col gap-5 pt-6 sm:pt-14">
     <header class="flex flex-col gap-1">
+      <!-- the full logo (docs/brand), one file per theme; main.css shows the one for the current theme -->
+      <img
+        :src="logoOnLight"
+        alt="SIMOLA — Sistem Monitoring ALOPTAMA"
+        class="logo-on-light mb-4 h-16 w-auto self-start"
+        width="249"
+        height="64"
+        data-testid="brand-logo"
+      />
+      <img
+        :src="logoOnDark"
+        alt="SIMOLA — Sistem Monitoring ALOPTAMA"
+        class="logo-on-dark mb-4 h-16 w-auto self-start"
+        width="249"
+        height="64"
+        data-testid="brand-logo"
+      />
       <h1 class="text-xl font-semibold tracking-tight">{{ t('auth.title') }}</h1>
       <p class="text-sm text-ink-2">{{ t('auth.subtitle') }}</p>
     </header>

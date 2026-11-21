@@ -177,3 +177,23 @@
     @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-bad/50 bg-surface px-3 py-1.5 text-sm text-bad hover:bg-bad/10 disabled:cursor-not-allowed disabled:opacity-50;
   }
 }
+
+/* The full logo comes as two files (docs/brand): dark lettering for light backgrounds and light lettering for dark
+   ones. Show the one for the current theme, chosen the same way as the colours above. */
+.logo-on-dark {
+  display: none;
+}
+:root[data-theme='dark'] .logo-on-light {
+  display: none;
+}
+:root[data-theme='dark'] .logo-on-dark {
+  display: block;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .logo-on-light {
+    display: none;
+  }
+  :root:not([data-theme='light']) .logo-on-dark {
+    display: block;
+  }
+}
