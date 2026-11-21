@@ -4,10 +4,10 @@ Self-hosted monitoring for the station's ALOPTAMA observing systems. It covers t
 Fisabilillah Airport (WIDN) and is designed to add Tambelan CAT.I, AWS and ARG later.
 
 **Status:** the MVP (releases R1–R3) is complete and has been the station's monitoring site since 2026-11-11, at
-<https://simola.hilmihanif.my.id>. It replaced `monitoring-aloptama-v2`, which is stopped. The next phase in the
+<https://simola.stamet-rhf.com>. It replaced `monitoring-aloptama-v2`, which is stopped. The next phase in the
 roadmap is AWOS CAT.I Tambelan (PRD §17.2).
 
-Requirements: [`PRD.md`](PRD.md) (approved; v1.5). Decisions: [`QUESTIONS.md`](QUESTIONS.md).
+Requirements: [`PRD.md`](PRD.md) (approved; v1.7). Decisions: [`QUESTIONS.md`](QUESTIONS.md).
 
 ## What SIMOLA does
 

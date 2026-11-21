@@ -32,21 +32,27 @@ can hijack intranet routes: do H-0 before the first deploy.
    sudo mkdir -p /var/lib/simola/{production,staging}/{pg,backups}
    ```
 3. **Cloudflare (H-3):**
-   - In the tunnel's *Public hostnames*, `simola.hilmihanif.my.id` and `simola-staging.hilmihanif.my.id` both point to
-     the same origin (Traefik on the host).
-   - *Access → Applications* protects all of `simola-staging.hilmihanif.my.id` (NFR-SEC-008).
+   - Since 2026-11-21 the hostnames are on `stamet-rhf.com`, a domain in its own Cloudflare account with its own
+     remote-managed tunnel. Its connector runs on the host as a second `cloudflared` systemd service, next to the
+     one for the old account; neither is a Docker container.
+   - In that tunnel's published applications, `simola.stamet-rhf.com` and `simola-staging.stamet-rhf.com` both point
+     to the same origin, Traefik on the host (`http://127.0.0.1:80`).
+   - *Access → Applications* in that account protects all of `simola-staging.stamet-rhf.com` (NFR-SEC-008).
    - Production has no Access policy since the switch on 2026-11-11: the dashboards are public, and SIMOLA's own
      sign-in protects the Viewer and Admin areas. An Access policy on `/admin*` and `/api/v1/admin*` is an optional
      second lock (decision D4, [accounts.md](accounts.md)).
-   - The old hostname `rhf-monitoring.hilmihanif.my.id` answers 404 since v2 stopped; its redirect to SIMOLA is
-     still to do ([cutover.md](cutover.md), section 3).
+   - The old `hilmihanif.my.id` names get permanent redirects (301) in the old account's zone: each SIMOLA name to
+     its `stamet-rhf.com` twin, and `rhf-monitoring.hilmihanif.my.id` to production ([cutover.md](cutover.md),
+     section 3). Until those rules exist, the old SIMOLA names still answer directly.
 
 ## Create the Coolify applications
 
 For each of **simola-staging** (branch `staging`) and **simola-production** (branch `main`):
 
 1. *New resource → Public/Private repository → Docker Compose*, compose file `/docker-compose.yml`.
-2. Set the domain on the **web** service only, port 8080: `https://simola-staging.hilmihanif.my.id` (or the production one).
+2. Set the domain on the **web** service only, port 8080: `http://simola-staging.stamet-rhf.com` (or the production one).
+   Use `http://`: Cloudflare ends TLS, and the tunnel reaches Traefik over plain HTTP. During a domain move, list the
+   old and the new name separated by a comma, so both answer until the redirect is in place.
 3. Turn **off** "auto deploy on push". Deploy from Coolify (UI or API) only once CI is green for that commit. A CI
    deploy job is prepared in `.github/workflows/ci.yml` but not switched on.
 4. Environment variables: copy `.env.example` and set real values.
@@ -70,7 +76,7 @@ No deploys on 30–31 December: the year's last figures are checked on 1–2 Jan
 ## Verify after every deploy
 
 ```bash
-curl -fsS https://simola.hilmihanif.my.id/health                   # production: {"status":"ok"}
+curl -fsS https://simola.stamet-rhf.com/health                     # production: {"status":"ok"}
 ip route                                                           # no new 172.16.0.0/12 or 192.168.0.0/16 route
 docker ps -a --format '{{.Names}} {{.Status}}' | grep <app-uuid>  # all healthy, migrate exited
 ss -ltn | grep 5432                                                # SIMOLA's db must NOT appear

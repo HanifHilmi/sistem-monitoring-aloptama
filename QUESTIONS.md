@@ -14,7 +14,7 @@ Companion to the existing-system assessment (`ASSESSMENT.md`, private and not pu
 | A2 | Long-term systems | All in scope after MVP: **AWOS CAT.I Tambelan**, **AWS Digi (MET garden)**, **AWS Lagoi / Pekan Arba**, **ARG rain gauges** (Tembeling, Setokok, legacy Tanjung Balai Karimun, Bintan Timur, Singkep) | ✅ |
 | A3 | Old PRD features | **In MVP:** validity rules engine, manual flagging, metadata & calibration. **Not selected:** SYNOP/ATIS viewer (excluded for now) | ✅ |
 | A4 | Codebase | **New repository** in `sistem-monitoring-aloptama/`, porting proven v2 modules. v2 keeps running untouched until cutover | ✅ |
-| A5 | Hostname | **New permanent hostname `simola.hilmihanif.my.id`**. The old URL redirects to it after cutover | ✅ |
+| A5 | Hostname | **New permanent hostname `simola.hilmihanif.my.id`**, moved to **`simola.stamet-rhf.com`** on 2026-11-21. The old URLs redirect to it after cutover | ✅ |
 | B1 | Official SLA definition | **None exists.** SIMOLA's PRD becomes the authoritative definition | ✅ |
 | B2 | "CDP up" | Record **both** facts per CDP per minute (ping reachability and "CDP produced AWOS data"). **SLA uses data flow** | ✅ |
 | B3 | SLA formula | Show **both views**. Headline **system availability** = minutes where at least one CDP is up. **Per-node uptime** shown alongside | ✅ |
@@ -78,7 +78,7 @@ Open items from PRD v0.1 (§18.2), answered in a second walkthrough. They are ap
 | OPEN-12 | Mandatory-field changes apply to all history |
 | OPEN-13 | Logged-in only: whole alarm viewer (incl. message text), serial/part numbers, suspect detections. Public sees only the active-alarm count |
 | OPEN-14 | Targets accepted: freshness ≤ 3 min; fault visible ≤ 5 min; KPI pages ≤ 1 s up to 1 year; availability ≥ 99 %/month; RPO 24 h; RTO 4 h; quarterly restore drills; 7 daily / 4 weekly / 12 monthly backups |
-| OPEN-15 | Staging at `simola-staging.hilmihanif.my.id` behind Cloudflare Access |
+| OPEN-15 | Staging at `simola-staging.stamet-rhf.com` (until 2026-11-21 `simola-staging.hilmihanif.my.id`) behind Cloudflare Access |
 | OPEN-17 | Component in-service periods (Must) |
 | OPEN-18 | Cutover after R1 acceptance, following a one-month parallel run |
 | AS-6 | Free or already-owned services only |
@@ -98,6 +98,7 @@ Decisions the Product Owner made while building and switching over. Each is reco
 | 2026-11-13 | FR-L10N-001 | System, site, sensor and parameter names and aviation weather terms stay in English in the Indonesian interface | v1.4 |
 | 2026-11-20 | FR-REG-004 | A sensor has several parts, each with its own part and serial number and a replacement history; calibration status stays per sensor and a calibration may name its part (option A) | v1.5 |
 | 2026-11-20 | FR-ADM-001 | The Admin area names the system it changes, with a chooser for systems still to come (AWOS CAT.I, AWS Digi, AWS / ARG listed as coming soon); settings, users, audit log and system health are for all systems | v1.6 |
+| 2026-11-21 | A5, OPEN-15 | The hostnames move to `stamet-rhf.com` (production `simola.stamet-rhf.com`, staging `simola-staging.stamet-rhf.com`), a domain in its own Cloudflare account; the old `hilmihanif.my.id` names redirect to the new ones | v1.7 |
 
 ## Still open
 
@@ -108,4 +109,4 @@ Decisions the Product Owner made while building and switching over. Each is reco
 | OPEN-11 | Verify alarm timestamps are UTC | On site, when convenient |
 | OPEN-16 | Monthly PDF layout sign-off | The Product Owner's U6 pass |
 | AS-5 | No external system read v2's API | The Product Owner's confirmation (v2 is stopped, so anything that did has stopped working) |
-| — | Redirect the old hostname `rhf-monitoring.hilmihanif.my.id` to SIMOLA (it answers 404 since v2 stopped) | Deferred by the Product Owner (2026-11-11) |
+| — | Redirect the old hostnames to `stamet-rhf.com`: `rhf-monitoring.hilmihanif.my.id` to production (it answers 404 since v2 stopped) and the old SIMOLA names to their new names | Being set up by the Product Owner in the old Cloudflare account (2026-11-21) |

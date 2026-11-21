@@ -4,8 +4,11 @@ Every step that changes Coolify, Cloudflare, a database or the host needs the Pr
 
 **Status (2026-11-13):** the switch was made on 2026-11-11. Sections A, B and 1–3 are done, except:
 - A.8 and A.9: the first Admin account and switching on the 14 rules are the Product Owner's own steps, still to do;
-- 3.4: the redirect of the old hostname is deferred (it answers 404 since v2 stopped);
+- 3.4: the redirect of the old hostname, deferred until the move to `stamet-rhf.com` and set up with it (2026-11-21);
 - 3.5: telling the users.
+
+On 2026-11-21 the hostnames moved from `hilmihanif.my.id` to `stamet-rhf.com` ([deploy.md](deploy.md), H-3);
+section 3 below names the hostnames as they were at the switch, except step 4.
 
 v2 is stopped, its auto-deploy is off, and its final dump is kept on the host. Still ahead: the December recount
 (1–2 January) and, after 30 stable days and only with approval, the decommission below.
@@ -131,8 +134,8 @@ SIMOLA's own probe minutes are never overwritten. Affected days are recomputed a
    `/api/v1/admin*` only. The public pages need none; SIMOLA's sign-in protects the Viewer and Admin areas.
 3. In Coolify, set the `web` service's domain to `http://simola.hilmihanif.my.id:8080` and redeploy (run the
    network check first, as for every deploy). The site is public as soon as the deploy finishes.
-4. Add a Cloudflare redirect rule: `rhf-monitoring.hilmihanif.my.id/*` → `https://simola.hilmihanif.my.id/$1`
-   (301). Old v2 paths such as `/cat3/runway/04` are mapped by the SPA router.
+4. Add a Cloudflare redirect rule in the old `hilmihanif.my.id` zone: `rhf-monitoring.hilmihanif.my.id/*` →
+   `https://simola.stamet-rhf.com/$1` (301). Old v2 paths such as `/cat3/runway/04` are mapped by the SPA router.
 5. Announce the change to users.
 6. Take a final read-only `pg_dump` of v2's database (kept for the decommission archive), then stop v2 in Coolify
    (stop, not delete), after sections 1–2 have read its probe samples. The stop removes v2's containers and its

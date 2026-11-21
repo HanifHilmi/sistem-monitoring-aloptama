@@ -6,9 +6,9 @@
 |---|---|
 | **Document title** | Product Requirements Document — Sistem Monitoring ALOPTAMA (SIMOLA) |
 | **Product name** | SIMOLA (Sistem Monitoring ALOPTAMA) |
-| **Version** | 1.6 |
-| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13); v1.5 adds sensor parts (FR-REG-004, 2026-11-20); v1.6 has the Admin area name the system it changes (FR-ADM-001, 2026-11-20) |
-| **Date** | 2026-11-20 |
+| **Version** | 1.7 |
+| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13); v1.5 adds sensor parts (FR-REG-004, 2026-11-20); v1.6 has the Admin area name the system it changes (FR-ADM-001, 2026-11-20); v1.7 moves the hostnames to `stamet-rhf.com` (2026-11-21) |
+| **Date** | 2026-11-21 |
 | **Product Owner** | Station technician who owns and operates the platform (sole operator) |
 | **Supersedes** | `monitoring-aloptama-v2/PRD.md` v2.1 (legacy; kept unchanged for reference) |
 | **Related documents** | `ASSESSMENT.md` (existing-system assessment; private, not in the public repository) · [`QUESTIONS.md`](QUESTIONS.md) (Stage 3 decisions) |
@@ -26,6 +26,7 @@
 | 1.4 | 2026-11-13 | Product Owner (recorded by Claude) | Cutover done on 2026-11-11: SIMOLA production is public at `simola.hilmihanif.my.id`, v2 is stopped (not removed) with its auto-deploy off; the old hostname's redirect (§14.6) is deferred. **OPEN-13 changed:** the public sees no AWOS alarm information at all, not even the active-alarm count (§5.4, FR-DSH-010, FR-ALM-001, U10). **FR-L10N-001:** system, site, sensor and parameter names and aviation weather terms stay in English in the Indonesian interface. OPEN-01 (off-host backups) deferred by the Product Owner. No requirement IDs change |
 | 1.5 | 2026-11-20 | Product Owner (recorded by Claude) | **FR-REG-004: sensor parts** (screens approved 2026-11-20). A sensor (component) has several physical parts (the thermohygrometer and its MARS, the barometer and its quadplate, the RVR's transmitters and receivers), each with its own manufacturer, model, part number, serial number, firmware and installation date. Replacing a part keeps the old one as history with its removal date and reason. A calibration may name the part it covered; calibration status stays per sensor (option A). New entity: Component part (§9.1, §9.3). No requirement IDs change |
 | 1.6 | 2026-11-20 | Product Owner (recorded by Claude) | **FR-ADM-001: the Admin area names the system it changes** (screens approved 2026-11-20). A chooser at the top of the Admin menu picks the monitored system. The sections that belong to one system (review queue, flags, validity rules, jobs, registry and metadata, calibration, alarm mapping, mandatory fields) work on it, and each of their pages names it; settings, users, the audit log and system health are for all of SIMOLA and say so. AWOS CAT.I, AWS Digi and AWS / ARG are listed as coming soon: AWOS CAT. III stays the only choice until a second system is added. No requirement IDs change |
+| 1.7 | 2026-11-21 | Product Owner (recorded by Claude) | **Hostnames moved to `stamet-rhf.com`** (A5, OPEN-15, §12.1, §12.4, §14.6): production is `simola.stamet-rhf.com` and staging `simola-staging.stamet-rhf.com`, still behind Cloudflare Access with the same email allow-list. The new domain has its own Cloudflare account with its own tunnel and Access setup; a second `cloudflared` host service connects it. The old `hilmihanif.my.id` names get permanent redirects: each SIMOLA name to its new name, and `rhf-monitoring` to production (the deferred §14.6 step 4). No requirement IDs change |
 
 ### 1.2 How to read this document
 
@@ -1451,8 +1452,8 @@ flowchart TB
   U(("Users")) --> CF["Cloudflare edge\n(TLS, Access for staging)"]
   CF --> TUN["cloudflared (host service)"]
   TUN --> TR["Traefik (Coolify proxy)"]
-  TR -->|"simola.hilmihanif.my.id"| PROD["Coolify app: simola-production\nweb · api · worker · db · migrate · backup"]
-  TR -->|"simola-staging.hilmihanif.my.id"| STG["Coolify app: simola-staging\nweb · api · worker · db · migrate"]
+  TR -->|"simola.stamet-rhf.com"| PROD["Coolify app: simola-production\nweb · api · worker · db · migrate · backup"]
+  TR -->|"simola-staging.stamet-rhf.com"| STG["Coolify app: simola-staging\nweb · api · worker · db · migrate"]
   TR -->|"rhf-monitoring… (until cutover)"| V2["v2 (unchanged)"]
   SH[/"Host CIFS mounts of the CDP1/CDP2 log shares (read-only)"/] --> PROD
   SH --> STG
@@ -1486,11 +1487,11 @@ All environments share one host [D:F1].
 
 ### 12.4 Cloudflare Tunnel integration
 
-- New public hostname **`simola.hilmihanif.my.id`** [D:A5] routed by the existing remote-managed tunnel to Traefik.
+- New public hostname **`simola.stamet-rhf.com`** [D:A5] routed by a remote-managed tunnel to Traefik. Until 2026-11-21 it was `simola.hilmihanif.my.id`; the `stamet-rhf.com` domain has its own Cloudflare account, tunnel and Access setup.
 - During the parallel run before the R1 cutover, the production hostname is protected by Cloudflare Access, so only the Product Owner and invited testers can see it [P].
 - After the R1 cutover and until accounts exist (R2), Viewer-level pages and API routes (health page, diagnostics) stay behind a path-based Cloudflare Access policy [P].
-- The staging hostname **`simola-staging.hilmihanif.my.id`** is always behind Cloudflare Access, with an email allow-list (NFR-SEC-008) [D:OPEN-15].
-- At cutover, `rhf-monitoring.hilmihanif.my.id` gets a **permanent redirect** to `simola.hilmihanif.my.id`, preserving paths where a mapping exists (§14.4) [D:A5].
+- The staging hostname **`simola-staging.stamet-rhf.com`** (until 2026-11-21 `simola-staging.hilmihanif.my.id`) is always behind Cloudflare Access, with an email allow-list (NFR-SEC-008) [D:OPEN-15].
+- At cutover, `rhf-monitoring.hilmihanif.my.id` gets a **permanent redirect** to the production hostname, preserving paths where a mapping exists (§14.4) [D:A5]. After the move to `stamet-rhf.com`, the old SIMOLA hostnames also redirect permanently to their new names.
 
 ### 12.5 Environment management
 
@@ -1654,7 +1655,7 @@ Cutover happens **after R1 is accepted**, including §14.5 [D:OPEN-18]. R2 and R
 1. Confirm the latest successful backup and restore drill.
 2. Import v2's live probe samples as legacy reachability (FR-ING-014).
 3. Remove Cloudflare Access from the production hostname, but keep the path-based policy on Viewer-level pages until R2 (§12.4).
-4. Enable the redirect from `rhf-monitoring.hilmihanif.my.id` to `simola.hilmihanif.my.id` (§12.4).
+4. Enable the redirect from `rhf-monitoring.hilmihanif.my.id` to the production hostname (§12.4).
 5. Announce the change to users.
 6. Stop v2's public exposure (redirect in place). Keep v2 containers running but not publicly reachable [P].
 
@@ -1845,7 +1846,7 @@ Full detail in [`QUESTIONS.md`](QUESTIONS.md).
 | A1 / A3 | MVP = CAT.III corrected KPIs + auth + security/ops + AWOS ALARM viewer + METAR/METREPORT/TAF viewer + validity rules + manual flags + metadata & calibration. SYNOP/ATIS excluded |
 | A2 | Long-term scope: CAT.I Tambelan, AWS Digi, AWS Lagoi/Pekan Arba, ARG network |
 | A4 / G5 | New repository; new database run in parallel with v2 |
-| A5 | Permanent hostname `simola.hilmihanif.my.id`; old URL redirects after cutover |
+| A5 | Permanent hostname `simola.hilmihanif.my.id`, moved to `simola.stamet-rhf.com` on 2026-11-21 (v1.7); old URLs redirect after cutover |
 | B1 | No official SLA/OLA definition; this PRD defines it |
 | B2 / B3 | SLA = minutes where ≥ 1 CDP produced data; per-node uptime and reachability shown alongside |
 | B4 / B4a | Component validity by mandatory fields (defaults in FR-REG-003), Admin-editable |
@@ -1873,7 +1874,7 @@ Full detail in [`QUESTIONS.md`](QUESTIONS.md).
 | OPEN-12 | Mandatory-field changes apply to all history |
 | OPEN-13 | Logged-in only: whole alarm viewer (incl. message text), serial/part numbers, suspect detections. The public sees no alarm information, not even the active-alarm count (changed 2026-11-13) |
 | OPEN-14 | Targets confirmed: freshness ≤ 3 min, fault visible ≤ 5 min, KPI pages ≤ 1 s up to 1 year, availability ≥ 99 %, RPO 24 h, RTO 4 h, quarterly drills, 7/4/12 retention |
-| OPEN-15 | Staging at `simola-staging.hilmihanif.my.id` behind Cloudflare Access |
+| OPEN-15 | Staging at `simola-staging.stamet-rhf.com` (until 2026-11-21 `simola-staging.hilmihanif.my.id`) behind Cloudflare Access |
 | OPEN-17 | Component in-service periods: Must |
 | OPEN-18 | Cutover after R1 acceptance (the one-month parallel run was waived in v1.3; cutover done 2026-11-11) |
 | AS-6 | Free or already-owned services only |

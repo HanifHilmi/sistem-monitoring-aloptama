@@ -56,7 +56,7 @@ browser download is needed on this host.
 
 ```bash
 python3 tools/security_check.py --web http://<address>:8080 \
-    --public https://simola.hilmihanif.my.id --containers <production-app-uuid>
+    --public https://simola.stamet-rhf.com --containers <production-app-uuid>
 ```
 
 It checks security headers; that the only state-changing routes are the known account ones and that every write
