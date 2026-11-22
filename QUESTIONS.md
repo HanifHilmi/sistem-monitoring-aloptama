@@ -89,7 +89,7 @@ Decisions the Product Owner made while building and switching over. Each is reco
 
 | Date | Item | Decision | PRD |
 |---|---|---|---|
-| 2026-11-04 | OPEN-14, backups | Backups run only on request; no nightly schedule | v1.3 |
+| 2026-11-04 | OPEN-14, backups | Backups run only on request; no nightly schedule, and every backup is kept until removed by hand | v1.3, v1.8 |
 | 2026-11-04 | §14.5, v2 figures | The v2 figure comparison is dropped: v2's numbers were not accurate, v2 is a reference only | v1.3 |
 | 2026-11-09 | FR-DSH-001 | Dashboard approved from screenshots: a panel per system and cards across systems | v1.2 |
 | 2026-11-11 | OPEN-18 | Go for the cutover; the one-month parallel run is waived. Switched on 2026-11-11; v2 stopped (not removed), its auto-deploy off | v1.3, v1.4 |

@@ -7,7 +7,7 @@ Fisabilillah Airport (WIDN) and is designed to add Tambelan CAT.I, AWS and ARG l
 <https://simola.stamet-rhf.com>. It replaced `monitoring-aloptama-v2`, which is stopped. The next phase in the
 roadmap is AWOS CAT.I Tambelan (PRD §17.2).
 
-Requirements: [`PRD.md`](PRD.md) (approved; v1.7). Decisions: [`QUESTIONS.md`](QUESTIONS.md).
+Requirements: [`PRD.md`](PRD.md) (approved; v1.8). Decisions: [`QUESTIONS.md`](QUESTIONS.md).
 
 ## What SIMOLA does
 

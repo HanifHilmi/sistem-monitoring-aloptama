@@ -6,9 +6,9 @@
 |---|---|
 | **Document title** | Product Requirements Document — Sistem Monitoring ALOPTAMA (SIMOLA) |
 | **Product name** | SIMOLA (Sistem Monitoring ALOPTAMA) |
-| **Version** | 1.7 |
-| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13); v1.5 adds sensor parts (FR-REG-004, 2026-11-20); v1.6 has the Admin area name the system it changes (FR-ADM-001, 2026-11-20); v1.7 moves the hostnames to `stamet-rhf.com` (2026-11-21) |
-| **Date** | 2026-11-21 |
+| **Version** | 1.8 |
+| **Status** | **Approved** by the Product Owner on 2026-11-04 (v1.0). R1 implementation authorized 2026-11-04. v1.1 is a wording-only redaction for the public repository; v1.2 records the dashboard approved on 2026-11-09 (FR-DSH-001); v1.3 records the go decision for the cutover (2026-11-11); v1.4 hides the alarm count from the public and keeps names in English in both languages (2026-11-13); v1.5 adds sensor parts (FR-REG-004, 2026-11-20); v1.6 has the Admin area name the system it changes (FR-ADM-001, 2026-11-20); v1.7 moves the hostnames to `stamet-rhf.com` (2026-11-21); v1.8 writes the on-request backups accepted in v1.3 into the requirements (2026-11-22) |
+| **Date** | 2026-11-22 |
 | **Product Owner** | Station technician who owns and operates the platform (sole operator) |
 | **Supersedes** | `monitoring-aloptama-v2/PRD.md` v2.1 (legacy; kept unchanged for reference) |
 | **Related documents** | `ASSESSMENT.md` (existing-system assessment; private, not in the public repository) · [`QUESTIONS.md`](QUESTIONS.md) (Stage 3 decisions) |
@@ -27,6 +27,7 @@
 | 1.5 | 2026-11-20 | Product Owner (recorded by Claude) | **FR-REG-004: sensor parts** (screens approved 2026-11-20). A sensor (component) has several physical parts (the thermohygrometer and its MARS, the barometer and its quadplate, the RVR's transmitters and receivers), each with its own manufacturer, model, part number, serial number, firmware and installation date. Replacing a part keeps the old one as history with its removal date and reason. A calibration may name the part it covered; calibration status stays per sensor (option A). New entity: Component part (§9.1, §9.3). No requirement IDs change |
 | 1.6 | 2026-11-20 | Product Owner (recorded by Claude) | **FR-ADM-001: the Admin area names the system it changes** (screens approved 2026-11-20). A chooser at the top of the Admin menu picks the monitored system. The sections that belong to one system (review queue, flags, validity rules, jobs, registry and metadata, calibration, alarm mapping, mandatory fields) work on it, and each of their pages names it; settings, users, the audit log and system health are for all of SIMOLA and say so. AWOS CAT.I, AWS Digi and AWS / ARG are listed as coming soon: AWOS CAT. III stays the only choice until a second system is added. No requirement IDs change |
 | 1.7 | 2026-11-21 | Product Owner (recorded by Claude) | **Hostnames moved to `stamet-rhf.com`** (A5, OPEN-15, §12.1, §12.4, §14.6): production is `simola.stamet-rhf.com` and staging `simola-staging.stamet-rhf.com`, still behind Cloudflare Access with the same email allow-list. The new domain has its own Cloudflare account with its own tunnel and Access setup; a second `cloudflared` host service connects it. The old `hilmihanif.my.id` names get permanent redirects: each SIMOLA name to its new name, and `rhf-monitoring` to production (the deferred §14.6 step 4). No requirement IDs change |
+| 1.8 | 2026-11-22 | Product Owner (recorded by Claude) | **Backups on request** written into the requirements, as accepted with v1.3 (decided 2026-11-04): NFR-BAK-001, NFR-BAK-002, NFR-BAK-004, SM-5, PG-5, §9.6, §11.9, §12.8. A backup is made only when the Product Owner asks, with no schedule, and every backup is kept until removed by hand; the RPO target and the 7/4/12 retention go, the quarterly restore drill and RTO ≤ 4 h stay. Off-host copy still open (OPEN-01). No requirement IDs change |
 
 ### 1.2 How to read this document
 
@@ -83,7 +84,7 @@ A rebuild on the **same, proven technology stack** **[D:G1]**: PostgreSQL + Time
 4. Adds **data-quality control**: automatic plausibility rules that raise *suspect* intervals for an Admin to confirm, plus manual flags. The DCP component is exempt **[D:A3]** **[D:B11]** **[D:B12]**.
 5. Adds an **AWOS alarm viewer**, a **METAR/METREPORT/TAF viewer**, an **asset and calibration registry**, and **monthly PDF / CSV exports** **[D:A1]** **[D:D2]** **[D:E3]**.
 6. Keeps dashboards **public with infrastructure details hidden**. Administration is behind **local accounts** with **Viewer / Admin** roles **[D:C2]** **[D:C3]** **[D:C4]**.
-7. Is **operable by one person**: automated backups, CI-gated deploys, a staging environment and documented procedures **[D:F3]** **[D:F5]**.
+7. Is **operable by one person**: backups on request, CI-gated deploys, a staging environment and documented procedures **[D:F3]** **[D:F5]**.
 
 ### 2.4 Product vision
 
@@ -171,7 +172,7 @@ See `ASSESSMENT.md` §3–§6 for v2's architecture, data model and features.
 | PG-2 | Lossless ingestion from both CDPs, re-processable from source files | BO-1 |
 | PG-3 | Data-quality workflow: suspect, then confirm or reject, plus manual flags, with an audit trail | BO-1, BO-2 |
 | PG-4 | Status, alarm and problem views that point straight to the faulty component | BO-2 |
-| PG-5 | Role-based access, hardened deployment, automated backups | BO-4 |
+| PG-5 | Role-based access, hardened deployment, backups on request | BO-4 |
 | PG-6 | One-click monthly PDF report and CSV exports | BO-5 |
 | PG-7 | Registry-driven model for systems, sites and components | BO-3 |
 
@@ -185,7 +186,7 @@ Targets marked [D:OPEN-14] were confirmed at PRD review. Any remaining [P] targe
 | SM-2 | Ingestion completeness | For every completed UTC day, stored minutes = union of minutes present in either CDP file | Daily reconciliation check | PG-2 |
 | SM-3 | Data freshness | A minute written to a CDP file is visible on the dashboard within **3 min** (p95) [D:OPEN-14] | Ingestion-lag metric | PG-4 |
 | SM-4 | Fault visibility | A CDP that stops producing data, or a component with missing mandatory fields, appears in the Problems panel within **5 min** [D:OPEN-14] | Staging fault-injection test | PG-4 |
-| SM-5 | Recoverability | Nightly backup success ≥ 99 % per quarter; full restore drill passes each quarter; RPO ≤ 24 h, RTO ≤ 4 h [D:OPEN-14] | Backup logs, restore drill record | PG-5 |
+| SM-5 | Recoverability | Every backup the Product Owner asks for succeeds and reads back; full restore drill passes each quarter; RTO ≤ 4 h [D:OPEN-14]. No RPO target: backups run only on request (v1.3) | Backup logs, restore drill record | PG-5 |
 | SM-6 | Security | 0 state-changing endpoints reachable without Admin authentication; 0 infrastructure details in anonymous responses; DB not network-published | Automated security tests (§15.4) | PG-5 |
 | SM-7 | Reporting effort | Monthly PDF report generated in ≤ 1 action and ≤ 60 s [P] | Manual check at UAT | PG-6 |
 | SM-8 | Extensibility | A new site or component of an existing system type is added by configuration only (no code change) | Acceptance test | PG-7 |
@@ -1152,7 +1153,7 @@ erDiagram
 | Sessions | Deleted 30 days after expiry | [P] |
 | Job logs | 1 year | [P] |
 | Application logs (container) | Rotated, about 50 MB per service | [P] |
-| Backups | 7 daily, 4 weekly, 12 monthly | [D:OPEN-14] (NFR-BAK-001) |
+| Backups | Kept until removed by hand; none are deleted automatically | v1.3 (NFR-BAK-001) |
 
 ### 9.7 Historical data considerations
 
@@ -1259,10 +1260,10 @@ Targets marked [D:OPEN-14] were confirmed at PRD review. Other [P] targets are a
 
 | ID | Requirement |
 |---|---|
-| NFR-BAK-001 | Nightly logical backup of the SIMOLA production database, copied off-host to a free or already-owned destination [D:AS-6], to be chosen [O:01]. Retention 7 daily, 4 weekly, 12 monthly [D:OPEN-14]. Encrypted at the destination [P] |
-| NFR-BAK-002 | Restore drill into staging each quarter, documented. RPO ≤ 24 h, RTO ≤ 4 h [D:OPEN-14] |
+| NFR-BAK-001 | Logical backup of the SIMOLA production database, made **only when the Product Owner asks** (decided 2026-11-04, accepted in v1.3; replaces the nightly backup). There is no schedule and no backup on start. Each backup is checked to read back and is recorded. Backups are kept until removed by hand. A copy goes off-host to a free or already-owned destination [D:AS-6], to be chosen [O:01], encrypted at the destination [P] |
+| NFR-BAK-002 | Restore drill into staging each quarter, documented. RTO ≤ 4 h [D:OPEN-14]. Data that cannot be rebuilt from files can be lost back to the last backup the Product Owner asked for |
 | NFR-BAK-003 | Data that cannot be rebuilt from files (§9.7) is included in every backup. Observation history can additionally be rebuilt from the CDP files |
-| NFR-BAK-004 | A failed or overdue backup (> 26 h) appears on the health page and in the Problems panel |
+| NFR-BAK-004 | Recent backup runs, failed ones included, appear on the health page. The "backup overdue" problem (> 26 h) in the Problems panel is off while backups run only on request |
 
 ### 10.10 Observability
 
@@ -1317,7 +1318,7 @@ flowchart LR
     API["api: FastAPI\nREST /api/v1, auth, exports"]
     WRK["worker: ingestion adapters, probes,\ndetection, job runner, schedules"]
     MIG["migrate (one-shot)"]
-    BAK["backup (scheduled)"]
+    BAK["backup (on request)"]
     DB[("db: PostgreSQL + TimescaleDB\ninternal network only")]
   end
   SHARES[/"CDP shares (read-only mounts)"/]
@@ -1429,7 +1430,7 @@ Implements FR-AUTH-001…007. The mechanism [P]:
 | Job runner | Continuous | Reprocess and recompute jobs; claims with `FOR UPDATE SKIP LOCKED` |
 | Daily rollup finalisation and reconciliation | 00:10 UTC [P] | FR-ING-011, §9.4 |
 | Housekeeping (sessions, job logs) | Daily | §9.6 |
-| Backup | Nightly (18:00 UTC = 01:00 WIB) [P] | NFR-BAK-001 |
+| Backup | Only when the Product Owner asks (`backup-now`); no schedule | NFR-BAK-001 |
 
 Only one worker instance runs ingestion at a time. A PostgreSQL advisory lock enforces this, so two workers briefly overlapping during a deploy cannot double-ingest [P].
 
@@ -1530,10 +1531,10 @@ The repository is **public** [D:OPEN-09], so NFR-SEC-010 applies:
 
 | Item | Requirement |
 |---|---|
-| Method | `pg_dump` custom format of the production database, run nightly by the `backup` service [P] (TimescaleDB-aware: pre/post restore procedures documented) |
+| Method | `pg_dump` custom format of the production database, made by `backup-now` in the `backup` service when the Product Owner asks (TimescaleDB-aware: pre/post restore procedures documented) |
 | Off-host copy | To a free or already-owned destination [D:AS-6] chosen in OPEN-01, encrypted [P]. Candidates: Cloudflare R2 free tier (10 GB), Google Drive via rclone, or a machine on the station LAN |
-| Retention | 7 daily, 4 weekly, 12 monthly [D:OPEN-14] |
-| Monitoring | Result and age on the health page; failures in the Problems panel (NFR-BAK-004) |
+| Retention | Every backup is kept until removed by hand; none are deleted automatically |
+| Monitoring | Recent runs and their results on the health page (NFR-BAK-004) |
 | Restore drill | Quarterly into staging, following the runbook; result recorded (NFR-BAK-002) |
 | Secondary path | Observation history can be rebuilt from CDP files (FR-ING-010). Non-reproducible data needs the backup (§9.7) |
 
@@ -1873,7 +1874,7 @@ Full detail in [`QUESTIONS.md`](QUESTIONS.md).
 | OPEN-10 | Post-MVP order: Tambelan CAT.I first, then AWS/ARG |
 | OPEN-12 | Mandatory-field changes apply to all history |
 | OPEN-13 | Logged-in only: whole alarm viewer (incl. message text), serial/part numbers, suspect detections. The public sees no alarm information, not even the active-alarm count (changed 2026-11-13) |
-| OPEN-14 | Targets confirmed: freshness ≤ 3 min, fault visible ≤ 5 min, KPI pages ≤ 1 s up to 1 year, availability ≥ 99 %, RPO 24 h, RTO 4 h, quarterly drills, 7/4/12 retention |
+| OPEN-14 | Targets confirmed: freshness ≤ 3 min, fault visible ≤ 5 min, KPI pages ≤ 1 s up to 1 year, availability ≥ 99 %, RPO 24 h, RTO 4 h, quarterly drills, 7/4/12 retention. The backup schedule, RPO and retention were replaced in v1.3: backups on request, kept until removed by hand |
 | OPEN-15 | Staging at `simola-staging.stamet-rhf.com` (until 2026-11-21 `simola-staging.hilmihanif.my.id`) behind Cloudflare Access |
 | OPEN-17 | Component in-service periods: Must |
 | OPEN-18 | Cutover after R1 acceptance (the one-month parallel run was waived in v1.3; cutover done 2026-11-11) |
@@ -1904,7 +1905,7 @@ All remaining items tagged **[P]** are approved, changed or rejected together wi
    - password policy (Argon2id, at least 12 characters);
    - lockout (5 failures in 15 min);
    - pre-cutover production behind Cloudflare Access, and path-based Access for Viewer-level pages between the R1 cutover and R2.
-5. **Operations:** release-tag production deploys after CI and staging E2E; nightly backup at 18:00 UTC; resource limits; bind-mount paths; one-month parallel run; 30-day rollback window.
+5. **Operations:** release-tag production deploys after CI and staging E2E; nightly backup at 18:00 UTC (replaced in v1.3 by backups on request); resource limits; bind-mount paths; one-month parallel run; 30-day rollback window.
 6. **Technology details:** PostgreSQL 17 + current TimescaleDB, Python 3.13, Node 24, Pinia, vue-i18n, WeasyPrint, GitHub Actions, Playwright.
 7. **Process:** internal releases R1–R3, with each release shipping complete ID/EN text for its screens.
 
