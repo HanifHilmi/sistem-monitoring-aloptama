@@ -20,8 +20,8 @@ from simola.registry import Component, System, get_setting
 
 STATION_FIELDS = ("wmo_number", "airport_name", "lat", "lon", "elevation_m", "procurement_year", "notes")
 SITE_FIELDS = ("lat", "lon", "elevation_m", "threshold_elevation_m", "description")
-# The sensor as a whole. Its models and numbers belong to its parts (R3.7); the older columns on ``component`` are
-# kept for one release only (migration 0012) and no longer read.
+# The sensor as a whole. Its models and numbers belong to its parts (R3.7); the older columns on ``component`` were
+# dropped in migration 0013.
 COMPONENT_FIELDS = ("sensor_type", "installed_on", "notes")
 PART_FIELDS = (
     "role",

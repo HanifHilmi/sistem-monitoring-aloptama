@@ -10,6 +10,7 @@ import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import asyncpg
 import httpx
 import pytest
 from sqlalchemy import text
@@ -62,6 +63,90 @@ async def test_migrations_are_idempotent_and_immutable(engine: AsyncEngine, tmp_
         )
     with pytest.raises(MigrationError, match="checksum mismatch"):
         await migrate(dsn, tmp_path)
+
+
+async def test_the_previous_release_runs_on_this_database(engine: AsyncEngine, tmp_path: Path) -> None:
+    """A rollback (NFR-OPS-002): the release before this one, which has every file but the newest, runs on this
+    database and applies nothing. A release missing a file among its own is refused."""
+    from simola.migrations.runner import SQL_DIR
+
+    dsn = get_settings().asyncpg_dsn
+    files = sorted(SQL_DIR.glob("*.sql"))
+    older, gap = tmp_path / "older", tmp_path / "gap"
+    older.mkdir()
+    gap.mkdir()
+    for f in files[:-1]:
+        (older / f.name).write_bytes(f.read_bytes())
+    for f in files:
+        if f != files[4]:
+            (gap / f.name).write_bytes(f.read_bytes())
+    assert await migrate(dsn, older) == []
+    with pytest.raises(MigrationError, match="unknown to this release"):
+        await migrate(dsn, gap)
+    assert await migrate(dsn) == []
+
+
+OLD_DETAILS = ("manufacturer", "model", "part_number", "serial_number", "firmware")
+
+
+async def test_the_old_sensor_details_are_dropped_only_when_carried_over(engine: AsyncEngine) -> None:
+    """Migration 0013 drops the detail columns R3.7 moved to parts, and stops without dropping anything while a
+    sensor still has details there but no part (migration 0012 would not have carried them over)."""
+    from simola.migrations.runner import SQL_DIR
+
+    sql = (SQL_DIR / "0013_drop_old_component_details.sql").read_text()
+    conn = await asyncpg.connect(get_settings().asyncpg_dsn)
+    try:
+        columns = {
+            r["column_name"]
+            for r in await conn.fetch(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'component'"
+            )
+        }
+        assert not columns & set(OLD_DETAILS)
+        assert {"sensor_type", "installed_on", "notes"} <= columns
+        restore = "ALTER TABLE component " + ", ".join(f"ADD COLUMN {c} text" for c in OLD_DETAILS)
+        bare = await conn.fetchval(
+            "SELECT c.id FROM component c WHERE NOT EXISTS "
+            "(SELECT 1 FROM component_part p WHERE p.component_id = c.id) ORDER BY c.id LIMIT 1"
+        )
+        assert bare is not None
+
+        # the database as R3.7 left it, with one sensor's details never carried over: refused, nothing dropped
+        tr = conn.transaction()
+        await tr.start()
+        try:
+            await conn.execute("SET LOCAL lock_timeout = '10s'")
+            await conn.execute(restore)
+            await conn.execute("UPDATE component SET serial_number = 'S-OLD' WHERE id = $1", bare)
+            with pytest.raises(asyncpg.exceptions.RaiseError, match="no part; nothing dropped"):
+                await conn.execute(sql)
+        finally:
+            await tr.rollback()
+
+        # the same sensor with a part: the columns go
+        tr = conn.transaction()
+        await tr.start()
+        try:
+            await conn.execute("SET LOCAL lock_timeout = '10s'")
+            await conn.execute(restore)
+            await conn.execute("UPDATE component SET serial_number = 'S-OLD' WHERE id = $1", bare)
+            await conn.execute(
+                "INSERT INTO component_part (component_id, role, serial_number, created_by) "
+                "VALUES ($1, 'Data logger', 'S-OLD', 'test')",
+                bare,
+            )
+            await conn.execute(sql)
+            left = await conn.fetchval(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = 'component' AND column_name = ANY($1::text[])",
+                list(OLD_DETAILS),
+            )
+            assert left == 0
+        finally:
+            await tr.rollback()
+    finally:
+        await conn.close()
 
 
 async def test_reprocess_counts_match_source_files(engine: AsyncEngine, loaded) -> None:  # type: ignore[no-untyped-def]

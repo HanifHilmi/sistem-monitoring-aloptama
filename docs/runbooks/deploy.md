@@ -102,4 +102,16 @@ On first deploy, load history ([history.md](history.md)) and create the first Ad
 
 ## Rollback
 
-Redeploy the previous commit in Coolify. Migrations are backward-compatible for one release (NFR-OPS-002). Data directories are untouched by deploys.
+Redeploy the previous commit in Coolify. Data directories are untouched by deploys.
+
+Migrations stay compatible with the release before them (NFR-OPS-002: add first, remove one release later), so the
+previous release runs on the newer database. Its `migrate` step finds the newer migrations, logs
+`database is ahead of this release; nothing to apply` and finishes; the API and worker then start as usual. Only
+one release back is promised: further back, the older code may not run on the newer tables.
+
+- **Releases before R3.11 (2026-11-22) cannot do this.** Their `migrate` refuses any migration it does not know, so
+  once migration 0013 has run, going back past R3.11 fails at `migrate` and the API and worker do not start. Fix
+  forward instead.
+- `migrate` still stops, and nothing starts, when the database and the files disagree: the database has a
+  migration that sorts among the release's own files (another branch, or a file renamed or removed), or the
+  release has a file to apply while the database is ahead. Read its log; do not edit `schema_migration` by hand.

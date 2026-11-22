@@ -4,6 +4,9 @@
 - Applied files are immutable: their SHA-256 checksum is stored and verified on every run.
 - A PostgreSQL advisory lock prevents concurrent runs (e.g. overlapping deploys).
 - Each file runs in its own transaction unless its first line is ``-- simola:no-transaction``.
+- A rollback redeploys an older release on a database a newer release has migrated. Migrations stay compatible
+  with the release before them (NFR-OPS-002), so the older release runs on as it is: it applies nothing and logs
+  that the database is ahead. See ``plan``.
 """
 
 from __future__ import annotations
@@ -49,6 +52,33 @@ def discover(sql_dir: Path = SQL_DIR) -> list[Migration]:
     return out
 
 
+def plan(applied: dict[str, str], migrations: list[Migration]) -> tuple[list[Migration], list[str]]:
+    """The migrations to apply, and the applied versions this release does not know (the database is ahead).
+
+    Being ahead is accepted only as a rollback leaves it: every unknown version sorts after this release's own
+    files, and none of those files is still to apply. Anything else means the database and the files disagree
+    (another branch, or a file renamed or removed), and nothing runs. Checksums of applied files are checked
+    first, so a changed file stops the run before anything is applied.
+    """
+    for m in migrations:
+        if m.version in applied and applied[m.version] != m.checksum:
+            raise MigrationError(f"checksum mismatch for applied migration {m.version}: files are immutable")
+    to_apply = [m for m in migrations if m.version not in applied]
+    known = {m.version for m in migrations}
+    ahead = sorted(set(applied) - known)
+    if ahead:
+        latest = max(known, default=None)
+        among = [v for v in ahead if latest is None or v < latest]
+        if among:
+            raise MigrationError(f"database has migrations unknown to this release: {among}")
+        if to_apply:
+            raise MigrationError(
+                f"database is ahead of this release ({ahead}) but {[m.version for m in to_apply]} "
+                "is not applied: the files and the database disagree"
+            )
+    return to_apply, ahead
+
+
 async def migrate(dsn: str, sql_dir: Path = SQL_DIR) -> list[str]:
     """Apply pending migrations; return the versions applied in this run."""
     conn = await asyncpg.connect(
@@ -68,18 +98,11 @@ async def migrate(dsn: str, sql_dir: Path = SQL_DIR) -> list[str]:
         )
         rows = await conn.fetch("SELECT version, checksum FROM schema_migration")
         applied = {r["version"]: r["checksum"] for r in rows}
-        migrations = discover(sql_dir)
-        known = {m.version for m in migrations}
-        unknown = sorted(set(applied) - known)
-        if unknown:
-            raise MigrationError(f"database has migrations unknown to this release: {unknown}")
-        for m in migrations:
-            if m.version in applied:
-                if applied[m.version] != m.checksum:
-                    raise MigrationError(
-                        f"checksum mismatch for applied migration {m.version}: files are immutable"
-                    )
-                continue
+        to_apply, ahead = plan(applied, discover(sql_dir))
+        if ahead:
+            # a rollback: this release's migrations are all applied, the newer ones stay (NFR-OPS-002)
+            logger.warning("database is ahead of this release; nothing to apply", extra={"ahead": ahead})
+        for m in to_apply:
             logger.info("applying migration", extra={"version": m.version})
             if m.transactional:
                 async with conn.transaction():
